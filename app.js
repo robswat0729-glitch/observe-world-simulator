@@ -16,16 +16,17 @@ function resize(){let r=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelR
 function draw(){let w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);ctx.fillStyle='#0d1c26';ctx.fillRect(0,0,w,h);if(mode==='real'&&worldFeatures.length&&projection){ctx.save();ctx.translate(transform.x,transform.y);ctx.translate(w/2,h/2);ctx.scale(transform.k,transform.k);ctx.translate(-w/2,-h/2);ctx.lineWidth=.65/transform.k;for(let f of worldFeatures){let c=countries.get(String(realOwners.get(String(f.id))||String(f.id)));ctx.beginPath();path.context(ctx)(f);ctx.fillStyle=c?.alive?c.color:'#46515a';ctx.fill();ctx.strokeStyle='#101c25';ctx.stroke();if(selected?.kind==='real'&&selected.id===String(f.id)){ctx.lineWidth=2.4/transform.k;ctx.strokeStyle='#fff';ctx.stroke();}}ctx.restore();}else if(mode==='fictional'){ctx.save();ctx.translate(transform.x,transform.y);ctx.translate(w/2,h/2);ctx.scale(transform.k,transform.k);ctx.translate(-w/2,-h/2);for(let p of fictional){let c=countries.get(String(p.owner));ctx.beginPath();p.points.forEach((pt,i)=>i?ctx.lineTo(pt[0]/1100*w,pt[1]/590*h):ctx.moveTo(pt[0]/1100*w,pt[1]/590*h));ctx.closePath();ctx.fillStyle=c?.color||'#566';ctx.fill();ctx.lineWidth=2/transform.k;ctx.strokeStyle='#101c25';ctx.stroke();if(selected?.kind==='fictional'&&selected.id===p.id){ctx.lineWidth=4/transform.k;ctx.strokeStyle='#fff';ctx.stroke();}}ctx.restore();}else{ctx.fillStyle='#9eb3bd';ctx.font='12px system-ui';ctx.fillText('Loading geographic map…',20,30)}}
 async function loadRealMap(){
   const sources=[
-    'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json',
-    'https://unpkg.com/world-atlas@2/countries-110m.json'
+    {name:'jsDelivr',url:'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'},
+    {name:'unpkg',url:'https://unpkg.com/world-atlas@2/countries-110m.json'},
+    {name:'GitHub Raw',url:'https://raw.githubusercontent.com/topojson/world-atlas/master/countries-110m.json'}
   ];
   try{
     if(typeof d3==='undefined') throw new Error('D3 library failed to load');
     if(typeof topojson==='undefined') throw new Error('TopoJSON library failed to load');
     let failures=[];
-    for(const url of sources){
+    for(const source of sources){
       try{
-        const res=await fetch(url,{cache:'no-store'});
+        const res=await fetch(source.url,{cache:'no-store'});
         if(!res.ok) throw new Error('HTTP '+res.status);
         const topo=await res.json();
         if(!topo.objects||!topo.objects.countries) throw new Error('Downloaded data is not a country map');
@@ -40,7 +41,7 @@ async function loadRealMap(){
         addEvent('The real-world map has loaded. Countries are initializing.');
         updateDashboard();
         return;
-      }catch(err){failures.push(url.includes('jsdelivr')?'jsDelivr: '+err.message:'unpkg: '+err.message);}
+      }catch(err){failures.push(source.name+': '+err.message);}
     }
     throw new Error(failures.join(' | '));
   }catch(e){
