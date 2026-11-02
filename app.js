@@ -20,7 +20,7 @@ async function loadRealMap(){
     if(typeof d3==='undefined') throw new Error('D3 map drawing library did not load');
     // The country data is hosted in this same GitHub Pages repository.
     // No jsDelivr, unpkg, TopoJSON, or cross-origin map-data request is needed.
-    const response=await fetch('./countries.geojson?v=1',{cache:'no-store'});
+    const response=await fetch('./countries.geo.json?v=1',{cache:'no-store'});
     if(!response.ok) throw new Error('Local country map HTTP '+response.status);
     const geo=await response.json();
     if(geo.type!=='FeatureCollection'||!Array.isArray(geo.features)||geo.features.length<150)
