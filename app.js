@@ -77,35 +77,29 @@ function buildCountryAdjacency(){const edgeOwners=new Map(),pairs=new Map();cons
 function renderWarVisuals(){
  if(!window.worldMap||!window.L)return;
  if(window.warVisuals)window.warVisuals.clearLayers();else window.warVisuals=L.layerGroup().addTo(window.worldMap);
- for(const w of wars){
-  const a=countries.get(w.a),b=countries.get(w.b);if(!a||!b)continue;
-  const fronts=w.fronts||[];
-  let labelFront=null,labelLength=-1;
-  for(const f of fronts){
-   const segments=f.segments||[];
-   for(const seg of segments){
-    if(!seg||seg.length!==2)continue;
-    const line=[[seg[0][1],seg[0][0]],[seg[1][1],seg[1][0]]];
-    window.warVisuals.addLayer(L.polyline(line,{color:'#07121b',weight:5,opacity:.8,interactive:false}));
-    window.warVisuals.addLayer(L.polyline(line,{color:'#f2c14e',weight:2,opacity:.95,interactive:false}));
+ const map=window.worldMap,fmtExact=n=>Math.max(0,Math.round(n||0)).toLocaleString('en-US');
+ for(const w of wars)for(const f of w.fronts||[]){
+  const projected=[];
+  for(const seg of f.segments||[]){
+   if(!seg||seg.length!==2)continue;
+   const ll=[[seg[0][1],seg[0][0]],[seg[1][1],seg[1][0]]],p=map.latLngToContainerPoint(ll[0]),q=map.latLngToContainerPoint(ll[1]),dx=q.x-p.x,dy=q.y-p.y,len=Math.hypot(dx,dy);
+   if(len<1)continue;
+   window.warVisuals.addLayer(L.polyline(ll,{color:'#101820',weight:4,opacity:.9,interactive:false}));
+   window.warVisuals.addLayer(L.polyline(ll,{color:'#e9edf0',weight:1.25,opacity:.95,interactive:false}));
+   projected.push({p,q,dx,dy,len});
+  }
+  const total=projected.reduce((n,x)=>n+x.len,0);if(total<28)continue;
+  const a=f.divisions?.a?.reduce((n,d)=>n+d.troops,0)??f.committedA??0,b=f.divisions?.b?.reduce((n,d)=>n+d.troops,0)??f.committedB??0;
+  const count=Math.max(1,Math.floor(total/82));
+  for(let k=0;k<count;k++){
+   let d=total*(k+.5)/count,x;
+   for(const part of projected){if(d<=part.len){x=part;break}d-=part.len}
+   x=x||projected[projected.length-1];const t=clamp(d/x.len,0,1),px=x.p.x+x.dx*t,py=x.p.y+x.dy*t,n=Math.hypot(x.dx,x.dy)||1,nx=-x.dy/n,ny=x.dx/n;
+   for(const z of [{v:a,off:7,cls:'front-number'},{v:b,off:-7,cls:'front-number enemy'}]){
+    const icon=L.divIcon({className:z.cls,html:'<span>'+fmtExact(z.v)+'</span>',iconSize:[1,1],iconAnchor:[0,0]});
+    window.warVisuals.addLayer(L.marker(map.containerPointToLatLng([px+nx*z.off,py+ny*z.off]),{icon,interactive:false,zIndexOffset:800}));
    }
-   if(segments.length&&(f.length||0)>labelLength){labelLength=f.length||0;labelFront=f}
   }
-  // One readable counter per country pair prevents tiny border fragments creating a swarm of labels.
-  const f=labelFront||fronts[0];
-  let mid=null;
-  if(f?.center)mid=[f.center[1],f.center[0]];
-  if(!mid){
-   const ca=window.countryCenters?.[w.a],cb=window.countryCenters?.[w.b];
-   if(ca&&cb)mid=[(ca[0]+cb[0])/2,(ca[1]+cb[1])/2];
-  }
-  if(!mid)continue;
-  const at=Math.max(0,w.committedA??fronts.reduce((v,x)=>v+(x.committedA||0),0));
-  const bt=Math.max(0,w.committedB??fronts.reduce((v,x)=>v+(x.committedB||0),0));
-  const html='<div class="front-counter"><span class="front-flag">'+flag(w.a)+'</span><b>'+fmt(at)+'</b><i>⚔</i><b>'+fmt(bt)+'</b><span class="front-flag">'+flag(w.b)+'</span></div>';
-  const icon=L.divIcon({className:'front-counter-wrap',html,iconSize:[104,26],iconAnchor:[52,13]});
-  const casualtiesA=fmt(w.totalLossA||0),casualtiesB=fmt(w.totalLossB||0);
-  window.warVisuals.addLayer(L.marker(mid,{icon,interactive:true,zIndexOffset:1000}).bindTooltip(a.name+' vs '+b.name+'<br>Committed forces: '+fmt(at)+' vs '+fmt(bt)+'<br>Fronts: '+fronts.length+' · Battles: '+(w.battles||0)+'<br>Casualties: '+casualtiesA+' / '+casualtiesB));
  }
 }
 function geoHit(){return null}
@@ -119,6 +113,6 @@ $('layerSelect').onchange=e=>{layer=e.target.value;draw()};// Leaflet zoom handl
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.tabpage').forEach(x=>x.classList.toggle('active',x.id==='page-'+b.dataset.tab));renderPanels()});
 cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);drag={x:e.clientX,y:e.clientY,px:pan.x,py:pan.y,moved:false}});cv.addEventListener('pointermove',e=>{if(!drag)return;let dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>5)drag.moved=true;pan={x:drag.px+dx,y:drag.py+dy};draw()});cv.addEventListener('pointerup',e=>{if(drag&&!drag.moved&&proj){let id=geoHit(e.offsetX,e.offsetY);if(id)inspect(id)}drag=null});cv.addEventListener('wheel',e=>{e.preventDefault();zoom=clamp(zoom*(e.deltaY<0?1.1:.9),.7,8);draw()},{passive:false});
 function resize(){if(window.worldMap)window.worldMap.invalidateSize();draw()}window.addEventListener('resize',resize);
-function tick(t){if(!last)last=t;acc+=(t-last)/1000*speed;last=t;if(!paused&&acc>=1.8){acc=0;simulate()}requestAnimationFrame(tick)}
+function tick(t){if(!last)last=t;acc+=(t-last)/1000*speed;last=t;if(!paused&&acc>=0.75){acc=0;simulate()}requestAnimationFrame(tick)}
 resize();log('World simulation engine online.');mapInit();requestAnimationFrame(tick);
 })();
