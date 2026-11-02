@@ -8,3 +8,6 @@
 
 /* Expanded country intelligence grid */
 .detailgrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 10px}.detailgrid>div{min-width:0;padding:7px;background:#10202a;border:1px solid #263d49;border-radius:4px}.detailgrid b{overflow-wrap:anywhere}@media(max-width:650px){.detailgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Observe-inspired frontline army counters */
+.front-counter{display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;padding:5px 8px;background:rgba(8,17,25,.94);border:1px solid #d2a34c;border-radius:6px;color:#f5f7fa;font:800 11px system-ui;box-shadow:0 2px 9px #000b}.front-counter span{font-size:17px;line-height:1}.front-counter b{font-variant-numeric:tabular-nums}.front-counter i{font-style:normal;color:#f0b64b;font-size:14px}.leaflet-marker-icon .front-counter{transform:translateZ(0)}
