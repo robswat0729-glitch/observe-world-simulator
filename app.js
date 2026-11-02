@@ -14,7 +14,40 @@ const fictionalNames=['Aurelia','Nordland','Vostria','Westmark','Solaria','Dravi
 function buildFictional(){fictional=[];const names=['Northreach','Iron Coast','Highland','Eastern Plains','Old Capital','Riverlands','Western Hills','Golden Fields','Southport','Red Valley','Black Forest','Lake District','Stone March','Central Basin','Silver Coast','Sunset Province','Northern Ridge','Green Valley','Eastern Cape','Great Steppe','White Mountains','Southern Plains','Iron Valley','Blue Coast','Amber Province','Dark Forest','Crownlands','Far North','Dustlands','New Frontier','Kingsland','Lower River','West Cape','Eastern Forest','High Desert','South Ridge'];let W=1100,H=590;for(let i=0;i<36;i++){let col=i%6,row=Math.floor(i/6),x=55+col*165,y=35+row*135;let j=seeded(i+4)*15;let pts=[[x+j,y],[x+145,y+5+j],[x+155,y+105],[x+90,y+120+j],[x+5,y+100]];fictional.push({id:i,name:names[i],owner:Math.floor(i/6),terrain:['Plains','Forest','Mountains','Desert'][Math.floor(seeded(i+8)*4)],points:pts});}}
 function resize(){let r=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);draw()}
 function draw(){let w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);ctx.fillStyle='#0d1c26';ctx.fillRect(0,0,w,h);if(mode==='real'&&worldFeatures.length&&projection){ctx.save();ctx.translate(transform.x,transform.y);ctx.translate(w/2,h/2);ctx.scale(transform.k,transform.k);ctx.translate(-w/2,-h/2);ctx.lineWidth=.65/transform.k;for(let f of worldFeatures){let c=countries.get(String(realOwners.get(String(f.id))||String(f.id)));ctx.beginPath();path.context(ctx)(f);ctx.fillStyle=c?.alive?c.color:'#46515a';ctx.fill();ctx.strokeStyle='#101c25';ctx.stroke();if(selected?.kind==='real'&&selected.id===String(f.id)){ctx.lineWidth=2.4/transform.k;ctx.strokeStyle='#fff';ctx.stroke();}}ctx.restore();}else if(mode==='fictional'){ctx.save();ctx.translate(transform.x,transform.y);ctx.translate(w/2,h/2);ctx.scale(transform.k,transform.k);ctx.translate(-w/2,-h/2);for(let p of fictional){let c=countries.get(String(p.owner));ctx.beginPath();p.points.forEach((pt,i)=>i?ctx.lineTo(pt[0]/1100*w,pt[1]/590*h):ctx.moveTo(pt[0]/1100*w,pt[1]/590*h));ctx.closePath();ctx.fillStyle=c?.color||'#566';ctx.fill();ctx.lineWidth=2/transform.k;ctx.strokeStyle='#101c25';ctx.stroke();if(selected?.kind==='fictional'&&selected.id===p.id){ctx.lineWidth=4/transform.k;ctx.strokeStyle='#fff';ctx.stroke();}}ctx.restore();}else{ctx.fillStyle='#9eb3bd';ctx.font='12px system-ui';ctx.fillText('Loading geographic map…',20,30)}}
-async function loadRealMap(){try{const res=await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');if(!res.ok)throw Error('map request failed');const topo=await res.json();worldFeatures=topojson.feature(topo,topo.objects.countries).features;initCountries();projection=d3.geoNaturalEarth1().fitExtent([[8,8],[canvas.clientWidth-8,canvas.clientHeight-8]],{type:'FeatureCollection',features:worldFeatures});path=d3.geoPath(projection);$('mapStatus').textContent='REAL WORLD · 110m COUNTRY MAP';resetView();addEvent('The real-world map has loaded. Countries are initializing.');updateDashboard();}catch(e){$('mapStatus').textContent='MAP DOWNLOAD FAILED · CHECK INTERNET';addEvent('Could not load the real-world map. Check your connection and reload.');}}
+async function loadRealMap(){
+  const sources=[
+    'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json',
+    'https://unpkg.com/world-atlas@2/countries-110m.json'
+  ];
+  let lastError=null;
+  try{
+    if(typeof d3==='undefined'||typeof topojson==='undefined') throw new Error('Map libraries did not load');
+    for(const url of sources){
+      try{
+        const res=await fetch(url,{cache:'no-store'});
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const topo=await res.json();
+        if(!topo.objects||!topo.objects.countries) throw new Error('Invalid map data');
+        const features=topojson.feature(topo,topo.objects.countries).features;
+        if(!features||!features.length) throw new Error('Map contains no countries');
+        worldFeatures=features;
+        initCountries();
+        projection=d3.geoNaturalEarth1().fitExtent([[8,8],[canvas.clientWidth-8,canvas.clientHeight-8]],{type:'FeatureCollection',features:worldFeatures});
+        path=d3.geoPath(projection);
+        $('mapStatus').textContent='REAL WORLD · 110m COUNTRY MAP';
+        resetView();
+        addEvent('The real-world map has loaded. Countries are initializing.');
+        updateDashboard();
+        return;
+      }catch(err){lastError=err;}
+    }
+    throw lastError||new Error('No map source responded');
+  }catch(e){
+    console.error('Map loading failed:',e);
+    $('mapStatus').textContent='MAP DOWNLOAD FAILED';
+    addEvent('Map loading failed: '+(e&&e.message?e.message:'unknown error')+'. Check your connection and reload.');
+  }
+}
 function resetView(){transform={x:0,y:0,k:1};draw()}
 function screenToGeo(px,py){let w=canvas.clientWidth,h=canvas.clientHeight;let x=(px-transform.x-w/2)/transform.k+w/2,y=(py-transform.y-h/2)/transform.k+h/2;return [x,y]}
 function hitTest(x,y){let [sx,sy]=screenToGeo(x,y);if(mode==='real'&&projection){let geo=projection.invert([sx,sy]);if(!geo)return null;for(let f of worldFeatures){if(d3.geoContains(f,geo))return {kind:'real',id:String(f.id),name:countries.get(String(f.id))?.name||'Unknown country'};}}else if(mode==='fictional'){let w=canvas.clientWidth,h=canvas.clientHeight;for(let p of fictional.slice().reverse()){let pts=p.points.map(q=>[q[0]/1100*w,q[1]/590*h]);if(pointInPoly(sx,sy,pts))return {kind:'fictional',id:p.id,name:p.name};}}return null}
