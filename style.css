@@ -26,3 +26,6 @@
 
 /* Improve readability of the actual political layer */
 #realMap .leaflet-overlay-pane path.leaflet-interactive{stroke:#f2f5f8!important;stroke-width:1.15px;stroke-opacity:.92;vector-effect:non-scaling-stroke} .front-counter{max-width:260px;background:#07121cf7!important;border:2px solid #ffe16a!important;outline:2px solid #111a22;box-shadow:0 3px 12px #000d!important} .front-counter b{font-size:12px;color:#fff;font-variant-numeric:tabular-nums}.front-counter small{color:#ffe16a!important}.advance-arrow{background:#111923eF;border-radius:50%;border:2px solid #fff;width:24px;height:24px;line-height:20px}
+
+/* Compact map counters: numbers first, no country-name clutter */
+.front-counter-wrap{background:transparent;border:0!important;overflow:visible}.front-counter{width:max-content;min-width:0;max-width:none;gap:5px;padding:3px 6px;border:1px solid #f2c14e!important;border-radius:4px;background:#07121bf5!important;outline:1px solid #07121b;box-shadow:0 1px 5px #000b!important;font-size:11px;line-height:1.1}.front-counter .front-flag{font-size:13px}.front-counter b{font-size:11px;font-weight:800}.front-counter i{font-size:11px}.front-counter small{display:none!important}
