@@ -23,3 +23,6 @@
 
 /* High-contrast political map and unmistakable active frontlines */
 #realMap .leaflet-overlay-pane path.leaflet-interactive{transition:fill 180ms ease,stroke 180ms ease} .front-counter{border:2px solid #ffd35a;background:#08131df5;box-shadow:0 0 0 2px #08131d,0 3px 12px #000d;font-size:12px}.front-counter small{font-size:10px}.advance-arrow{font-size:22px;font-weight:1000;line-height:24px;text-align:center;text-shadow:0 1px 3px #000,0 0 5px #000}.advance-arrow.red{color:#ff554e}.advance-arrow.blue{color:#48b9ff}
+
+/* Improve readability of the actual political layer */
+#realMap .leaflet-overlay-pane path.leaflet-interactive{stroke:#f2f5f8!important;stroke-width:1.15px;stroke-opacity:.92;vector-effect:non-scaling-stroke} .front-counter{max-width:260px;background:#07121cf7!important;border:2px solid #ffe16a!important;outline:2px solid #111a22;box-shadow:0 3px 12px #000d!important} .front-counter b{font-size:12px;color:#fff;font-variant-numeric:tabular-nums}.front-counter small{color:#ffe16a!important}.advance-arrow{background:#111923eF;border-radius:50%;border:2px solid #fff;width:24px;height:24px;line-height:20px}
