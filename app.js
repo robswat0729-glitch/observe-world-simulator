@@ -37,7 +37,7 @@ function startCivilWar(g){if(wars.some(w=>w.isCivil&&w.parentId===g.id))return;c
 function trigger(){let e=$('worldEvent').value;for(let c of active()){if(e==='boom'){c.gdp*=1.08;c.treasury+=c.gdp*.02}if(e==='recession'){c.gdp*=.88;c.stability-=5}if(e==='plague'){c.population*=.985;c.stability-=7;c.food-=5}if(e==='revolution'){c.unrest=clamp(c.unrest+38,0,100);c.stability=clamp(c.stability-28,0,100);if(!wars.some(w=>w.isCivil&&w.parentId===c.id))startCivilWar(c)}if(e==='peace'){wars=[];c.stability+=2}}log('Global event: '+e+'.');dashboard();draw()}
 function applyRules(){ruleset=$('ruleset').value;log('World ruleset changed to '+ruleset+'.');}
 function simulateWar(w,a,b){if(!w.fronts?.length)initDivisions(w,a,b);let laTotal=0,lbTotal=0,weighted=0,weight=0;for(const f of w.fronts){let sum=k=>f.divisions[k].reduce((v,d)=>v+d.troops,0),at=sum('a'),bt=sum('b');if(at<=0||bt<=0)continue;const sa=clamp(a.logistics/100,.2,1.15)*(a.food<20?.65:1),sb=clamp(b.logistics/100,.2,1.15)*(b.food<20?.65:1),aa=clamp(1+(a.air-b.air)*.00035,.75,1.3),ab=clamp(1+(b.air-a.air)*.00035,.75,1.3),ea=clamp(a.equipment/100,.25,1.2),eb=clamp(b.equipment/100,.25,1.2),width=clamp(Math.sqrt(f.length),.65,2.4),pa=at*a.technology*(.55+a.readiness/180)*(.55+a.morale/220)*sa*ea*aa*(1+a.fort*.035)*width,pb=bt*b.technology*(.55+b.readiness/180)*(.55+b.morale/220)*sb*eb*ab*(1+b.fort*.035)*width,adv=pa/Math.max(1,pa+pb),intensity=.0012+Math.abs(adv-.5)*.003,la=Math.min(at,Math.max(1,at*intensity*(.75+adv)*rand(.75,1.25))),lb=Math.min(bt,Math.max(1,bt*intensity*(1.25-adv)*rand(.75,1.25)));for(const [side,n] of [['a',la],['b',lb]]){let ds=f.divisions[side],tot=ds.reduce((v,d)=>v+d.troops,0)||1;ds.forEach(d=>{let x=Math.min(d.troops,n*d.troops/tot);d.troops-=x;d.losses+=x;d.experience=clamp((d.experience||0)+x/Math.max(1,d.initial)*8,0,100)})}laTotal+=la;lbTotal+=lb;f.lossA+=la;f.lossB+=lb;f.battles++;w.battles++;f.progress=clamp(f.progress+(adv-.5)*22+(adv>.57?2.1:adv<.43?-2.1:0)+rand(-.25,.25),-100,100);weighted+=f.progress*f.length;weight+=f.length}if(laTotal+lbTotal){a.army=Math.max(0,a.army-laTotal);b.army=Math.max(0,b.army-lbTotal);a.casualties+=laTotal;b.casualties+=lbTotal;a.manpower=Math.max(0,a.manpower-laTotal*.42);b.manpower=Math.max(0,b.manpower-lbTotal*.42);a.exhaustion=clamp(a.exhaustion+.08+laTotal/Math.max(1,a.army+laTotal)*3,0,100);b.exhaustion=clamp(b.exhaustion+.08+lbTotal/Math.max(1,b.army+lbTotal)*3,0,100);a.morale=clamp(a.morale-laTotal/Math.max(1,a.army+laTotal)*10,5,100);b.morale=clamp(b.morale-lbTotal/Math.max(1,b.army+lbTotal)*10,5,100)}w.totalLossA=(w.totalLossA||0)+laTotal;w.totalLossB=(w.totalLossB||0)+lbTotal;w.frontPosition=weight?weighted/weight:0;w.progress=50+w.frontPosition/2;w.committedA=w.fronts.reduce((v,f)=>v+f.divisions.a.reduce((z,d)=>z+d.troops,0),0);w.committedB=w.fronts.reduce((v,f)=>v+f.divisions.b.reduce((z,d)=>z+d.troops,0),0);w.months++;if(laTotal+lbTotal)log('BATTLE REPORT · '+a.name+' vs '+b.name+' · '+w.fronts.length+' fronts · casualties '+fmt(laTotal)+' / '+fmt(lbTotal)+'.');const capturedFront=w.frontPosition>=100?a:w.frontPosition<=-100?b:null,ca=w.committedA<=Math.max(100,a.population*.000025)||a.army<=Math.max(100,a.population*.00004)||a.exhaustion>=100,cb=w.committedB<=Math.max(100,b.population*.000025)||b.army<=Math.max(100,b.population*.00004)||b.exhaustion>=100;if(capturedFront||ca||cb){let loser=capturedFront?(capturedFront===a?b:a):(ca?a:b),winner=capturedFront|| (ca?b:a);loser.alive=false;loser.owner=winner.id;winner.population+=loser.population*.2;winner.gdp+=loser.gdp*.2;winner.army+=Math.min(loser.army*.15,loser.population*.002);log('CAPITULATION · '+loser.name+' surrenders to '+winner.name+'. Territory changes ownership on the political map.');wars=wars.filter(x=>x!==w)}else if(w.months>120&&Math.random()<.025){log('ARMISTICE · '+a.name+' and '+b.name+'.');wars=wars.filter(x=>x!==w)}}
-function simulate(){month++;if(month>12){month=1;year++}for(let c of active()){let growth=rand(-.0005,.0012)+(c.food<20?-.001:0);c.population=Math.max(10000,c.population*(1+growth));let economic=rand(-.003,.004)+(c.technology*.000025)+(c.industry/100000)+(ruleset==='economic'?.001:0);c.gdp=Math.max(1e8,c.gdp*(1+economic));c.income=c.gdp*.012;c.expenses=c.gdp*.009;c.treasury+=c.income-c.expenses;let target=clamp(82-c.unrest*.36-c.exhaustion*.2+(c.food-50)*.1+(c.treasury<0?-8:2),25,94);c.stability=clamp(c.stability+(target-c.stability)*.06+rand(-.25,.25),0,100);c.unrest=clamp(c.unrest+rand(-.15,.28)+(c.stability<45?.5:-.05)+(c.food<20?.35:0),0,100);c.technology+=rand(.00005,.00025);c.food=clamp(c.food+rand(-.8,.8),0,100);c.morale=clamp(c.morale+rand(-.3,.2),0,100);c.readiness=clamp(c.readiness+rand(-.35,.25),0,100);if(c.unrest>72&&c.stability<48&&!wars.some(w=>w.isCivil&&w.parentId===c.id)&&Math.random()<(ruleset==='chaos'?.28:.12))startCivilWar(c)}if(ruleset!=='peaceful'&&wars.length<Math.max(4,Math.floor(active().length*.12))){for(const c of active()){if(wars.length>=Math.max(4,Math.floor(active().length*.12)))break;if(Math.random()<(ruleset==='chaos'?.065:.022)&&!wars.some(w=>w.a===c.id||w.b===c.id)){let pool=active().filter(x=>x.id!==c.id&&!wars.some(w=>w.a===x.id||w.b===x.id));if(pool.length){let b=pool[Math.floor(Math.random()*pool.length)],w={a:c.id,b:b.id,months:0,progress:50,frontPosition:0,type:'Land war',generated:true};initDivisions(w,c,b);wars.push(w);log('WAR BREAKS OUT: '+c.name+' attacks '+b.name+'.')}}}}for(const w of [...wars]){let a=countries.get(w.a),b=countries.get(w.b);if(!a||!b||!a.alive||!b.alive){wars=wars.filter(x=>x!==w);continue}simulateWar(w,a,b)}history.push({date:date(),pop:active().reduce((s,c)=>s+c.population,0),gdp:active().reduce((s,c)=>s+c.gdp,0)});history=history.slice(-120);dashboard();draw();if(selected)inspect(selected.id)}
+function simulate(){month++;if(month>12){month=1;year++}for(let c of active()){let growth=rand(-.0005,.0012)+(c.food<20?-.001:0);c.population=Math.max(10000,c.population*(1+growth));let economic=rand(-.003,.004)+(c.technology*.000025)+(c.industry/100000)+(ruleset==='economic'?.001:0);c.gdp=Math.max(1e8,c.gdp*(1+economic));c.income=c.gdp*.012;c.expenses=c.gdp*.009;c.treasury+=c.income-c.expenses;let target=clamp(82-c.unrest*.36-c.exhaustion*.2+(c.food-50)*.1+(c.treasury<0?-8:2),25,94);c.stability=clamp(c.stability+(target-c.stability)*.06+rand(-.25,.25),0,100);c.unrest=clamp(c.unrest+rand(-.15,.28)+(c.stability<45?.5:-.05)+(c.food<20?.35:0),0,100);c.technology+=rand(.00005,.00025);c.food=clamp(c.food+rand(-.8,.8),0,100);c.morale=clamp(c.morale+rand(-.3,.2),0,100);c.readiness=clamp(c.readiness+rand(-.35,.25),0,100);if(c.unrest>72&&c.stability<48&&!wars.some(w=>w.isCivil&&w.parentId===c.id)&&Math.random()<(ruleset==='chaos'?.28:.12))startCivilWar(c)}const warLimit=Math.max(3,Math.floor(active().length*(ruleset==='chaos'?.10:.055)));if(ruleset!=='peaceful'&&wars.length<warLimit){for(const c of active()){if(wars.length>=warLimit)break;if(Math.random()<(ruleset==='chaos'?.025:.006)&&!wars.some(w=>w.a===c.id||w.b===c.id)){let pool=active().filter(x=>x.id!==c.id&&!wars.some(w=>w.a===x.id||w.b===x.id));if(pool.length){let b=pool[Math.floor(Math.random()*pool.length)],w={a:c.id,b:b.id,months:0,progress:50,frontPosition:0,type:'Land war',generated:true};initDivisions(w,c,b);wars.push(w);log('WAR BREAKS OUT: '+c.name+' attacks '+b.name+'.')}}}}for(const w of [...wars]){let a=countries.get(w.a),b=countries.get(w.b);if(!a||!b||!a.alive||!b.alive){wars=wars.filter(x=>x!==w);continue}simulateWar(w,a,b)}history.push({date:date(),pop:active().reduce((s,c)=>s+c.population,0),gdp:active().reduce((s,c)=>s+c.gdp,0)});history=history.slice(-120);dashboard();draw();if(selected)inspect(selected.id)}
 function saveData(){return {version:6,month,year,countries:[...countries],wars,events,relations,history,ruleset,custom,worldId}}
 function save(){localStorage.setItem('observe_save_v6',JSON.stringify(saveData()));log('World saved on this device.')}
 function loadData(d){for(const [,c] of (d.countries||[])){if(c.stability<1)c.stability=58;if(c.unrest>85)c.unrest=35}month=d.month||1;year=d.year||1;countries=new Map(d.countries||[]);wars=d.wars||[];events=d.events||[];relations=d.relations||{};history=d.history||[];ruleset=d.ruleset||'standard';custom=d.custom||[];worldId=d.worldId||1;dashboard();draw();if(selected&&countries.has(selected.id))inspect(selected.id);else selected=null;log('World save loaded.')}
@@ -79,29 +79,33 @@ function renderWarVisuals(){
  if(window.warVisuals)window.warVisuals.clearLayers();else window.warVisuals=L.layerGroup().addTo(window.worldMap);
  for(const w of wars){
   const a=countries.get(w.a),b=countries.get(w.b);if(!a||!b)continue;
-  for(const f of w.fronts||[]){
+  const fronts=w.fronts||[];
+  let labelFront=null,labelLength=-1;
+  for(const f of fronts){
    const segments=f.segments||[];
-   let coords=[];
-   if(segments.length){
-    for(const seg of segments){
-     if(!seg||seg.length!==2)continue;
-     const line=[[seg[0][1],seg[0][0]],[seg[1][1],seg[1][0]]];
-     window.warVisuals.addLayer(L.polyline(line,{color:'#07121b',weight:7,opacity:.85,interactive:false}));
-     window.warVisuals.addLayer(L.polyline(line,{color:'#f2c14e',weight:3,opacity:.98,interactive:false}));
-     coords.push(line[0],line[1]);
-    }
-   }else{
-    const ca=window.countryCenters?.[w.a],cb=window.countryCenters?.[w.b];
-    if(ca&&cb){coords=[ca,[(ca[0]+cb[0])/2,(ca[1]+cb[1])/2],cb];window.warVisuals.addLayer(L.polyline(coords,{color:'#f2c14e',weight:3,opacity:.95,dashArray:'5 5',interactive:false}));}
+   for(const seg of segments){
+    if(!seg||seg.length!==2)continue;
+    const line=[[seg[0][1],seg[0][0]],[seg[1][1],seg[1][0]]];
+    window.warVisuals.addLayer(L.polyline(line,{color:'#07121b',weight:5,opacity:.8,interactive:false}));
+    window.warVisuals.addLayer(L.polyline(line,{color:'#f2c14e',weight:2,opacity:.95,interactive:false}));
    }
-   if(!coords.length)continue;
-   const mid=f.center?[f.center[1],f.center[0]]:coords[Math.floor(coords.length/2)];
-   const at=(f.divisions?.a||[]).reduce((v,d)=>v+d.troops,0),bt=(f.divisions?.b||[]).reduce((v,d)=>v+d.troops,0);
-   const compact=n=>fmt(Math.max(0,n));
-   const html='<div class="front-counter"><span class="front-flag">'+flag(w.a)+'</span><b>'+compact(at)+'</b><i>⚔</i><b>'+compact(bt)+'</b><span class="front-flag">'+flag(w.b)+'</span></div>';
-   const icon=L.divIcon({className:'front-counter-wrap',html,iconSize:[150,30],iconAnchor:[75,15]});
-   window.warVisuals.addLayer(L.marker(mid,{icon,interactive:true,zIndexOffset:1000}).bindTooltip(a.name+' vs '+b.name+'<br>Committed forces: '+compact(at)+' vs '+compact(bt)+'<br>Front: '+f.id+' · Battles: '+f.battles+'<br>Casualties: '+compact(f.lossA)+' / '+compact(f.lossB)));
+   if(segments.length&&(f.length||0)>labelLength){labelLength=f.length||0;labelFront=f}
   }
+  // One readable counter per country pair prevents tiny border fragments creating a swarm of labels.
+  const f=labelFront||fronts[0];
+  let mid=null;
+  if(f?.center)mid=[f.center[1],f.center[0]];
+  if(!mid){
+   const ca=window.countryCenters?.[w.a],cb=window.countryCenters?.[w.b];
+   if(ca&&cb)mid=[(ca[0]+cb[0])/2,(ca[1]+cb[1])/2];
+  }
+  if(!mid)continue;
+  const at=Math.max(0,w.committedA??fronts.reduce((v,x)=>v+(x.committedA||0),0));
+  const bt=Math.max(0,w.committedB??fronts.reduce((v,x)=>v+(x.committedB||0),0));
+  const html='<div class="front-counter"><span class="front-flag">'+flag(w.a)+'</span><b>'+fmt(at)+'</b><i>⚔</i><b>'+fmt(bt)+'</b><span class="front-flag">'+flag(w.b)+'</span></div>';
+  const icon=L.divIcon({className:'front-counter-wrap',html,iconSize:[104,26],iconAnchor:[52,13]});
+  const casualtiesA=fmt(w.totalLossA||0),casualtiesB=fmt(w.totalLossB||0);
+  window.warVisuals.addLayer(L.marker(mid,{icon,interactive:true,zIndexOffset:1000}).bindTooltip(a.name+' vs '+b.name+'<br>Committed forces: '+fmt(at)+' vs '+fmt(bt)+'<br>Fronts: '+fronts.length+' · Battles: '+(w.battles||0)+'<br>Casualties: '+casualtiesA+' / '+casualtiesB));
  }
 }
 function geoHit(){return null}
