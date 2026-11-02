@@ -74,7 +74,36 @@ async function mapInit(){
   }catch(err){$('mapStatus').textContent='MAP LOAD ERROR · '+err.message;log('Map initialization failed: '+err.message)}
 }
 function buildCountryAdjacency(){const edgeOwners=new Map(),pairs=new Map();const point=p=>Math.round(p[0]*1e5)+','+Math.round(p[1]*1e5);const ring=(r,id)=>{for(let i=1;i<r.length;i++){let a=point(r[i-1]),b=point(r[i]);if(a===b)continue;let k=a<b?a+'|'+b:b+'|'+a;if(!edgeOwners.has(k))edgeOwners.set(k,new Set());edgeOwners.get(k).add(id)}};for(const f of features){const p=f.properties||{},id=countryCode(f);if(!countries.has(id)||!f.geometry)continue;const g=f.geometry;if(g.type==='Polygon')g.coordinates.forEach(r=>ring(r,id));else if(g.type==='MultiPolygon')g.coordinates.forEach(poly=>poly.forEach(r=>ring(r,id)))}for(const [edge,owners] of edgeOwners){const ids=[...owners];if(ids.length!==2)continue;const k=ids.sort().join('|');if(!pairs.has(k))pairs.set(k,[]);pairs.get(k).push(edge)}window.countryAdjacency=pairs;return pairs}
-function renderWarVisuals(){if(!window.worldMap||!window.L)return;if(window.warVisuals)window.warVisuals.clearLayers();else window.warVisuals=L.layerGroup().addTo(window.worldMap);for(const w of wars){const a=countries.get(w.a),b=countries.get(w.b);if(!a||!b)continue;for(const f of w.fronts||[]){let coords=(f.segments||[]).flatMap(p=>p.map(x=>[x[1],x[0]]));if(!coords.length){const ca=window.countryCenters?.[w.a],cb=window.countryCenters?.[w.b];if(ca&&cb){const mid=[(ca[0]+cb[0])/2,(ca[1]+cb[1])/2];coords=[ca,mid,cb]}}if(!coords.length)continue;window.warVisuals.addLayer(L.polyline(coords,{color:'#ffffff',weight:8,opacity:.95}));window.warVisuals.addLayer(L.polyline(coords,{color:'#f0b52e',weight:4,opacity:1,dashArray:'7 5'}));const shift=clamp(Math.abs(f.progress||0)/100,0,1),side=(f.progress||w.frontPosition||0)>=0?1:-1,shifted=coords.map(([lat,lng])=>[lat+side*shift*.45,lng+side*shift*.45]);if(shift>.015){window.warVisuals.addLayer(L.polyline(shifted,{color:side>0?'#ff554e':'#48b9ff',weight:5,opacity:.98,dashArray:'10 4'}));const arrowIcon=L.divIcon({className:'',html:'<div class="advance-arrow '+(side>0?'red':'blue')+'">'+(side>0?'▶':'◀')+'</div>',iconSize:[26,26],iconAnchor:[13,13]});window.warVisuals.addLayer(L.marker(shifted[Math.floor(shifted.length/2)]||coords[0],{icon:arrowIcon,interactive:false}))}const mid=f.center?[f.center[1],f.center[0]]:coords[Math.floor(coords.length/2)]||coords[0],at=(f.divisions?.a||[]).reduce((v,d)=>v+d.troops,0),bt=(f.divisions?.b||[]).reduce((v,d)=>v+d.troops,0),html='<div class="front-counter"><span>'+flag(w.a)+'</span><b>'+fmt(at)+'</b><i>⚔</i><b>'+fmt(bt)+'</b><span>'+flag(w.b)+'</span><small>'+a.name+' ↔ '+b.name+' · '+(f.progress>=0?a.name:b.name)+' '+Math.round(shift*100)+'% ADVANCE</small></div>',icon=L.divIcon({className:'',html,iconSize:[220,42],iconAnchor:[110,15]});window.warVisuals.addLayer(L.marker(mid,{icon}).bindTooltip(a.name+' vs '+b.name+' · '+fmt(at)+' vs '+fmt(bt)+' troops · '+f.battles+' battles · losses '+fmt(f.lossA)+' / '+fmt(f.lossB)))}}}
+function renderWarVisuals(){
+ if(!window.worldMap||!window.L)return;
+ if(window.warVisuals)window.warVisuals.clearLayers();else window.warVisuals=L.layerGroup().addTo(window.worldMap);
+ for(const w of wars){
+  const a=countries.get(w.a),b=countries.get(w.b);if(!a||!b)continue;
+  for(const f of w.fronts||[]){
+   const segments=f.segments||[];
+   let coords=[];
+   if(segments.length){
+    for(const seg of segments){
+     if(!seg||seg.length!==2)continue;
+     const line=[[seg[0][1],seg[0][0]],[seg[1][1],seg[1][0]]];
+     window.warVisuals.addLayer(L.polyline(line,{color:'#07121b',weight:7,opacity:.85,interactive:false}));
+     window.warVisuals.addLayer(L.polyline(line,{color:'#f2c14e',weight:3,opacity:.98,interactive:false}));
+     coords.push(line[0],line[1]);
+    }
+   }else{
+    const ca=window.countryCenters?.[w.a],cb=window.countryCenters?.[w.b];
+    if(ca&&cb){coords=[ca,[(ca[0]+cb[0])/2,(ca[1]+cb[1])/2],cb];window.warVisuals.addLayer(L.polyline(coords,{color:'#f2c14e',weight:3,opacity:.95,dashArray:'5 5',interactive:false}));}
+   }
+   if(!coords.length)continue;
+   const mid=f.center?[f.center[1],f.center[0]]:coords[Math.floor(coords.length/2)];
+   const at=(f.divisions?.a||[]).reduce((v,d)=>v+d.troops,0),bt=(f.divisions?.b||[]).reduce((v,d)=>v+d.troops,0);
+   const compact=n=>fmt(Math.max(0,n));
+   const html='<div class="front-counter"><span class="front-flag">'+flag(w.a)+'</span><b>'+compact(at)+'</b><i>⚔</i><b>'+compact(bt)+'</b><span class="front-flag">'+flag(w.b)+'</span></div>';
+   const icon=L.divIcon({className:'front-counter-wrap',html,iconSize:[150,30],iconAnchor:[75,15]});
+   window.warVisuals.addLayer(L.marker(mid,{icon,interactive:true,zIndexOffset:1000}).bindTooltip(a.name+' vs '+b.name+'<br>Committed forces: '+compact(at)+' vs '+compact(bt)+'<br>Front: '+f.id+' · Battles: '+f.battles+'<br>Casualties: '+compact(f.lossA)+' / '+compact(f.lossB)));
+  }
+ }
+}
 function geoHit(){return null}
 document.querySelectorAll('.speed').forEach(b=>b.onclick=()=>{speed=+b.dataset.speed;document.querySelectorAll('.speed').forEach(x=>x.classList.toggle('active',x===b))});
 $('pauseBtn').onclick=()=>{paused=!paused;$('pauseBtn').textContent=paused?'▶ RESUME':'Ⅱ PAUSE'};
