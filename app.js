@@ -19,17 +19,18 @@ async function loadRealMap(){
     'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json',
     'https://unpkg.com/world-atlas@2/countries-110m.json'
   ];
-  let lastError=null;
   try{
-    if(typeof d3==='undefined'||typeof topojson==='undefined') throw new Error('Map libraries did not load');
+    if(typeof d3==='undefined') throw new Error('D3 library failed to load');
+    if(typeof topojson==='undefined') throw new Error('TopoJSON library failed to load');
+    let failures=[];
     for(const url of sources){
       try{
         const res=await fetch(url,{cache:'no-store'});
         if(!res.ok) throw new Error('HTTP '+res.status);
         const topo=await res.json();
-        if(!topo.objects||!topo.objects.countries) throw new Error('Invalid map data');
+        if(!topo.objects||!topo.objects.countries) throw new Error('Downloaded data is not a country map');
         const features=topojson.feature(topo,topo.objects.countries).features;
-        if(!features||!features.length) throw new Error('Map contains no countries');
+        if(!features||!features.length) throw new Error('Country map is empty');
         worldFeatures=features;
         initCountries();
         projection=d3.geoNaturalEarth1().fitExtent([[8,8],[canvas.clientWidth-8,canvas.clientHeight-8]],{type:'FeatureCollection',features:worldFeatures});
@@ -39,13 +40,14 @@ async function loadRealMap(){
         addEvent('The real-world map has loaded. Countries are initializing.');
         updateDashboard();
         return;
-      }catch(err){lastError=err;}
+      }catch(err){failures.push(url.includes('jsdelivr')?'jsDelivr: '+err.message:'unpkg: '+err.message);}
     }
-    throw lastError||new Error('No map source responded');
+    throw new Error(failures.join(' | '));
   }catch(e){
     console.error('Map loading failed:',e);
-    $('mapStatus').textContent='MAP DOWNLOAD FAILED';
-    addEvent('Map loading failed: '+(e&&e.message?e.message:'unknown error')+'. Check your connection and reload.');
+    const reason=e&&e.message?e.message:'Unknown error';
+    $('mapStatus').textContent='MAP ERROR · '+reason;
+    addEvent('Map loading diagnostic: '+reason);
   }
 }
 function resetView(){transform={x:0,y:0,k:1};draw()}
