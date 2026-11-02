@@ -15,47 +15,34 @@ function buildFictional(){fictional=[];const names=['Northreach','Iron Coast','H
 function resize(){let r=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);draw()}
 function draw(){let w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);ctx.fillStyle='#0d1c26';ctx.fillRect(0,0,w,h);if(mode==='real'&&worldFeatures.length&&projection){ctx.save();ctx.translate(transform.x,transform.y);ctx.translate(w/2,h/2);ctx.scale(transform.k,transform.k);ctx.translate(-w/2,-h/2);ctx.lineWidth=.65/transform.k;for(let f of worldFeatures){let c=countries.get(String(realOwners.get(String(f.id))||String(f.id)));ctx.beginPath();path.context(ctx)(f);ctx.fillStyle=c?.alive?c.color:'#46515a';ctx.fill();ctx.strokeStyle='#101c25';ctx.stroke();if(selected?.kind==='real'&&selected.id===String(f.id)){ctx.lineWidth=2.4/transform.k;ctx.strokeStyle='#fff';ctx.stroke();}}ctx.restore();}else if(mode==='fictional'){ctx.save();ctx.translate(transform.x,transform.y);ctx.translate(w/2,h/2);ctx.scale(transform.k,transform.k);ctx.translate(-w/2,-h/2);for(let p of fictional){let c=countries.get(String(p.owner));ctx.beginPath();p.points.forEach((pt,i)=>i?ctx.lineTo(pt[0]/1100*w,pt[1]/590*h):ctx.moveTo(pt[0]/1100*w,pt[1]/590*h));ctx.closePath();ctx.fillStyle=c?.color||'#566';ctx.fill();ctx.lineWidth=2/transform.k;ctx.strokeStyle='#101c25';ctx.stroke();if(selected?.kind==='fictional'&&selected.id===p.id){ctx.lineWidth=4/transform.k;ctx.strokeStyle='#fff';ctx.stroke();}}ctx.restore();}else{ctx.fillStyle='#9eb3bd';ctx.font='12px system-ui';ctx.fillText('Loading geographic map…',20,30)}}
 async function loadRealMap(){
-  const sources=[
-    {name:'jsDelivr',url:'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'},
-    {name:'unpkg',url:'https://unpkg.com/world-atlas@2/countries-110m.json'},
-    {name:'GitHub Raw',url:'https://raw.githubusercontent.com/topojson/world-atlas/master/countries-110m.json'}
-  ];
   const status=$('mapStatus');
   try{
-    if(typeof d3==='undefined') throw new Error('Map drawing library (D3) did not load');
-    if(typeof topojson==='undefined') throw new Error('Map conversion library (TopoJSON) did not load');
-    const failures=[];
-    for(const source of sources){
-      try{
-        const controller=new AbortController();
-        const timeout=setTimeout(()=>controller.abort(),12000);
-        let res;
-        try{res=await fetch(source.url,{mode:'cors',cache:'no-store',signal:controller.signal});}
-        finally{clearTimeout(timeout);}
-        if(!res.ok) throw new Error('HTTP '+res.status);
-        const topo=await res.json();
-        if(!topo.objects||!topo.objects.countries) throw new Error('Invalid map data');
-        const features=topojson.feature(topo,topo.objects.countries).features;
-        if(!features||!features.length) throw new Error('Map data is empty');
-        worldFeatures=features;
-        initCountries();
-        projection=d3.geoNaturalEarth1().fitExtent([[8,8],[canvas.clientWidth-8,canvas.clientHeight-8]],{type:'FeatureCollection',features:worldFeatures});
-        path=d3.geoPath(projection);
-        status.textContent='REAL WORLD · 110m COUNTRY MAP';
-        resetView();
-        addEvent('Real-world map loaded successfully.');
-        updateDashboard();
-        return true;
-      }catch(err){failures.push(source.name+': '+(err.name==='AbortError'?'timed out':err.message||'request failed'));}
-    }
-    throw new Error(failures.join(' | '));
+    if(typeof d3==='undefined') throw new Error('D3 map drawing library did not load');
+    // The country data is hosted in this same GitHub Pages repository.
+    // No jsDelivr, unpkg, TopoJSON, or cross-origin map-data request is needed.
+    const response=await fetch('./countries.geojson?v=1',{cache:'no-store'});
+    if(!response.ok) throw new Error('Local country map HTTP '+response.status);
+    const geo=await response.json();
+    if(geo.type!=='FeatureCollection'||!Array.isArray(geo.features)||geo.features.length<150)
+      throw new Error('The local country map file is invalid or incomplete');
+    worldFeatures=geo.features;
+    initCountries();
+    projection=d3.geoNaturalEarth1().fitExtent(
+      [[8,8],[canvas.clientWidth-8,canvas.clientHeight-8]],
+      {type:'FeatureCollection',features:worldFeatures}
+    );
+    path=d3.geoPath(projection);
+    status.textContent='REAL WORLD · SELF-HOSTED COUNTRY MAP';
+    resetView();
+    addEvent('Real-world map loaded from this game site. External map-data servers are not required.');
+    updateDashboard();
+    return true;
   }catch(e){
-    console.error('Real-world map loading failed:',e);
-    // Never leave the map panel blank: switch to the built-in offline fictional map.
+    console.error('Local world map loading failed:',e);
     mode='fictional';
     document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('active',b.dataset.mode==='fictional'));
     status.textContent='OFFLINE MAP READY · FICTIONAL WORLD';
-    addEvent('The real-world map could not be downloaded. The built-in fictional map is ready offline; simulation controls still work.');
+    addEvent('The local country map could not load ('+(e.message||'unknown error')+'). The built-in fictional map is ready.');
     draw();
     updateDashboard();
     return false;
