@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#101820"><title>OBSERVE: World Simulator</title>
+<link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar"><div><div class="eyebrow">GRAND STRATEGY SANDBOX</div><h1>OBSERVE <span>WORLD SIMULATOR</span></h1></div><button id="helpBtn" class="iconbtn" aria-label="Help">?</button></header>
+<main>
+<section class="toolbar">
+ <div class="segmented"><button class="mode active" data-mode="real">REAL WORLD</button><button class="mode" data-mode="fictional">FICTIONAL WORLD</button></div>
+ <div class="timecontrols"><button id="pauseBtn">Ⅱ PAUSE</button><button data-speed="1" class="speed active">1×</button><button data-speed="3" class="speed">3×</button><button data-speed="8" class="speed">8×</button></div>
+</section>
+<section class="mapwrap"><canvas id="map"></canvas><div class="mapbadge" id="mapStatus">LOADING WORLD MAP…</div><div class="maptools"><button id="zoomIn">＋</button><button id="zoomOut">−</button><button id="resetView">⌖</button></div><div class="maplegend"><span><i class="dot blue"></i> Nation A</span><span><i class="dot red"></i> Nation B</span><span><i class="dot gold"></i> Contested</span></div></section>
+<section class="dashboard">
+ <div class="sectionhead"><div><div class="eyebrow">WORLD OVERVIEW</div><h2 id="dateLabel">JANUARY · YEAR 1</h2></div><div class="live"><i></i> LIVE SIMULATION</div></div>
+ <div class="statsgrid"><div class="stat"><small>ACTIVE NATIONS</small><b id="nationCount">—</b></div><div class="stat"><small>ACTIVE WARS</small><b id="warCount">0</b></div><div class="stat"><small>WORLD POPULATION</small><b id="worldPop">—</b></div><div class="stat"><small>WORLD GDP</small><b id="worldGdp">—</b></div></div>
+ <div class="columns"><article class="panel"><div class="paneltitle">SELECTED TERRITORY</div><h3 id="selectedName">Tap a country or province</h3><p id="selectedSub" class="muted">Select a region on the map to inspect it.</p><div class="detailgrid" id="selectedStats"><div><small>OWNER</small><b>—</b></div><div><small>POPULATION</small><b>—</b></div><div><small>GDP</small><b>—</b></div><div><small>STABILITY</small><b>—</b></div></div><button id="inspectBtn" class="wide secondary" disabled>INSPECT COUNTRY</button></article>
+ <article class="panel"><div class="paneltitle">WORLD EVENTS</div><div id="events" class="events"><p class="muted">The world is waiting for history to begin…</p></div></article></div>
+ <div class="panel controls"><div class="paneltitle">GOD MODE · SANDBOX CONTROLS</div><div class="actionrow"><button id="startWarBtn" class="primary">DECLARE WAR</button><button id="peaceBtn" class="secondary">ENFORCE PEACE</button><button id="resetBtn" class="secondary">RESET WORLD</button></div><p class="muted tiny">Select a country first. God Mode actions directly affect the simulation.</p></div>
+</section>
+</main>
+<div id="modal" class="modal hidden"><div class="modalcard"><button id="closeModal" class="close">×</button><div class="eyebrow">SIMULATOR GUIDE</div><h2>How to play</h2><p>Tap a country or province to inspect it. Drag the map to pan and pinch to zoom. The simulation advances month by month while unpaused.</p><p><b>Real World:</b> uses a geographic country map loaded from World Atlas. Country borders are real, while initial economic and demographic values are illustrative estimates.</p><p><b>Fictional World:</b> uses an original procedural province map with invented nations and terrain.</p><p><b>Important:</b> this is an early playable prototype. Combat, economy and AI are simplified game models, not real-world forecasts.</p><button id="closeModal2" class="wide primary">GOT IT</button></div></div>
+<footer>OBSERVE-INSPIRED FAN PROJECT · ORIGINAL PROTOTYPE · NOT AFFILIATED WITH OBSERVE</footer>
+<script src="https://cdn.jsdelivr.net/npm/d3-geo@3"></script><script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script><script src="app.js"></script>
+</body></html>
