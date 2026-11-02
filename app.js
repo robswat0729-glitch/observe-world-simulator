@@ -43,6 +43,33 @@ function load(){try{let raw=localStorage.getItem('observe_save_v6')||localStorag
 function reset(){month=1;year=1;wars=[];events=[];relations={};history=[];countries.clear();features.forEach((f,i)=>countries.set(String(f.id),make(f,i)));normalizeWorld();selected=null;log('World reset. New simulation initialized.');$('selectedName').textContent='Select a country';$('selectedStats').innerHTML='';dashboard();draw()}
 function exportSave(){let blob=new Blob([JSON.stringify(saveData(),null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='observe-world-save.json';a.click();URL.revokeObjectURL(a.href)}
 function drawHistory(){let c=$('historyChart');if(!c)return;let x=c.getContext('2d'),w=c.width=c.clientWidth*2,h=c.height=360;x.clearRect(0,0,w,h);if(history.length<2)return;let vals=history.map(v=>v.gdp),lo=Math.min(...vals),hi=Math.max(...vals);x.strokeStyle='#6bc5d8';x.lineWidth=3;x.beginPath();history.forEach((v,i)=>{let px=i/(history.length-1)*w,py=h-20-(v.gdp-lo)/(hi-lo||1)*(h-40);i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke()}
+async function mapInit(){
+  if(!window.L){$('mapStatus').textContent='MAP LIBRARY FAILED TO LOAD';log('Map startup failed: Leaflet library unavailable.');return}
+  try{
+    window.worldMap=L.map('realMap',{zoomControl:false,worldCopyJump:true}).setView([20,0],2);
+    L.control.zoom({position:'bottomright'}).addTo(window.worldMap);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:7,attribution:'© OpenStreetMap contributors'}).addTo(window.worldMap);
+    window.countryCenters={};
+    const response=await fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson');
+    if(!response.ok)throw Error('World map data request failed ('+response.status+')');
+    const data=await response.json();features=data.features||[];
+    countries.clear();
+    features.forEach((f,i)=>{
+      const p=f.properties||{},id=String(p['ISO3166-1-Alpha-3']||p.ISO_A3||p.ADM0_A3||f.id||'').toUpperCase();
+      if(!id||id==='-99'||countries.has(id))return;
+      const c=make({id,properties:p},i,p.ADMIN||p.name||p.NAME||id);c.id=id;c.owner=id;
+      countries.set(id,c);
+    });
+    normalizeWorld();
+    window.regionLayer=L.geoJSON(data,{style:f=>{const p=f.properties||{},id=String(p['ISO3166-1-Alpha-3']||p.ISO_A3||p.ADM0_A3||f.id||'').toUpperCase(),c=countries.get(id);return{color:'#111923',weight:.55,fillColor:c?.color||'#59616c',fillOpacity:.92}},
+      onEachFeature:(f,layer)=>{const p=f.properties||{},id=String(p['ISO3166-1-Alpha-3']||p.ISO_A3||p.ADM0_A3||f.id||'').toUpperCase();if(!countries.has(id))return;const center=layer.getBounds().getCenter();window.countryCenters[id]=[center.lat,center.lng];layer.bindTooltip(countries.get(id).name);layer.on('click',()=>selectMapCountry(id));}
+    }).addTo(window.worldMap);
+    window.regionLayer.bringToBack();
+    $('mapStatus').textContent='WORLD MAP READY · '+countries.size+' COUNTRIES';
+    log('Map loaded: '+countries.size+' countries initialized.');
+    dashboard();draw();window.worldMap.invalidateSize();
+  }catch(err){$('mapStatus').textContent='MAP LOAD ERROR · '+err.message;log('Map initialization failed: '+err.message)}
+}
 function renderWarVisuals(){if(!window.worldMap||!window.L||!window.countryCenters)return;if(window.warVisuals)window.warVisuals.clearLayers();else window.warVisuals=L.layerGroup().addTo(window.worldMap);for(const w of wars){let a=countries.get(w.a),b=countries.get(w.b),pa=window.countryCenters[w.a],pb=window.countryCenters[w.b];if(!a||!b||!pa||!pb)continue;let signed=clamp(w.frontPosition||0,-100,100)/100,base=[pa[0]+(pb[0]-pa[0])*.5,pa[1]+(pb[1]-pa[1])*.5],mid=[base[0]+(pb[0]-pa[0])*.42*signed,base[1]+(pb[1]-pa[1])*.42*signed],at=w.divisions?.a?.reduce((z,d)=>z+d.troops,0)||0,bt=w.divisions?.b?.reduce((z,d)=>z+d.troops,0)||0;window.warVisuals.addLayer(L.polyline([pa,pb],{color:'#e5b34e',weight:3,opacity:.55,dashArray:'7 8'}));window.warVisuals.addLayer(L.polyline([base,mid],{color:signed>=0?'#e45d52':'#4e9bd5',weight:7,opacity:.95}));let soldiers='<div class="battle-units"><span class="unit-flag">'+flag(w.a)+'</span><span class="unit-men">♟ ♟ ♟</span><span class="unit-men enemy">♟ ♟ ♟</span><span class="unit-flag">'+flag(w.b)+'</span></div>',unitIcon=L.divIcon({className:'',html:soldiers,iconSize:[126,28],iconAnchor:[63,14]});window.warVisuals.addLayer(L.marker(mid,{icon:unitIcon,interactive:false}));let html='<div class="front-counter"><span>'+flag(w.a)+'</span><b>'+fmt(at)+'</b><i>⚔</i><b>'+fmt(bt)+'</b><span>'+flag(w.b)+'</span><small>'+Math.abs(Math.round(signed*100))+'% '+(signed>=0?'A ADV':'B ADV')+'</small></div>',icon=L.divIcon({className:'',html,iconSize:[230,42],iconAnchor:[115,-14]});window.warVisuals.addLayer(L.marker(mid,{icon}).bindTooltip(a.name+' vs '+b.name+' · '+fmt(at)+' vs '+fmt(bt)+' committed · '+(w.battles||0)+' battles · losses '+fmt(w.totalLossA||0)+' / '+fmt(w.totalLossB||0)))}}
 function geoHit(){return null}
 document.querySelectorAll('.speed').forEach(b=>b.onclick=()=>{speed=+b.dataset.speed;document.querySelectorAll('.speed').forEach(x=>x.classList.toggle('active',x===b))});
