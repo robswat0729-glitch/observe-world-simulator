@@ -34,7 +34,7 @@ function initDivisions(w,a,b){
  const allocate=(total,side)=>{const weights=fronts.map(f=>Math.sqrt(f.length)*f.strategicPriority*clamp(1+(side==='a'?-f.progress:f.progress)/180,.65,1.45)),sum=weights.reduce((v,n)=>v+n,0)||1;let remaining=total;return fronts.map((f,i)=>{const n=i===fronts.length-1?remaining:Math.floor(total*weights[i]/sum);remaining-=n;return n})};
  const allocA=allocate(ta,'a'),allocB=allocate(tb,'b');
  w.fronts=fronts.map((f,i)=>{let x=allocA[i],y=allocB[i];f.committedA=x;f.committedB=y;f.divisions={a:split(x,a.name),b:split(y,b.name)};return f});
- w.committedA=ta;w.committedB=tb;w.divisions={a:split(ta,a.name),b:split(tb,b.name)};w.frontPosition=0;w.progress=50;w.battles=0;w.totalLossA=0;w.totalLossB=0
+ w.committedA=ta;w.committedB=tb;w.divisions={a:split(ta,a.name),b:split(tb,b.name)};w.reserves={a:Math.floor(a.army*.25/na),b:Math.floor(b.army*.25/nb)};w.initialCommitted={a:ta,b:tb};w.frontPosition=0;w.progress=50;w.battles=0;w.totalLossA=0;w.totalLossB=0
 }
 function declare(){let a=selectedCountry(),b=target();if(!a||!b||a.id===b.id)return log('Select a country and a different target.');if(wars.some(w=>pair(w.a,w.b)===pair(a.id,b.id)))return log('These countries are already at war.');if(rel(a.id,b.id).alliance)return log('War declaration blocked: these countries are allied.');let w={a:a.id,b:b.id,months:0,progress:0,type:'Land war',blockade:false};initDivisions(w,a,b);wars.push(w);a.warSupport=clamp(a.warSupport+10,0,100);log(a.name+' declared war on '+b.name+'.');dashboard();draw();inspect(a.id)}
 function peace(){wars=[];log('Global ceasefire enforced by sandbox controls.');dashboard()}
@@ -111,6 +111,25 @@ function simulateWar(w,a,b){
  }
  w.totalLossA=(w.totalLossA||0)+laTotal;w.totalLossB=(w.totalLossB||0)+lbTotal;
  w.frontPosition=weight?weighted/weight:0;w.progress=50+w.frontPosition/2;
+ // Reinforce threatened fronts from the war's uncommitted reserve pool.
+ for(const side of ['a','b']){
+  let pool=Math.max(0,w.reserves?.[side]||0);
+  if(pool<1)continue;
+  const candidates=w.fronts.filter(f=>(f.divisions?.[side]||[]).length).sort((x,y)=>{
+   const sx=(x.divisions[side].reduce((v,d)=>v+d.troops,0))/Math.max(1,x.length);
+   const sy=(y.divisions[side].reduce((v,d)=>v+d.troops,0))/Math.max(1,y.length);
+   return sx-sy;
+  });
+  for(const f of candidates){
+   if(pool<1)break;
+   const current=f.divisions[side].reduce((v,d)=>v+d.troops,0);
+   const target=Math.max(0,(w.initialCommitted?.[side]||current)*1.12);
+   const need=Math.max(0,target-current);
+   const amount=Math.min(pool,Math.max(0,Math.ceil(need*.12)));
+   if(amount>0){f.divisions[side].push({name:'Reserve reinforcement',troops:amount,initial:amount,losses:0,experience:0,order:'reinforcement'});pool-=amount;}
+  }
+  w.reserves[side]=pool;
+ }
  w.committedA=w.fronts.reduce((v,f)=>v+(f.divisions?.a||[]).reduce((z,d)=>z+Math.max(0,d.troops||0),0),0);
  w.committedB=w.fronts.reduce((v,f)=>v+(f.divisions?.b||[]).reduce((z,d)=>z+Math.max(0,d.troops||0),0),0);
  w.months++;w.lastReport={date:date(),fronts:frontReports,lossA:laTotal,lossB:lbTotal};
