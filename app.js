@@ -164,10 +164,13 @@ function simulateWar(w,a,b){
  w.months++;w.lastReport={date:date(),fronts:frontReports,lossA:laTotal,lossB:lbTotal};
  if(laTotal+lbTotal>0)log('FRONT REPORT · '+a.name+' / '+b.name+' · '+w.fronts.length+' fronts · '+fmt(laTotal)+' vs '+fmt(lbTotal)+' casualties.');
  const capturedFront=w.frontPosition>=100?a:w.frontPosition<=-100?b:null;
+ const remainingRegionsA=regions.length?regions.filter(r=>r.countryId===a.id&&r.owner===a.id).length:null;
+ const remainingRegionsB=regions.length?regions.filter(r=>r.countryId===b.id&&r.owner===b.id).length:null;
+ const regionalFall=remainingRegionsA===0?a:remainingRegionsB===0?b:null;
  const exhaustedA=a.exhaustion>=100||a.army<=Math.max(100,a.population*.000025),exhaustedB=b.exhaustion>=100||b.army<=Math.max(100,b.population*.000025);
- if(capturedFront||exhaustedA||exhaustedB){
-  const loser=capturedFront?(capturedFront===a?b:a):(exhaustedA?a:b),winner=capturedFront||(exhaustedA?b:a);
-  loser.alive=false;loser.owner=winner.id;winner.population+=loser.population*.2;winner.gdp+=loser.gdp*.2;winner.army+=Math.min(loser.army*.15,loser.population*.002);
+ if(capturedFront||regionalFall||exhaustedA||exhaustedB){
+  const loser=capturedFront?(capturedFront===a?b:a):regionalFall||(exhaustedA?a:b),winner=capturedFront||(regionalFall===a?b:regionalFall===b?a:(exhaustedA?b:a));
+  loser.alive=false;loser.owner=winner.id;for(const region of regions){if(region.countryId===loser.id&&region.owner===loser.id){region.owner=winner.id;region.occupiedBy=winner.id;region.capturedAt={month,year};}}if(window.regionLayer)window.regionLayer.setStyle(regionStyle);winner.population+=loser.population*.2;winner.gdp+=loser.gdp*.2;winner.army+=Math.min(loser.army*.15,loser.population*.002);
   log('CAPITULATION · '+loser.name+' surrenders to '+winner.name+'.');wars=wars.filter(x=>x!==w);
  }else if(w.months>180&&Math.random()<.018){log('ARMISTICE · '+a.name+' and '+b.name+'.');wars=wars.filter(x=>x!==w)}
 }
