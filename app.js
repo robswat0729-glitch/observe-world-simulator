@@ -1,7 +1,7 @@
 function countryCode(f){const p=f?.properties||{};for(const v of [p['ISO3166-1-Alpha-3'],p.ISO_A3,p.ISO_A3_EH,p.ADM0_A3,p.SOV_A3,p.GU_A3,p.WB_A3,p.iso_a3,f?.id]){const s=String(v??'').trim().toUpperCase();if(/^[A-Z]{3}$/.test(s)&&s!=='-99')return s}return ''}
 (()=>{'use strict';
 const $=id=>document.getElementById(id),cv=$('map'),ctx=cv.getContext('2d');
-let d3,features=[],proj,path,countries=new Map(),wars=[],events=[],selected=null,month=1,year=1,speed=1,paused=false,last=0,acc=0,zoom=1,pan={x:0,y:0},drag=null,layer='political',relations={},ruleset='standard',history=[],fronts=[],custom=[],worldId=1,selectionMode='inspect';
+let d3,features=[],regions=[],regionById=new Map(),proj,path,countries=new Map(),wars=[],events=[],selected=null,month=1,year=1,speed=1,paused=false,last=0,acc=0,zoom=1,pan={x:0,y:0},drag=null,layer='political',relations={},ruleset='standard',history=[],fronts=[],custom=[],worldId=1,selectionMode='inspect';
 const colors=['#2878d0','#e34f58','#18a875','#e6a323','#9364d8','#08a6b5','#e87532','#4b91a2','#d84e9a','#8ea821','#6258d8','#b69a25','#1d9a68','#d45b28','#347ac0','#bc456e'];
 const names={'840':'United States','156':'China','643':'Russia','356':'India','276':'Germany','250':'France','392':'Japan','76':'Brazil','36':'Australia','124':'Canada','826':'United Kingdom','380':'Italy','724':'Spain','484':'Mexico','410':'South Korea','792':'Türkiye','682':'Saudi Arabia','566':'Nigeria','710':'South Africa','32':'Argentina','752':'Sweden','578':'Norway','616':'Poland','360':'Indonesia','704':'Vietnam','764':'Thailand','608':'Philippines','364':'Iran','818':'Egypt'};
 const rand=(a,b)=>a+Math.random()*(b-a),clamp=(n,a,b)=>Math.max(a,Math.min(b,n)),fmt=n=>n>=1e12?'$'+(n/1e12).toFixed(2)+'T':n>=1e9?'$'+(n/1e9).toFixed(1)+'B':n>=1e6?(n/1e6).toFixed(1)+'M':n>=1000?(n/1000).toFixed(1)+'K':Math.round(n).toLocaleString();
@@ -22,8 +22,18 @@ function inspect(id){let c=countries.get(id);if(!c)return;selected={id};$('selec
 function dashboard(){let a=active();$('nationCount').textContent=a.length;$('warCount').textContent=wars.length;$('worldPop').textContent=fmt(a.reduce((s,c)=>s+c.population,0));$('worldGdp').textContent=fmt(a.reduce((s,c)=>s+c.gdp,0));$('dateLabel').textContent=date();$('warList').innerHTML=wars.map(w=>{let a=countries.get(w.a),b=countries.get(w.b);return a&&b?'<div class="waritem"><b>'+a.name+' vs '+b.name+'</b><small>'+w.months+' months · '+w.progress.toFixed(0)+'% advance · '+w.type+' · losses '+fmt(a.casualties)+' / '+fmt(b.casualties)+'</small><div class="bar"><i style="width:'+w.progress+'%"></i></div></div>':''}).join('')||'<p class="muted">No active wars.</p>';let rank=[...a].sort((x,y)=>y.gdp-x.gdp).slice(0,10);$('rankings').innerHTML=rank.map((c,i)=>'<div class="rank"><b>'+(i+1)+'. '+c.name+'</b><span>'+fmt(c.gdp)+'</span></div>').join('');$('diplomacyList').innerHTML=Object.entries(relations).filter(([k,v])=>v.alliance||v.trade||v.embargo||v.value).map(([k,v])=>'<div class="event"><b>'+k.replace('|',' ↔ ')+'</b><small>Relation '+Math.round(v.value)+' · '+(v.alliance?'Alliance ':'')+(v.trade?'Trade ':'')+(v.embargo?'Embargo':'')+'</small></div>').join('')||'<p class="muted">No formal diplomatic agreements.</p>';populate();renderPanels()}
 function renderPanels(){let c=selectedCountry();if(!c)return;$('relationInfo').textContent='Relations with '+(target()?.name||'target')+': '+Math.round(rel(c.id,target()?.id||'').value)+' · '+(rel(c.id,target()?.id||'').alliance?'Allied':'No alliance');$('militaryInfo').textContent=c.name+' commands '+fmt(c.army)+' active troops, '+fmt(c.manpower)+' reserves, '+fmt(c.navy)+' naval strength and '+fmt(c.air)+' air strength. Fortification level '+c.fort+'.';$('economyInfo').innerHTML=[['Treasury',fmt(c.treasury)],['Monthly GDP',fmt(c.gdp/12)],['Industry',c.industry.toFixed(1)],['Food reserve',c.food.toFixed(1)+'%'],['Projects',c.projects.length],['Research',c.research.join(', ')||'None']].map(x=>'<div class="rank"><b>'+x[0]+'</b><span>'+x[1]+'</span></div>').join('');$('politicsInfo').textContent='Government: '+c.government+'. Unrest: '+c.unrest.toFixed(1)+'%. War support: '+c.warSupport.toFixed(1)+'%.';$('ideologyInfo').innerHTML='<div class="rank"><b>Ideology</b><span>'+c.ideology+'</span></div><div class="rank"><b>Stability</b><span>'+c.stability.toFixed(1)+'%</span></div><div class="rank"><b>Unrest</b><span>'+c.unrest.toFixed(1)+'%</span></div><div class="rank"><b>War support</b><span>'+c.warSupport.toFixed(1)+'%</span></div>';$('frontList').innerHTML=wars.map(w=>{let a=countries.get(w.a),b=countries.get(w.b),at=w.committedA??(w.divisions?.a?.reduce((s,d)=>s+d.troops,0)||0),bt=w.committedB??(w.divisions?.b?.reduce((s,d)=>s+d.troops,0)||0);return '<div class="front-entry"><b>'+flag(w.a)+' '+(a?.name||'?')+' vs '+(b?.name||'?')+' '+flag(w.b)+'</b><div class="front-troops"><span>'+fmt(at)+' committed</span><strong>⚔</strong><span>'+fmt(bt)+' committed</span></div><div class="front-track"><i style="left:'+clamp(w.progress||50,0,100)+'%"></i></div><small>'+(w.frontPosition>=0?(a?.name||'Attacker')+' advancing':(b?.name||'Defender')+' advancing')+' · '+Math.abs(Math.round(w.frontPosition||0))+'% · losses '+fmt(w.totalLossA||0)+' / '+fmt(w.totalLossB||0)+'</small></div>'}).join('')||'<p class="muted">No active fronts.</p>';$('historyStats').innerHTML='<div class="rank"><b>World population</b><span>'+fmt(active().reduce((s,x)=>s+x.population,0))+'</span></div><div class="rank"><b>World GDP</b><span>'+fmt(active().reduce((s,x)=>s+x.gdp,0))+'</span></div><div class="rank"><b>Total casualties</b><span>'+fmt(active().reduce((s,x)=>s+x.casualties,0))+'</span></div><div class="rank"><b>Recorded events</b><span>'+events.length+'</span></div>';drawHistory()}
 function blendHex(a,b,t){const p=x=>[parseInt(x.slice(1,3),16),parseInt(x.slice(3,5),16),parseInt(x.slice(5,7),16)],x=p(a),y=p(b);return '#'+x.map((v,i)=>Math.round(v+(y[i]-v)*clamp(t,0,1)).toString(16).padStart(2,'0')).join('')}
-function draw(){if(window.regionLayer&&window.L){window.regionLayer.setStyle(f=>{const p=f.properties||{},id=countryCode(f),c=countries.get(id),o=countries.get(c?.owner||id);let fill=o?.color||'#59616c';
- for(const w of wars){const attacker=countries.get(w.a),defender=countries.get(w.b);if(!attacker||!defender)continue;const progress=clamp((w.frontPosition||0)/100,0,1);if(id===defender.id&&progress>0)fill=blendHex(defender.color,attacker.color,progress*.72);else if(id===attacker.id&&progress<0)fill=blendHex(attacker.color,defender.color,Math.min(1,-progress/100)*.72)}if(layer==='stability')fill='hsl('+((o?.stability||50)*1.15)+',48%,43%)';else if(layer==='population')fill='hsl('+Math.max(0,130-Math.log10((o?.population||1)/1e6+1)*18)+',48%,43%)';else if(layer==='military')fill='hsl('+Math.max(0,130-Math.log10((o?.army||1)/1000+1)*16)+',52%,43%)';else if(layer==='economy')fill='hsl('+Math.max(0,130-Math.log10((o?.gdp||1)/1e9+1)*12)+',48%,43%)';else if(layer==='ideology')fill=({Democracy:'#347cae',Socialism:'#bb5c55',Communism:'#b23b36',Monarchy:'#b99643',Nationalism:'#8b70b5'})[o?.ideology]||'#59616c';return{color:'#e2eaf2',weight:layer==='political'?0.9:0.65,opacity:0.95,fillColor:fill,fillOpacity:layer==='political'?0.88:0.84}});window.regionLayer.bringToFront();if(window.countryOutline)window.countryOutline.bringToFront();renderWarVisuals()}}
+function regionStyle(f){
+ const p=f.properties||{},rid=String(p.iso_3166_2||p.gid||p.name||'');
+ const r=regionById.get(rid),owner=countries.get(r?.owner||p.adm0_a3||p.ADM0_A3);
+ let fill=owner?.color||'#59616c';
+ if(layer==='stability')fill='hsl('+((owner?.stability||50)*1.15)+',48%,43%)';
+ else if(layer==='population')fill='hsl('+Math.max(0,130-Math.log10((owner?.population||1)/1e6+1)*18)+',48%,43%)';
+ else if(layer==='military')fill='hsl('+Math.max(0,130-Math.log10((owner?.army||1)/1000+1)*16)+',52%,43%)';
+ else if(layer==='economy')fill='hsl('+Math.max(0,130-Math.log10((owner?.gdp||1)/1e9+1)*12)+',48%,43%)';
+ else if(layer==='ideology')fill=({Democracy:'#347cae',Socialism:'#bb5c55',Communism:'#b23b36',Monarchy:'#b99643',Nationalism:'#8b70b5'})[owner?.ideology]||'#59616c';
+ return{color:'#dbe4eb',weight:window.worldMap?.getZoom()>4?.55:.28,opacity:.9,fillColor:fill,fillOpacity:.9};
+}
+function draw(){if(window.regionLayer&&window.L){window.regionLayer.setStyle(regionStyle);if(window.countryOutline)window.countryOutline.bringToBack();window.regionLayer.bringToFront();renderWarVisuals()}}
 function initDivisions(w,a,b){
  const na=Math.max(1,wars.filter(x=>x.a===a.id||x.b===a.id).length+1),nb=Math.max(1,wars.filter(x=>x.a===b.id||x.b===b.id).length+1),ta=Math.max(0,Math.floor(a.army*.42/na)),tb=Math.max(0,Math.floor(b.army*.42/nb)),raw=window.countryAdjacency?.get(pair(a.id,b.id))||[],parse=e=>e.split('|').map(p=>p.split(',').map(Number)),edges=raw.map(parse).filter(p=>p.length===2&&p.flat().every(Number.isFinite)),unused=new Set(edges.map((_,i)=>i)),components=[];
  while(unused.size){let stack=[unused.values().next().value],ids=[];unused.delete(stack[0]);while(stack.length){let i=stack.pop();ids.push(i);for(let j of [...unused])if(edges[j].some(p=>edges[i].some(q=>Math.abs(p[0]-q[0])<1e-5&&Math.abs(p[1]-q[1])<1e-5))){unused.delete(j);stack.push(j)}}components.push(ids)}
@@ -99,6 +109,25 @@ function simulateWar(w,a,b){
   f.lossA=(f.lossA||0)+la;f.lossB=(f.lossB||0)+lb;f.battles=(f.battles||0)+1;
   laTotal+=la;lbTotal+=lb;const fw=Math.max(.1,f.length||1);weighted+=f.progress*fw;weight+=fw;
   frontReports.push({id:f.id,a:at,b:bt,adv,la,lb,progress:f.progress});
+  // Region-level occupation: a sustained breakthrough takes a real administrative
+  // subdivision from the defender instead of tinting the whole country.
+  if(Math.abs(f.progress)>=14&&regions.length){
+   const attacker=f.progress>0?a:b,defender=f.progress>0?b:a;
+   const candidates=regions.filter(r=>r.owner===defender.id&&r.countryId===defender.id);
+   if(candidates.length){
+    const origin=f.center||window.countryCenters?.[defender.id]||[0,0];
+    candidates.sort((x,y)=>{
+     const dx=Math.hypot((x.center[0]-origin[0])*Math.cos(origin[0]*Math.PI/180),x.center[1]-origin[1]);
+     const dy=Math.hypot((y.center[0]-origin[0])*Math.cos(origin[0]*Math.PI/180),y.center[1]-origin[1]);
+     return dx-dy;
+    });
+    const region=candidates[0];
+    region.owner=attacker.id;region.occupiedBy=attacker.id;region.capturedAt={month,year};
+    f.capturedRegions=(f.capturedRegions||0)+1;f.progress*=.42;
+    log('TERRITORY CAPTURED · '+attacker.name+' occupied '+region.name+' in '+defender.name+'.');
+    if(window.regionLayer)window.regionLayer.setStyle(regionStyle);
+   }
+  }
  }
  if(laTotal+lbTotal>0){
   a.army=Math.max(0,totalArmyA-laTotal);b.army=Math.max(0,totalArmyB-lbTotal);
@@ -143,11 +172,11 @@ function simulateWar(w,a,b){
  }else if(w.months>180&&Math.random()<.018){log('ARMISTICE · '+a.name+' and '+b.name+'.');wars=wars.filter(x=>x!==w)}
 }
 function simulate(){month++;if(month>12){month=1;year++}for(let c of active()){let growth=rand(-.0005,.0012)+(c.food<20?-.001:0);c.population=Math.max(10000,c.population*(1+growth));let economic=rand(-.003,.004)+(c.technology*.000025)+(c.industry/100000)+(ruleset==='economic'?.001:0);c.gdp=Math.max(1e8,c.gdp*(1+economic));c.income=c.gdp*.012;c.expenses=c.gdp*.009;c.treasury+=c.income-c.expenses;let target=clamp(82-c.unrest*.36-c.exhaustion*.2+(c.food-50)*.1+(c.treasury<0?-8:2),25,94);c.stability=clamp(c.stability+(target-c.stability)*.06+rand(-.25,.25),0,100);c.unrest=clamp(c.unrest+rand(-.15,.28)+(c.stability<45?.5:-.05)+(c.food<20?.35:0),0,100);c.technology+=rand(.00005,.00025);c.food=clamp(c.food+rand(-.8,.8),0,100);c.morale=clamp(c.morale+rand(-.3,.2),0,100);c.readiness=clamp(c.readiness+rand(-.35,.25),0,100);if(c.unrest>72&&c.stability<48&&!wars.some(w=>w.isCivil&&w.parentId===c.id)&&Math.random()<(ruleset==='chaos'?.28:.12))startCivilWar(c)}const warLimit=Math.max(3,Math.floor(active().length*(ruleset==='chaos'?.16:.10)));if(ruleset!=='peaceful'&&wars.length<warLimit){for(const c of active()){if(wars.length>=warLimit)break;if(Math.random()<(ruleset==='chaos'?.14:.09)&&!wars.some(w=>w.a===c.id||w.b===c.id)){let available=active().filter(x=>x.id!==c.id&&!wars.some(w=>w.a===x.id||w.b===x.id)&&!rel(c.id,x.id).alliance);let neighbors=available.filter(x=>countriesShareLandBorder(c.id,x.id));let pool=neighbors.length?neighbors:available.filter(x=>c.navy>=x.navy*.35&&x.navy>0);if(!neighbors.length&&Math.random()>.25)pool=[];if(pool.length){let weights=pool.map(x=>Math.max(.15,1+(-rel(c.id,x.id).value/100)*.8)*(neighbors.length?1:0.025));let roll=Math.random()*weights.reduce((v,n)=>v+n,0),idx=0;while(roll>weights[idx]&&idx<weights.length-1)roll-=weights[idx++];let b=pool[idx],land=countriesShareLandBorder(c.id,b.id),w={a:c.id,b:b.id,months:0,progress:50,frontPosition:0,type:land?'Land war':'Naval invasion',generated:true};initDivisions(w,c,b);wars.push(w);log('WAR BREAKS OUT: '+c.name+(land?' attacks neighboring ':' launches an overseas war against ')+b.name+'.')}}}}for(const w of [...wars]){let a=countries.get(w.a),b=countries.get(w.b);if(!a||!b||!a.alive||!b.alive){wars=wars.filter(x=>x!==w);continue}simulateWar(w,a,b)}history.push({date:date(),pop:active().reduce((s,c)=>s+c.population,0),gdp:active().reduce((s,c)=>s+c.gdp,0)});history=history.slice(-120);dashboard();draw();if(selected)inspect(selected.id)}
-function saveData(){return {version:6,month,year,countries:[...countries],wars,events,relations,history,ruleset,custom,worldId}}
-function save(){localStorage.setItem('observe_save_v6',JSON.stringify(saveData()));log('World saved on this device.')}
-function loadData(d){for(const [,c] of (d.countries||[])){if(c.stability<1)c.stability=58;if(c.unrest>85)c.unrest=35}month=d.month||1;year=d.year||1;countries=new Map(d.countries||[]);wars=d.wars||[];events=d.events||[];relations=d.relations||{};history=d.history||[];ruleset=d.ruleset||'standard';custom=d.custom||[];worldId=d.worldId||1;dashboard();draw();if(selected&&countries.has(selected.id))inspect(selected.id);else selected=null;log('World save loaded.')}
-function load(){try{let raw=localStorage.getItem('observe_save_v6')||localStorage.getItem('observe_save_v5')||localStorage.getItem('observe_save_v4');if(!raw)throw Error();loadData(JSON.parse(raw));localStorage.setItem('observe_save_v6',JSON.stringify(saveData()))}catch{log('No valid local save found.')}}
-function reset(){month=1;year=1;wars=[];events=[];relations={};history=[];countries.clear();features.forEach((f,i)=>countries.set(String(f.id),make(f,i)));normalizeWorld();selected=null;log('World reset. New simulation initialized.');$('selectedName').textContent='Select a country';$('selectedStats').innerHTML='';dashboard();draw()}
+function saveData(){return {version:7,month,year,countries:[...countries],regions:regions.map(r=>({id:r.id,owner:r.owner,occupiedBy:r.occupiedBy,capturedAt:r.capturedAt||null})),wars,events,relations,history,ruleset,custom,worldId}}
+function save(){localStorage.setItem('observe_save_v7',JSON.stringify(saveData()));log('World saved on this device.')}
+function loadData(d){for(const [,c] of (d.countries||[])){if(c.stability<1)c.stability=58;if(c.unrest>85)c.unrest=35}month=d.month||1;year=d.year||1;countries=new Map(d.countries||[]);if(Array.isArray(d.regions)){const owners=new Map(d.regions.map(r=>[r.id,r]));for(const r of regions){const saved=owners.get(r.id);if(saved){r.owner=saved.owner||r.countryId;r.occupiedBy=saved.occupiedBy||null;r.capturedAt=saved.capturedAt||null;}}}wars=d.wars||[];events=d.events||[];relations=d.relations||{};history=d.history||[];ruleset=d.ruleset||'standard';custom=d.custom||[];worldId=d.worldId||1;dashboard();draw();if(selected&&countries.has(selected.id))inspect(selected.id);else selected=null;log('World save loaded.')}
+function load(){try{let raw=localStorage.getItem('observe_save_v7')||localStorage.getItem('observe_save_v6')||localStorage.getItem('observe_save_v5')||localStorage.getItem('observe_save_v4');if(!raw)throw Error();loadData(JSON.parse(raw));localStorage.setItem('observe_save_v7',JSON.stringify(saveData()))}catch{log('No valid local save found.')}}
+function reset(){month=1;year=1;wars=[];events=[];relations={};history=[];countries.clear();features.forEach((f,i)=>countries.set(String(f.id),make(f,i)));for(const r of regions){r.owner=r.countryId;r.occupiedBy=null;r.capturedAt=null;}normalizeWorld();selected=null;log('World reset. New simulation initialized.');$('selectedName').textContent='Select a country';$('selectedStats').innerHTML='';dashboard();draw()}
 function exportSave(){let blob=new Blob([JSON.stringify(saveData(),null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='observe-world-save.json';a.click();URL.revokeObjectURL(a.href)}
 function drawHistory(){let c=$('historyChart');if(!c)return;let x=c.getContext('2d'),w=c.width=c.clientWidth*2,h=c.height=360;x.clearRect(0,0,w,h);if(history.length<2)return;let vals=history.map(v=>v.gdp),lo=Math.min(...vals),hi=Math.max(...vals);x.strokeStyle='#6bc5d8';x.lineWidth=3;x.beginPath();history.forEach((v,i)=>{let px=i/(history.length-1)*w,py=h-20-(v.gdp-lo)/(hi-lo||1)*(h-40);i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke()}
 async function mapInit(){
@@ -169,12 +198,27 @@ async function mapInit(){
     });
     normalizeWorld();
     buildCountryAdjacency();
-    window.regionLayer=L.geoJSON(data,{style:f=>{const p=f.properties||{},id=countryCode(f),c=countries.get(id);return{color:'#111923',weight:.55,fillColor:c?.color||'#59616c',fillOpacity:.92}},
-      onEachFeature:(f,layer)=>{const p=f.properties||{},id=countryCode(f);if(!countries.has(id))return;const center=layer.getBounds().getCenter();window.countryCenters[id]=[center.lat,center.lng];layer.bindTooltip(countries.get(id).name);layer.on('click',()=>selectMapCountry(id));}
+    window.countryOutline=L.geoJSON(data,{style:{color:'#d7e0e7',weight:.75,fillOpacity:0.02,opacity:.8},
+      onEachFeature:(f,ly)=>{const id=countryCode(f);if(!countries.has(id))return;const center=ly.getBounds().getCenter();window.countryCenters[id]=[center.lat,center.lng];}
     }).addTo(window.worldMap);
-    window.regionLayer.bringToBack();
-    $('mapStatus').textContent='WORLD MAP READY · '+countries.size+' COUNTRIES';
-    log('Map loaded: '+countries.size+' countries initialized.');
+    // First-order administrative divisions are independently owned map units.
+    $('mapStatus').textContent='LOADING PROVINCES · COUNTRY MAP READY';
+    const rr=await fetch('https://datahub.io/core/geo-ne-admin1/_r/-/data/admin1.geojson');
+    if(!rr.ok)throw Error('Province dataset request failed ('+rr.status+')');
+    const rd=await rr.json();regions=(rd.features||[]).map((feature,i)=>{
+      const p=feature.properties||{},countryId=String(p.adm0_a3||p.ADM0_A3||'').toUpperCase();
+      const name=p.name||p.name_en||('Region '+(i+1)),id=String(p.iso_3166_2||p.gid||countryId+'-'+i);
+      const center=L.geoJSON(feature).getBounds().getCenter();
+      return{id,name,countryId,owner:countryId,center:[center.lat,center.lng],feature,occupiedBy:null};
+    }).filter(x=>countries.has(x.countryId));
+    regionById=new Map(regions.map(x=>[x.id,x]));
+    window.regionLayer=L.geoJSON({type:'FeatureCollection',features:regions.map(x=>x.feature)},{
+      style:regionStyle,
+      onEachFeature:(feature,ly)=>{const p=feature.properties||{},id=String(p.iso_3166_2||p.gid||p.name||''),r=regionById.get(id);if(!r)return;ly.bindTooltip(r.name+' · '+(countries.get(r.owner)?.name||r.countryId));ly.on('click',()=>selectMapCountry(r.owner));}
+    }).addTo(window.worldMap);
+    window.countryOutline.bringToBack();window.regionLayer.bringToFront();
+    $('mapStatus').textContent='WORLD MAP READY · '+countries.size+' COUNTRIES · '+regions.length+' REGIONS';
+    log('World initialized with '+countries.size+' countries and '+regions.length+' independently owned administrative regions.');
     dashboard();draw();window.worldMap.invalidateSize();
   }catch(err){$('mapStatus').textContent='MAP LOAD ERROR · '+err.message;log('Map initialization failed: '+err.message)}
 }
