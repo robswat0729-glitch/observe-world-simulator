@@ -51,68 +51,76 @@ function trigger(){let e=$('worldEvent').value;for(let c of active()){if(e==='bo
 function applyRules(){ruleset=$('ruleset').value;log('World ruleset changed to '+ruleset+'.');}
 function simulateWar(w,a,b){
  if(!w.fronts?.length)initDivisions(w,a,b);
- let laTotal=0,lbTotal=0,weighted=0,weight=0;
- // Reserve troops reinforce fronts that are losing strength. The same national soldiers
- // cannot be committed to every border: reinforcement is taken from the uncommitted pool.
- const reinforce=(country,side)=>{
-  const committed=w.fronts.reduce((n,f)=>n+f.divisions[side].reduce((z,d)=>z+Math.max(0,d.troops),0),0);
-  const reserve=Math.max(0,country.army-committed);
-  const budget=Math.min(reserve,Math.max(0,country.manpower),Math.max(0,country.army*.012));
-  if(budget<1)return;
-  const needy=w.fronts.map(f=>({f,now:f.divisions[side].reduce((n,d)=>n+d.troops,0),enemy:f.divisions[side==='a'?'b':'a'].reduce((n,d)=>n+d.troops,0)}))
-   .sort((x,y)=>(x.now/Math.max(1,x.enemy))-(y.now/Math.max(1,y.enemy)));
-  let left=budget;
-  for(const item of needy){if(left<1)break;const target=Math.max(0,item.enemy*1.05-item.now);if(target<1)continue;const add=Math.min(left,target);item.f.divisions[side].sort((x,y)=>x.troops-y.troops)[0].troops+=add;left-=add}
+ const totalArmyA=Math.max(0,a.army||0),totalArmyB=Math.max(0,b.army||0);
+ let laTotal=0,lbTotal=0,weighted=0,weight=0,frontReports=[];
+ const sidePower=(country,troops,enemy,front,side)=>{
+  const tech=clamp((country.technology||1),.35,3.5);
+  const readiness=clamp((country.readiness||50)/100,.2,1.2);
+  const morale=clamp((country.morale||50)/100,.2,1.2);
+  const logistics=clamp((country.logistics||50)/100,.12,1.15);
+  const equipment=clamp((country.equipment||50)/100,.2,1.25);
+  const food=clamp((country.food||50)/100,.25,1.1);
+  const air=clamp(1+((country.air||0)-(enemy.air||0))*.00035,.72,1.35);
+  const fort=side==='b'?1+clamp(country.fort||0,0,20)*.045:1;
+  const stance=front.stance?.[side]||'balanced';
+  const stanceMod=stance==='push'?1.16:stance==='hold'?.94:1;
+  const width=clamp(Math.sqrt(Math.max(.1,front.length||1)),.65,2.1);
+  const fatigue=clamp(1-(country.exhaustion||0)*.004,.55,1);
+  return Math.max(0,troops)*tech*readiness*morale*logistics*equipment*food*air*fort*stanceMod*width*fatigue;
  };
- reinforce(a,'a');reinforce(b,'b');
  for(const f of w.fronts){
-  let sum=k=>f.divisions[k].reduce((v,d)=>v+Math.max(0,d.troops),0),at=sum('a'),bt=sum('b');
-  if(at<=0||bt<=0)continue;
-  const sa=clamp(a.logistics/100,.2,1.15)*(a.food<20?.65:1),sb=clamp(b.logistics/100,.2,1.15)*(b.food<20?.65:1),
-   aa=clamp(1+(a.air-b.air)*.00035,.75,1.3),ab=clamp(1+(b.air-a.air)*.00035,.75,1.3),
-   ea=clamp(a.equipment/100,.25,1.2),eb=clamp(b.equipment/100,.25,1.2),
-   width=clamp(Math.sqrt(f.length),.65,2.4),
-   pa=at*a.technology*(.55+a.readiness/180)*(.55+a.morale/220)*sa*ea*aa*(1+a.fort*.035)*width,
-   pb=bt*b.technology*(.55+b.readiness/180)*(.55+b.morale/220)*sb*eb*ab*(1+b.fort*.035)*width,
-   adv=pa/Math.max(1,pa+pb),intensity=.00055+Math.abs(adv-.5)*.0015,
-   la=Math.min(at,Math.max(0,at*intensity*(.75+adv)*rand(.8,1.2))),
-   lb=Math.min(bt,Math.max(0,bt*intensity*(1.25-adv)*rand(.8,1.2)));
+  f.stance=f.stance||{a:'balanced',b:'balanced'};
+  f.reserve=f.reserve||{a:0,b:0};
+  f.supplyDays=f.supplyDays||{a:30,b:30};
+  const sum=k=>(f.divisions?.[k]||[]).reduce((v,d)=>v+Math.max(0,d.troops||0),0);
+  const at=sum('a'),bt=sum('b');
+  if(at<=0||bt<=0){weighted+=clamp(f.progress||0,-100,100)*Math.max(.1,f.length||1);weight+=Math.max(.1,f.length||1);continue}
+  const pa=sidePower(a,at,b,f,'a'),pb=sidePower(b,bt,a,f,'b');
+  const adv=pa/Math.max(1,pa+pb);
+  const supplyA=clamp((a.logistics||50)/85,.25,1.15),supplyB=clamp((b.logistics||50)/85,.25,1.15);
+  f.supplyDays.a=clamp(f.supplyDays.a+(supplyA>.8?1.2:-2.4),0,60);
+  f.supplyDays.b=clamp(f.supplyDays.b+(supplyB>.8?1.2:-2.4),0,60);
+  const shortageA=f.supplyDays.a<7?.55:f.supplyDays.a<14?.78:1;
+  const shortageB=f.supplyDays.b<7?.55:f.supplyDays.b<14?.78:1;
+  const pressure=clamp(Math.abs(adv-.5)*2,0,1);
+  const tempo=clamp((f.stance.a==='push'||f.stance.b==='push')?1.18:1,.8,1.25);
+  const baseLoss=.00065+pressure*.00135;
+  const la=Math.min(at,Math.max(0,at*baseLoss*(.72+adv)*shortageA*rand(.78,1.22)));
+  const lb=Math.min(bt,Math.max(0,bt*baseLoss*(1.28-adv)*shortageB*rand(.78,1.22)));
   for(const [side,n] of [['a',la],['b',lb]]){
-   let ds=f.divisions[side],tot=ds.reduce((v,d)=>v+d.troops,0)||1;
-   ds.forEach(d=>{let x=Math.min(d.troops,n*d.troops/tot);d.troops-=x;d.losses+=x;d.experience=clamp((d.experience||0)+x/Math.max(1,d.initial)*8,0,100)});
+   const ds=f.divisions[side],tot=ds.reduce((v,d)=>v+Math.max(0,d.troops||0),0)||1;
+   let remaining=n;
+   ds.forEach((d,i)=>{const share=i===ds.length-1?remaining:n*d.troops/tot;const loss=Math.min(d.troops,share);d.troops-=loss;d.losses=(d.losses||0)+loss;remaining-=loss;d.experience=clamp((d.experience||0)+loss/Math.max(1,d.initial||d.troops+loss)*5,0,100)});
   }
-  laTotal+=la;lbTotal+=lb;f.lossA=(f.lossA||0)+la;f.lossB=(f.lossB||0)+lb;f.battles=(f.battles||0)+1;w.battles=(w.battles||0)+1;
-  // Fronts move by sustained local advantage, not by a near-instant 30-point jump.
-  const advantage=clamp((pa-pb)/Math.max(1,pa+pb),-.65,.65);
-  const pressure=(a.readiness-b.readiness)*.012+(a.morale-b.morale)*.008;
-  f.progress=clamp((f.progress||0)+advantage*4.2+pressure+rand(-.45,.45),-100,100);
-  f.strategicPriority=clamp((f.strategicPriority||1)+(Math.abs(f.progress)>55?.002:-.001),.75,1.35);
-  weighted+=f.progress*f.length;weight+=f.length;
+  const fortDrag=f.stance.b==='hold'?.78:1;
+  const momentum=(adv-.5)*10*tempo*fortDrag;
+  f.progress=clamp((f.progress||0)+momentum+rand(-.55,.55),-100,100);
+  f.lastAdvantage=adv;f.lastPowerA=pa;f.lastPowerB=pb;f.lastLossA=la;f.lastLossB=lb;
+  f.lossA=(f.lossA||0)+la;f.lossB=(f.lossB||0)+lb;f.battles=(f.battles||0)+1;
+  laTotal+=la;lbTotal+=lb;const fw=Math.max(.1,f.length||1);weighted+=f.progress*fw;weight+=fw;
+  frontReports.push({id:f.id,a:at,b:bt,adv,la,lb,progress:f.progress});
  }
- if(laTotal+lbTotal){
-  a.army=Math.max(0,a.army-laTotal);b.army=Math.max(0,b.army-lbTotal);
-  a.casualties+=laTotal;b.casualties+=lbTotal;
-  a.manpower=Math.max(0,a.manpower-laTotal*.42);b.manpower=Math.max(0,b.manpower-lbTotal*.42);
-  a.exhaustion=clamp(a.exhaustion+.04+laTotal/Math.max(1,a.army+laTotal)*1.8,0,100);
-  b.exhaustion=clamp(b.exhaustion+.04+lbTotal/Math.max(1,b.army+lbTotal)*1.8,0,100);
-  a.morale=clamp(a.morale-laTotal/Math.max(1,a.army+laTotal)*7,5,100);
-  b.morale=clamp(b.morale-lbTotal/Math.max(1,b.army+lbTotal)*7,5,100);
+ if(laTotal+lbTotal>0){
+  a.army=Math.max(0,totalArmyA-laTotal);b.army=Math.max(0,totalArmyB-lbTotal);
+  a.casualties=(a.casualties||0)+laTotal;b.casualties=(b.casualties||0)+lbTotal;
+  a.manpower=Math.max(0,a.manpower-laTotal*.38);b.manpower=Math.max(0,b.manpower-lbTotal*.38);
+  a.exhaustion=clamp((a.exhaustion||0)+.035+laTotal/Math.max(1,totalArmyA)*2.1,0,100);
+  b.exhaustion=clamp((b.exhaustion||0)+.035+lbTotal/Math.max(1,totalArmyB)*2.1,0,100);
+  a.morale=clamp((a.morale||50)-laTotal/Math.max(1,totalArmyA)*7,5,100);
+  b.morale=clamp((b.morale||50)-lbTotal/Math.max(1,totalArmyB)*7,5,100);
  }
  w.totalLossA=(w.totalLossA||0)+laTotal;w.totalLossB=(w.totalLossB||0)+lbTotal;
  w.frontPosition=weight?weighted/weight:0;w.progress=50+w.frontPosition/2;
- w.committedA=w.fronts.reduce((v,f)=>v+f.divisions.a.reduce((z,d)=>z+Math.max(0,d.troops),0),0);
- w.committedB=w.fronts.reduce((v,f)=>v+f.divisions.b.reduce((z,d)=>z+Math.max(0,d.troops),0),0);
- w.months++;
- if(laTotal+lbTotal>0)log('BATTLE REPORT · '+a.name+' vs '+b.name+' · '+w.fronts.length+' fronts · casualties '+fmt(laTotal)+' / '+fmt(lbTotal)+'.');
- const capturedFront=w.frontPosition>=100?a:w.frontPosition<=-100?b:null,
-  ca=w.committedA<=Math.max(100,a.population*.000025)||a.army<=Math.max(100,a.population*.00004)||a.exhaustion>=100,
-  cb=w.committedB<=Math.max(100,b.population*.000025)||b.army<=Math.max(100,b.population*.00004)||b.exhaustion>=100;
- if(capturedFront||ca||cb){
-  let loser=capturedFront?(capturedFront===a?b:a):(ca?a:b),winner=capturedFront||(ca?b:a);
-  loser.alive=false;loser.owner=winner.id;winner.population+=loser.population*.2;winner.gdp+=loser.gdp*.2;
-  winner.army+=Math.min(loser.army*.15,loser.population*.002);
-  log('CAPITULATION · '+loser.name+' surrenders to '+winner.name+'. Territory changes ownership on the political map.');
-  wars=wars.filter(x=>x!==w);
+ w.committedA=w.fronts.reduce((v,f)=>v+(f.divisions?.a||[]).reduce((z,d)=>z+Math.max(0,d.troops||0),0),0);
+ w.committedB=w.fronts.reduce((v,f)=>v+(f.divisions?.b||[]).reduce((z,d)=>z+Math.max(0,d.troops||0),0),0);
+ w.months++;w.lastReport={date:date(),fronts:frontReports,lossA:laTotal,lossB:lbTotal};
+ if(laTotal+lbTotal>0)log('FRONT REPORT · '+a.name+' / '+b.name+' · '+w.fronts.length+' fronts · '+fmt(laTotal)+' vs '+fmt(lbTotal)+' casualties.');
+ const capturedFront=w.frontPosition>=100?a:w.frontPosition<=-100?b:null;
+ const exhaustedA=a.exhaustion>=100||a.army<=Math.max(100,a.population*.000025),exhaustedB=b.exhaustion>=100||b.army<=Math.max(100,b.population*.000025);
+ if(capturedFront||exhaustedA||exhaustedB){
+  const loser=capturedFront?(capturedFront===a?b:a):(exhaustedA?a:b),winner=capturedFront||(exhaustedA?b:a);
+  loser.alive=false;loser.owner=winner.id;winner.population+=loser.population*.2;winner.gdp+=loser.gdp*.2;winner.army+=Math.min(loser.army*.15,loser.population*.002);
+  log('CAPITULATION · '+loser.name+' surrenders to '+winner.name+'.');wars=wars.filter(x=>x!==w);
  }else if(w.months>180&&Math.random()<.018){log('ARMISTICE · '+a.name+' and '+b.name+'.');wars=wars.filter(x=>x!==w)}
 }
 function simulate(){month++;if(month>12){month=1;year++}for(let c of active()){let growth=rand(-.0005,.0012)+(c.food<20?-.001:0);c.population=Math.max(10000,c.population*(1+growth));let economic=rand(-.003,.004)+(c.technology*.000025)+(c.industry/100000)+(ruleset==='economic'?.001:0);c.gdp=Math.max(1e8,c.gdp*(1+economic));c.income=c.gdp*.012;c.expenses=c.gdp*.009;c.treasury+=c.income-c.expenses;let target=clamp(82-c.unrest*.36-c.exhaustion*.2+(c.food-50)*.1+(c.treasury<0?-8:2),25,94);c.stability=clamp(c.stability+(target-c.stability)*.06+rand(-.25,.25),0,100);c.unrest=clamp(c.unrest+rand(-.15,.28)+(c.stability<45?.5:-.05)+(c.food<20?.35:0),0,100);c.technology+=rand(.00005,.00025);c.food=clamp(c.food+rand(-.8,.8),0,100);c.morale=clamp(c.morale+rand(-.3,.2),0,100);c.readiness=clamp(c.readiness+rand(-.35,.25),0,100);if(c.unrest>72&&c.stability<48&&!wars.some(w=>w.isCivil&&w.parentId===c.id)&&Math.random()<(ruleset==='chaos'?.28:.12))startCivilWar(c)}const warLimit=Math.max(3,Math.floor(active().length*(ruleset==='chaos'?.16:.10)));if(ruleset!=='peaceful'&&wars.length<warLimit){for(const c of active()){if(wars.length>=warLimit)break;if(Math.random()<(ruleset==='chaos'?.14:.09)&&!wars.some(w=>w.a===c.id||w.b===c.id)){let available=active().filter(x=>x.id!==c.id&&!wars.some(w=>w.a===x.id||w.b===x.id)&&!rel(c.id,x.id).alliance);let neighbors=available.filter(x=>countriesShareLandBorder(c.id,x.id));let pool=neighbors.length?neighbors:available.filter(x=>c.navy>=x.navy*.35&&x.navy>0);if(!neighbors.length&&Math.random()>.25)pool=[];if(pool.length){let weights=pool.map(x=>Math.max(.15,1+(-rel(c.id,x.id).value/100)*.8)*(neighbors.length?1:0.025));let roll=Math.random()*weights.reduce((v,n)=>v+n,0),idx=0;while(roll>weights[idx]&&idx<weights.length-1)roll-=weights[idx++];let b=pool[idx],land=countriesShareLandBorder(c.id,b.id),w={a:c.id,b:b.id,months:0,progress:50,frontPosition:0,type:land?'Land war':'Naval invasion',generated:true};initDivisions(w,c,b);wars.push(w);log('WAR BREAKS OUT: '+c.name+(land?' attacks neighboring ':' launches an overseas war against ')+b.name+'.')}}}}for(const w of [...wars]){let a=countries.get(w.a),b=countries.get(w.b);if(!a||!b||!a.alive||!b.alive){wars=wars.filter(x=>x!==w);continue}simulateWar(w,a,b)}history.push({date:date(),pop:active().reduce((s,c)=>s+c.population,0),gdp:active().reduce((s,c)=>s+c.gdp,0)});history=history.slice(-120);dashboard();draw();if(selected)inspect(selected.id)}
