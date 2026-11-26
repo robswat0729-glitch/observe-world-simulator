@@ -864,6 +864,26 @@ function divisionList(w,side){
  if(!Array.isArray(w[key]))w[key]=[];
  return w[key];
 }
+function reduceFrontDivisionStrength(war,side,loss){
+ const divisions=divisionList(war,side);
+ const field=divisions.filter(d=>d.status==='garrison'||d.status==='front');
+ let remaining=Math.max(0,loss),total=field.reduce((n,d)=>n+Math.max(0,d.troops||0),0);
+ if(!remaining||!total)return 0;
+ const target=Math.min(total,remaining);
+ // Spread casualties across the formations actually fighting, rather than
+ // leaving their displayed strength unchanged until the national pool runs low.
+ field.forEach((d,i)=>{
+  const share=i===field.length-1?remaining:target*Math.max(0,d.troops||0)/total;
+  const hit=Math.min(Math.max(0,d.troops||0),share);
+  d.troops=Math.max(0,(d.troops||0)-hit);
+  remaining-=hit;
+ });
+ for(let i=divisions.length-1;i>=0;i--){
+  const d=divisions[i];
+  if((d.status==='garrison'||d.status==='front')&&d.troops<1)divisions.splice(i,1);
+ }
+ return target;
+}
 function updateWarDeployments(){
  const engagements=new Map();
  activeWars.forEach(w=>{
@@ -927,7 +947,7 @@ function tickDivisionReinforcements(simDt){
  const elapsedDays=Math.max(0,simDt/2);
  activeWars.forEach(w=>{
   [['A',w.a,w.b],['B',w.b,w.a]].forEach(([side,name,enemy])=>{
-   const country=countries.get(name);if(!country||country.isCivilWarFaction)return;
+   const country=countries.get(name);if(!country)return;
    const divisions=divisionList(w,side);
    // Train and move previously mobilised divisions. They cannot fight until they arrive.
    divisions.forEach(d=>{
@@ -937,14 +957,14 @@ function tickDivisionReinforcements(simDt){
    w['reinforcementClock'+side]=(w['reinforcementClock'+side]||0)+elapsedDays;
    const reserve=Math.max(0,country.reserve||0);
    const otherWars=activeWars.filter(x=>x!==w&&(x.a===name||x.b===name||[...(x.supportA||[]),...(x.supportB||[])].some(y=>y.name===name))).length;
-   const interval=3.2+otherWars*1.8;
+   const interval=2.4+otherWars*1.5;
    const batch=Math.min(reserve,Math.max(1000,Math.round(divisionUnitTarget(country.soldiers||reserve)*(.72+Math.random()*.56)/100)*100));
    if(w['reinforcementClock'+side]>=interval&&reserve>=1000&&batch>=1000){
     const city=nearestSupplyCity(name),front=w.front?.length?pointAlong(w.front.reduce((a,b)=>polyLength(a)>polyLength(b)?a:b),.5):null;
     const distance=city&&front?Math.hypot(city.x-front.x,city.y-front.y):45;
-    const travelDays=Math.max(.5,Math.min(5,distance/95));
+    const travelDays=Math.max(.5,Math.min(4.5,distance/110));
     const unit=createDivisionUnits(batch,'training');
-    unit.forEach(d=>{d.training=1.5+(Math.random()*.8);d.travelDays=travelDays;d.origin=city?.name||'LOCAL DEPOT'});
+    unit.forEach(d=>{d.training=1.1+(Math.random()*.7);d.travelDays=travelDays;d.origin=city?.name||'LOCAL DEPOT'});
     divisions.push(...unit);
     country.reserve=Math.max(0,reserve-batch);
     w['reinforcementClock'+side]=0;
@@ -1558,7 +1578,7 @@ function resolveSettlement(choice){
 $('annex-country').addEventListener('click',()=>resolveSettlement('annex'));
 $('puppet-country').addEventListener('click',()=>resolveSettlement('puppet'));
 function tick(dt){
- const intensity=Number($('intensity').value),simDt=dt*speed,lossRate=.00072*intensity,lossesByCountry=new Map();
+ const intensity=Number($('intensity').value),simDt=dt*speed,lossRate=.00105*intensity,lossesByCountry=new Map();
  updateWarDeployments();
  researchTick(simDt);countries.forEach(c=>{ensureTech(c);c.nuclearCooldown=Math.max(0,c.nuclearCooldown-simDt/2)});
   const transferDays=simDt/2;
@@ -1590,10 +1610,13 @@ function tick(dt){
   tickNavalBattle(w,simDt,intensity);
   const strength=activeWarStrength(w),al=strength.attackers*lossRate*simDt*(.78+.42*strength.defenders/Math.max(1,strength.attackers)),bl=strength.defenders*lossRate*simDt*(.78+.42*strength.attackers/Math.max(1,strength.defenders));
   const totalA=Math.max(1,(w.troopsA||0)+(strength.alliesA||0)),totalB=Math.max(1,(w.troopsB||0)+(strength.alliesB||0));
-  lossesByCountry.set(w.a,(lossesByCountry.get(w.a)||0)+al*(w.troopsA||0)/totalA);
+  const fieldLossA=al*(w.troopsA||0)/totalA,fieldLossB=bl*(w.troopsB||0)/totalB;
+  lossesByCountry.set(w.a,(lossesByCountry.get(w.a)||0)+fieldLossA);
   (w.supportA||[]).forEach(x=>lossesByCountry.set(x.name,(lossesByCountry.get(x.name)||0)+al*(x.troops||0)/totalA));
-  lossesByCountry.set(w.b,(lossesByCountry.get(w.b)||0)+bl*(w.troopsB||0)/totalB);
+  lossesByCountry.set(w.b,(lossesByCountry.get(w.b)||0)+fieldLossB);
   (w.supportB||[]).forEach(x=>lossesByCountry.set(x.name,(lossesByCountry.get(x.name)||0)+bl*(x.troops||0)/totalB));
+  reduceFrontDivisionStrength(w,'A',fieldLossA);
+  reduceFrontDivisionStrength(w,'B',fieldLossB);
  });
  let losses=0;
  lossesByCountry.forEach((amount,name)=>{const c=countries.get(name);if(c){const before=Math.max(1,c.soldiers||0),actual=Math.min(c.soldiers,amount);c.soldiers=Math.max(0,c.soldiers-actual);c.reserve=Math.min(Math.max(0,c.reserve||0),c.soldiers);losses+=actual;
