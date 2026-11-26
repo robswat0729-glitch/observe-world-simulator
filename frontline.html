@@ -218,7 +218,9 @@ function renderWars(){
  $('war-list').textContent=activeWars.length?'ACTIVE WARS: '+activeWars.map(w=>{
   const encA=w.encircledA||0,encB=w.encircledB||0,divA=w.encircledDivisionsA||0,divB=w.encircledDivisionsB||0;
   const pockets=encA||encB?' · ENCIRCLED: '+(encA? w.a+' '+fmt(encA)+' / '+divA+' DIV':'')+(encA&&encB?' | ':'')+(encB?w.b+' '+fmt(encB)+' / '+divB+' DIV':''):'';
-  return w.a+' vs '+w.b+' · SUPPLY '+Math.round(w.supplyA??78)+'% / '+Math.round(w.supplyB??78)+'%'+pockets;
+  const supportA=(w.supportA||[]).map(x=>x.name).join(', '),supportB=(w.supportB||[]).map(x=>x.name).join(', ');
+  const aid=(supportA||supportB)?' · ALLIED DIVISIONS: '+(supportA?'SIDE A '+supportA:'')+(supportA&&supportB?' | ':'')+(supportB?'SIDE B '+supportB:''):'';
+  return w.a+' vs '+w.b+' · SUPPLY '+Math.round(w.supplyA??70)+'% / '+Math.round(w.supplyB??70)+'%'+aid+pockets;
  }).join(' | '):'ACTIVE WARS: NONE';
  const civilWarEntries=[...countries.values()].filter(c=>c.civilWar&&!c.annexedTo).map(c=>c.name+' REBELS '+fmt(c.civilWar.troops)+' / '+c.civilWar.divisions+' DIV');
  if(civilWarEntries.length)$('war-list').textContent+=' · CIVIL WARS: '+civilWarEntries.join(' | ');
@@ -230,10 +232,18 @@ function declareWar(a,b,natural,allianceResponse=false){
  if(!countries.has(a)||!countries.has(b)){ $('war-status').textContent='Choose countries shown on the map.';return false}
  if(areAllied(a,b)){$('war-status').textContent=a+' and '+b+' are bound by a defensive alliance.';return false}
  if(activeWars.some(w=>(w.a===a&&w.b===b)||(w.a===b&&w.b===a))){$('war-status').textContent='Those countries are already at war.';return false}
- const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0,progress:0,seed:Math.random()*6.28,settlementPending:false,encirclements:[],encircledA:0,encircledB:0,encircledDivisionsA:0,encircledDivisionsB:0,supplyA:70,supplyB:70};
+ const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0,progress:0,seed:Math.random()*6.28,settlementPending:false,encirclements:[],encircledA:0,encircledB:0,encircledDivisionsA:0,encircledDivisionsB:0,supplyA:70,supplyB:70,supportA:[],supportB:[]};
  activeWars.push(war);updateWarDeployments();
- // Defensive allies of the attacked country join automatically; response is one level deep.
- if(!allianceResponse){alliesOf(b).forEach(ally=>{if(ally!==a&&!activeWars.some(x=>(x.a===ally&&x.b===a)||(x.a===a&&x.b===ally)))declareWar(ally,a,true,true)})}
+ // Allies independently weigh intervention; no alliance member is guaranteed to enter.
+ [...new Set([...alliesOf(a),...alliesOf(b)])].forEach(ally=>{
+  const side=alliesOf(a).includes(ally)?'A':'B';
+  const allyCountry=countries.get(ally),enemyCountry=countries.get(side==='A'?b:a);
+  if(!allyCountry||!enemyCountry||atWar(ally)||allyCountry.stability<25)return;
+  const relativePower=allyCountry.soldiers/Math.max(1,enemyCountry.soldiers);
+  const chance=Math.max(.08,Math.min(.68,.22+relativePower*.22+(allyCountry.stability-50)*.002));
+  if(Math.random()<chance)(side==='A'?war.supportA:war.supportB).push({name:ally,troops:0});
+ });
+ updateWarDeployments();
  $('war-status').textContent=(natural?'A diplomatic crisis escalated: ':'War declared: ')+a+' vs '+b+'.'+(war.front?'':' No shared land border, so no land frontline is shown.');
  renderWars();return true;
 }
@@ -607,9 +617,10 @@ function updateWarDeployments(){
  activeWars.forEach(w=>{w.troopsA=w.troopsA||0;w.troopsB=w.troopsB||0});
 }
 function activeWarStrength(w){
- const support=overlord=>Array.from(countries.values()).filter(c=>c.puppetOf===overlord).reduce((sum,c)=>sum+Math.max(0,(c.soldiers||0)-(c.reserve||0))*.3,0);
- const supplyA=Math.max(0,Math.min(100,w.supplyA??78)),supplyB=Math.max(0,Math.min(100,w.supplyB??78));
- return {attackers:Math.max(0,Math.round(((w.troopsA||0)+support(w.a))*(.55+supplyA*.0045))),defenders:Math.max(0,Math.round(((w.troopsB||0)+support(w.b))*(.55+supplyB*.0045))),supplyA,supplyB};
+ const puppetSupport=overlord=>Array.from(countries.values()).filter(c=>c.puppetOf===overlord).reduce((sum,c)=>sum+Math.max(0,(c.soldiers||0)-(c.reserve||0))*.3,0);
+ const alliesA=(w.supportA||[]).reduce((n,x)=>n+(x.troops||0),0),alliesB=(w.supportB||[]).reduce((n,x)=>n+(x.troops||0),0);
+ const supplyA=Math.max(0,Math.min(100,w.supplyA??70)),supplyB=Math.max(0,Math.min(100,w.supplyB??70));
+ return {attackers:Math.max(0,Math.round(((w.troopsA||0)+alliesA+puppetSupport(w.a))*(.55+supplyA*.0045))),defenders:Math.max(0,Math.round(((w.troopsB||0)+alliesB+puppetSupport(w.b))*(.55+supplyB*.0045))),supplyA,supplyB,alliesA,alliesB};
 }
 function recordEncirclement(war,side,available){
  if(!war.encirclements)war.encirclements=[];
@@ -802,8 +813,10 @@ function drawDivisionFlags(war,paths,strength,borderPaths=paths){
  const totalLength=paths.reduce((sum,p)=>sum+polyLength(p),0);
  if(totalLength<1)return;
  const sides=[
-  {name:war.a,troops:Math.max(0,strength.attackers)},
-  {name:war.b,troops:Math.max(0,strength.defenders)}
+  {name:war.a,troops:Math.max(0,war.troopsA||0),frontSide:'A'},
+  ...(war.supportA||[]).map(x=>({name:x.name,troops:Math.max(0,x.troops||0),frontSide:'A'})),
+  {name:war.b,troops:Math.max(0,war.troopsB||0),frontSide:'B'},
+  ...(war.supportB||[]).map(x=>({name:x.name,troops:Math.max(0,x.troops||0),frontSide:'B'}))
  ];
  sides.forEach(entry=>{
   if(entry.troops<1)return;
@@ -816,7 +829,7 @@ function drawDivisionFlags(war,paths,strength,borderPaths=paths){
    const testDistance=5;
    const plus=countryContainsProjectedPoint(entry.name,p.x+px*testDistance,p.y+py*testDistance);
    const minus=countryContainsProjectedPoint(entry.name,p.x-px*testDistance,p.y-py*testDistance);
-   let side=plus&&!minus?1:minus&&!plus?-1:(entry.name===war.a?1:-1);
+   let side=plus&&!minus?1:minus&&!plus?-1:(entry.frontSide==='A'?1:-1);
    const offset=side*3.5,x=p.x+px*offset,y=p.y+py*offset;
    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
    ctx.font='9px "Noto Color Emoji", "Apple Color Emoji", Arial';
@@ -1013,7 +1026,11 @@ function tick(dt){
  });
  activeWars.forEach(w=>{
   const strength=activeWarStrength(w),al=strength.attackers*lossRate*simDt,bl=strength.defenders*lossRate*simDt;
-  lossesByCountry.set(w.a,(lossesByCountry.get(w.a)||0)+al);lossesByCountry.set(w.b,(lossesByCountry.get(w.b)||0)+bl);
+  const totalA=Math.max(1,(w.troopsA||0)+(strength.alliesA||0)),totalB=Math.max(1,(w.troopsB||0)+(strength.alliesB||0));
+  lossesByCountry.set(w.a,(lossesByCountry.get(w.a)||0)+al*(w.troopsA||0)/totalA);
+  (w.supportA||[]).forEach(x=>lossesByCountry.set(x.name,(lossesByCountry.get(x.name)||0)+al*(x.troops||0)/totalA));
+  lossesByCountry.set(w.b,(lossesByCountry.get(w.b)||0)+bl*(w.troopsB||0)/totalB);
+  (w.supportB||[]).forEach(x=>lossesByCountry.set(x.name,(lossesByCountry.get(x.name)||0)+bl*(x.troops||0)/totalB));
  });
  let losses=0;
  lossesByCountry.forEach((amount,name)=>{const c=countries.get(name);if(c){const actual=Math.min(c.soldiers,amount);c.soldiers=Math.max(0,c.soldiers-actual);losses+=actual}});
