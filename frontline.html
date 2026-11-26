@@ -226,7 +226,7 @@ function assetProfile(name,personnel){
  const factor=.82+((Array.from(name).reduce((a,ch)=>(a*31+ch.charCodeAt(0))>>>0,17)%37)/100),n=Math.max(0,personnel||0);
  const count=(ratio,mult=1)=>Math.round(n/ratio*factor*mult);
  const coastal=/United Kingdom|Britain|France|Germany|Italy|Spain|Portugal|Netherlands|Belgium|Norway|Sweden|Denmark|Poland|Romania|Greece|Turkey|Soviet|Russia|Yugoslavia|Finland|Estonia|Latvia|Lithuania|Ireland|Bulgaria|Albania/i.test(name);
- return {'MAIN BATTLE TANKS':count(175),'LIGHT / RECON TANKS':count(310),'ARMOURED VEHICLES':count(95),'FIELD ARTILLERY':count(82),'ANTI-AIRCRAFT GUNS':count(210),'ANTI-TANK GUNS':count(145),'AIRCRAFT TOTAL':count(125),'FIGHTER AIRCRAFT':count(205),'BOMBERS / ATTACK AIRCRAFT':count(260),'TRANSPORT AIRCRAFT':count(680),'TRUCKS & LOGISTICS VEHICLES':count(14),'MOTORCYCLES & UTILITY VEHICLES':count(22),'WARSHIPS & ESCORTS':coastal?count(17500,.65):0,'SUBMARINES':coastal?count(52000,.45):0,'AMPHIBIOUS / LANDING CRAFT':coastal?count(38000,.35):0,'ENGINEER / SUPPORT EQUIPMENT':count(38)};
+ return {'MAIN BATTLE TANKS':count(175),'LIGHT / RECON TANKS':count(310),'ARMOURED VEHICLES':count(95),'FIELD ARTILLERY':count(82),'ANTI-AIRCRAFT GUNS':count(210),'ANTI-TANK GUNS':count(145),'AIRCRAFT TOTAL':count(125),'FIGHTER AIRCRAFT':count(205),'BOMBERS / ATTACK AIRCRAFT':count(260),'TRANSPORT AIRCRAFT':count(680),'TRUCKS & LOGISTICS VEHICLES':count(14),'MOTORCYCLES & UTILITY VEHICLES':count(22),'WARSHIPS & ESCORTS':coastal?count(17500,.65):0,'SUBMARINES':coastal?count(52000,.45):0,'AMPHIBIOUS / LANDING CRAFT':coastal?count(38000,.35):0,'TRANSPORT SHIPS':coastal?count(36000,.42):0,'ENGINEER / SUPPORT EQUIPMENT':count(38)};
 }
 function modeledAssets(country){
  if(!country.equipment)country.equipment=assetProfile(country.name,country.soldiers||0);
@@ -239,6 +239,53 @@ function equipmentCombatMultiplier(country){
  const ratio=(key)=>Math.max(0,eq[key]||0)/Math.max(1,baseline[key]||1);
  const armour=(ratio('MAIN BATTLE TANKS')*.55+ratio('LIGHT / RECON TANKS')*.12+ratio('ARMOURED VEHICLES')*.13+ratio('FIELD ARTILLERY')*.75+ratio('ANTI-TANK GUNS')*.12+ratio('AIRCRAFT TOTAL')*.48+ratio('FIGHTER AIRCRAFT')*.16+ratio('BOMBERS / ATTACK AIRCRAFT')*.12+ratio('TRUCKS & LOGISTICS VEHICLES')*.25)/2.48;
  return Math.max(.65,Math.min(1.45,.72+armour*.48));
+}
+function isSeaPoint(x,y){
+ for(const feature of worldFeatures){for(const polygon of geometryPolygons(feature.geometry)){if(polygon[0]&&pointInRing(x,y,polygon[0])){let hole=false;for(let h=1;h<polygon.length;h++)if(pointInRing(x,y,polygon[h]))hole=!hole;if(!hole)return false;}}}
+ return x>4&&x<W-4&&y>4&&y<H-4;
+}
+function findNavalSeaPoint(a,b){
+ const ca=countryMapCenter(a),cb=countryMapCenter(b),centers=[[(ca?.x||W*.5)+(cb?.x||W*.5),((ca?.y||H*.5)+(cb?.y||H*.5))]];
+ [ca,cb].filter(Boolean).forEach(c=>centers.push([c.x,c.y]));
+ for(const [cx,cy] of centers){for(let radius=14;radius<=230;radius+=12){for(let k=0;k<20;k++){const angle=(k/20)*Math.PI*2+(radius*.013),x=cx+Math.cos(angle)*radius,y=cy+Math.sin(angle)*radius;if(isSeaPoint(x,y))return {x,y};}}}
+ return {x:W*.5,y:H*.5};
+}
+function createNavalFleet(name,center){
+ const c=countries.get(name);if(!c)return [];
+ if(!c.equipment)c.equipment=assetProfile(name,c.soldiers||0);
+ const specs=[['WARSHIPS & ESCORTS','WARSHIP'],['SUBMARINES','SUBMARINE'],['AMPHIBIOUS / LANDING CRAFT','LANDING CRAFT'],['TRANSPORT SHIPS','TRANSPORT']];
+ const fleet=[];
+ specs.forEach(([key,type])=>{const count=Math.max(0,Math.floor(c.equipment[key]||0));for(let i=0;i<count;i++){const angle=(i*2.399+name.length*.7),radius=9+Math.sqrt(i)*2.5;fleet.push({type,key,x:center.x+Math.cos(angle)*radius,y:center.y+Math.sin(angle)*radius,health:100,phase:angle});}});
+ return fleet;
+}
+function ensureNavalWar(war){
+ if(war.naval)return;
+ const center=findNavalSeaPoint(war.a,war.b);
+ war.naval={center,unitsA:createNavalFleet(war.a,center),unitsB:createNavalFleet(war.b,center),lastBattleDay:day};
+}
+function drawNavalForces(war,now){
+ ensureNavalWar(war);const naval=war.naval,center=naval.center;
+ const drawFleet=(units,name,side)=>units.forEach((unit,i)=>{
+  const phase=unit.phase+now*.000018*(side==='A'?1:-1),radius=8+Math.sqrt(i)*2.2;
+  const x=center.x+Math.cos(phase)*radius,y=center.y+Math.sin(phase)*radius*.62;
+  unit.x=x;unit.y=y;
+  ctx.save();ctx.globalAlpha=Math.max(.35,unit.health/100);ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='9px "Noto Color Emoji","Apple Color Emoji",Arial';ctx.lineWidth=1.6;ctx.strokeStyle='rgba(7,17,23,.95)';const flag=countryFlag(name);ctx.strokeText(flag,x,y);ctx.fillText(flag,x,y);
+  if(unit.health<70){ctx.fillStyle='#e5c16d';ctx.font='bold 7px Arial';ctx.fillText('⚓',x+4,y-5);}
+  ctx.restore();
+ });
+ drawFleet(naval.unitsA,war.a,'A');drawFleet(naval.unitsB,war.b,'B');
+ if(naval.unitsA.length&&naval.unitsB.length){
+  ctx.save();ctx.textAlign='center';ctx.font='900 8px Arial';ctx.lineWidth=2.5;ctx.strokeStyle='rgba(7,17,23,.9)';ctx.fillStyle='#f0d38a';const label='NAVAL ENGAGEMENT';ctx.strokeText(label,center.x,center.y-18);ctx.fillText(label,center.x,center.y-18);ctx.restore();
+ }
+}
+function tickNavalBattle(war,simDt,intensity){
+ ensureNavalWar(war);const n=war.naval;if(!n.unitsA.length||!n.unitsB.length||simDt<=0)return;
+ const rate=1-Math.exp(-.0008*intensity*simDt);
+ [['A',n.unitsA,n.unitsB,war.a],['B',n.unitsB,n.unitsA,war.b]].forEach(([side,own,enemy,name])=>{
+  if(!own.length||Math.random()>rate)return;
+  const target=enemy[Math.floor(Math.random()*enemy.length)];target.health-=Math.min(38,5+Math.random()*13);
+  if(target.health<=0){enemy.splice(enemy.indexOf(target),1);const c=countries.get(side==='A'?war.b:war.a);if(c?.equipment){c.equipment[target.key]=Math.max(0,(c.equipment[target.key]||0)-1);}casualties+=Math.min(180,Math.max(40,(c?.soldiers||0)*.000015));}
+ });
 }
 function renderMilitaryDetails(){
  if(!selectedCountry)return;const c=countries.get(selectedCountry);if(!c)return;
@@ -338,6 +385,7 @@ function declareWar(a,b,natural,allianceResponse=false){
  if(areAllied(a,b)){$('war-status').textContent=a+' and '+b+' are bound by a defensive alliance.';return false}
  if(activeWars.some(w=>(w.a===a&&w.b===b)||(w.a===b&&w.b===a))){$('war-status').textContent='Those countries are already at war.';return false}
  const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0,progress:0,seed:Math.random()*6.28,settlementPending:false,encirclements:[],encircledA:0,encircledB:0,encircledDivisionsA:0,encircledDivisionsB:0,supplyA:70,supplyB:70,supportA:[],supportB:[]};
+ ensureNavalWar(war);
  activeWars.push(war);playWarAlarm();updateWarDeployments();
  // Allies independently weigh intervention; no alliance member is guaranteed to enter.
  const alliesSideA=new Set(alliesOf(a)),alliesSideB=new Set(alliesOf(b));
@@ -744,9 +792,14 @@ function activeWarStrength(w){
  const equipmentA=equipmentCombatMultiplier(countries.get(w.a)),equipmentB=equipmentCombatMultiplier(countries.get(w.b));
  const alliedEquipmentA=(w.supportA||[]).length?(w.supportA.reduce((n,x)=>n+equipmentCombatMultiplier(countries.get(x.name))*Math.max(0,x.troops||0),0)/Math.max(1,alliesA)):equipmentA;
  const alliedEquipmentB=(w.supportB||[]).length?(w.supportB.reduce((n,x)=>n+equipmentCombatMultiplier(countries.get(x.name))*Math.max(0,x.troops||0),0)/Math.max(1,alliesB)):equipmentB;
- const powerA=(Math.max(0,w.troopsA||0)*equipmentA+alliesA*alliedEquipmentA+puppetSupport(w.a)*equipmentA);
- const powerB=(Math.max(0,w.troopsB||0)*equipmentB+alliesB*alliedEquipmentB+puppetSupport(w.b)*equipmentB);
- return {attackers:Math.max(0,Math.round(powerA*(.55+supplyA*.0045))),defenders:Math.max(0,Math.round(powerB*(.55+supplyB*.0045))),supplyA,supplyB,alliesA,alliesB,equipmentA,equipmentB};
+ ensureNavalWar(w);
+ const hasLandFront=!!(w.front&&w.front.length);
+ const transportA=w.naval.unitsA.filter(x=>x.type==='TRANSPORT').length,transportB=w.naval.unitsB.filter(x=>x.type==='TRANSPORT').length;
+ const landA=hasLandFront?Math.max(0,w.troopsA||0):Math.min(Math.max(0,w.troopsA||0),transportA*10000);
+ const landB=hasLandFront?Math.max(0,w.troopsB||0):Math.min(Math.max(0,w.troopsB||0),transportB*10000);
+ const powerA=(landA*equipmentA+alliesA*alliedEquipmentA+puppetSupport(w.a)*equipmentA);
+ const powerB=(landB*equipmentB+alliesB*alliedEquipmentB+puppetSupport(w.b)*equipmentB);
+ return {attackers:Math.max(0,Math.round(powerA*(.55+supplyA*.0045))),defenders:Math.max(0,Math.round(powerB*(.55+supplyB*.0045))),supplyA,supplyB,alliesA,alliesB,equipmentA,equipmentB,transportCapacityA:transportA*10000,transportCapacityB:transportB*10000};
 }
 function recordEncirclement(war,side,available){
  if(!war.encirclements)war.encirclements=[];
@@ -1067,6 +1120,7 @@ function draw(now){
     // Rebuild a failed/missing land front when the geographic layer changes.
     if(war.front&&Array.isArray(war.front)&&war.front.length===0)war.front=buildWarFront(war.a,war.b);
     const front=war.front;
+    drawNavalForces(war,now+index*500);
     // Allied columns remain visible while travelling even when the belligerents
     // have no shared land border and therefore no drawable frontline.
     // Every active war gets a drawable engagement line, even if the source map
@@ -1181,6 +1235,7 @@ function tick(dt){
   w.supplyB=Math.max(5,Math.min(100,(w.supplyB??70)+(targetB-(w.supplyB??70))*adjustment));
  });
  activeWars.forEach(w=>{
+  tickNavalBattle(w,simDt,intensity);
   const strength=activeWarStrength(w),al=strength.attackers*lossRate*simDt,bl=strength.defenders*lossRate*simDt;
   const totalA=Math.max(1,(w.troopsA||0)+(strength.alliesA||0)),totalB=Math.max(1,(w.troopsB||0)+(strength.alliesB||0));
   lossesByCountry.set(w.a,(lossesByCountry.get(w.a)||0)+al*(w.troopsA||0)/totalA);
