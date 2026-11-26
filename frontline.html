@@ -1013,9 +1013,11 @@ function drawFrontCounts(war,points,strength,borderPoints=points){
  const displayScale=Math.max(.22,Math.min(rect.width/W,rect.height/H)*viewScale);
  const fontSize=Math.max(14,Math.min(22,18/displayScale));
  const offset=Math.max(16,Math.min(34,23/displayScale));
- // Use the actual rendered frontline as the axis: troop labels must be parallel
- // to the line itself, not to a separately calculated border tangent.
- let tx=mid.tx,ty=mid.ty,tlen=Math.hypot(tx,ty)||1;
+ // Estimate the frontline's direction over a wider local window. A single
+ // tiny polyline segment can be horizontal even when the visible front here
+ // is vertical or diagonal, so do not use pointAlong()'s one-segment tangent.
+ const before=pointAlong(points,.40),after=pointAlong(points,.60);
+ let tx=after.x-before.x,ty=after.y-before.y,tlen=Math.hypot(tx,ty)||1;
  tx/=tlen;ty/=tlen;
  const nx=-ty,ny=tx;
  let sideA=frontSideForCountry(war.a,borderPoints,.5);
