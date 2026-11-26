@@ -188,7 +188,7 @@ function declareWar(a,b,natural){
  if(!a||!b||a===b){$('war-status').textContent='Choose two different countries.';return false}
  if(!countries.has(a)||!countries.has(b)){ $('war-status').textContent='Choose countries shown on the map.';return false}
  if(activeWars.some(w=>(w.a===a&&w.b===b)||(w.a===b&&w.b===a))){$('war-status').textContent='Those countries are already at war.';return false}
- activeWars.push({a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural});
+ activeWars.push({a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b)});
  $('war-status').textContent=(natural?'A diplomatic crisis escalated: ':'War declared: ')+a+' vs '+b+'.';
  renderWars();return true;
 }
@@ -295,7 +295,7 @@ function buildBase(){
  const cities=[['LONDON',[-.12,51.5]],['PARIS',[2.35,48.86]],['BERLIN',[13.4,52.52]],['WARSAW',[21.01,52.23]],['VIENNA',[16.37,48.2]],['KYIV',[30.52,50.45]],['MINSK',[27.56,53.9]],['MOSCOW',[37.62,55.75]],['BUCHAREST',[26.1,44.43]]];
  cities.forEach(([name,ll])=>{const p=project(ll);c.beginPath();c.arc(p[0],p[1],portraitMap?6:4.5,0,Math.PI*2);c.fillStyle='#f5edcf';c.fill();c.strokeStyle='#334348';c.lineWidth=1.6;c.stroke();c.font='700 '+(portraitMap?16:12)+'px Arial';c.textAlign='left';c.textBaseline='middle';c.fillStyle='#283438';c.fillText(name,p[0]+8,p[1]+1)});
  c.font='700 '+(portraitMap?15:11)+'px Arial';c.fillStyle='rgba(38,53,58,.55)';c.textAlign='center';let seaPoint=project([-2,57]);c.fillText('NORTH SEA',seaPoint[0],seaPoint[1]);seaPoint=project([32,40]);c.fillText('BLACK SEA',seaPoint[0],seaPoint[1]);seaPoint=project([20,58]);c.fillText('BALTIC SEA',seaPoint[0],seaPoint[1]);
- c.restore();mapReady=true;registerCountries();
+ c.restore();mapReady=true;registerCountries();activeWars.forEach(w=>{w.front=buildWarFront(w.a,w.b)});
 }
 function catmullRom(pts,steps){
  const out=[];
@@ -344,21 +344,78 @@ function pointAtHalf(points){
  }
  return {x:800,y:450,tx:0,ty:1,length:full};
 }
+
+// Build the frontline from the real shared country boundary, not a generic line
+// drawn across Eastern Europe. Shared edges come from the map's country polygons.
+function geometryRings(geometry){
+ if(!geometry)return [];
+ if(geometry.type==='Polygon')return geometry.coordinates||[];
+ if(geometry.type==='MultiPolygon')return (geometry.coordinates||[]).flat();
+ return [];
+}
+function borderPointKey(p){return Number(p[0]).toFixed(4)+','+Number(p[1]).toFixed(4)}
+function countryBorderEdges(name){
+ const feature=worldFeatures.find(f=>countryName(f)===name);
+ if(!feature)return new Map();
+ const edges=new Map();
+ geometryRings(feature.geometry).forEach(ring=>{
+  for(let i=1;i<ring.length;i++){
+   const a=ring[i-1],b=ring[i],ka=borderPointKey(a),kb=borderPointKey(b);
+   if(ka===kb)continue;
+   const key=ka<kb?ka+'|'+kb:kb+'|'+ka;
+   edges.set(key,{a:[Number(a[0]),Number(a[1])],b:[Number(b[0]),Number(b[1])]});
+  }
+ });
+ return edges;
+}
+function buildWarFront(a,b){
+ if(!mapReady||!a||!b)return null;
+ const aEdges=countryBorderEdges(a),bEdges=countryBorderEdges(b);
+ const shared=[];
+ for(const [key,edge] of aEdges)if(bEdges.has(key))shared.push(edge);
+ if(!shared.length)return null;
+ const nodes=new Map();
+ shared.forEach((edge,index)=>{
+  const ka=borderPointKey(edge.a),kb=borderPointKey(edge.b);
+  if(!nodes.has(ka))nodes.set(ka,[]);
+  if(!nodes.has(kb))nodes.set(kb,[]);
+  nodes.get(ka).push(index);nodes.get(kb).push(index);
+ });
+ const used=new Set(),paths=[];
+ function walk(start,first){
+  const points=[start];let current=start,edgeIndex=first;
+  while(edgeIndex!==undefined&&!used.has(edgeIndex)){
+   used.add(edgeIndex);const edge=shared[edgeIndex];
+   const next=borderPointKey(edge.a)===current?edge.b:edge.a;
+   points.push(next);current=borderPointKey(next);
+   const options=(nodes.get(current)||[]).filter(i=>!used.has(i));
+   if(!options.length)break;
+   edgeIndex=options[0];
+  }
+  return points;
+ }
+ // Start at endpoints and junctions first, then consume any closed loops.
+ for(const [key,edges] of nodes)if(edges.length!==2)for(const edge of edges)if(!used.has(edge))paths.push(walk(key,edge));
+ for(let i=0;i<shared.length;i++)if(!used.has(i))paths.push(walk(borderPointKey(shared[i].a),i));
+ const projected=paths.map(path=>path.map(project)).filter(path=>path.length>1);
+ if(!projected.length)return null;
+ projected.sort((x,y)=>polyLength(y)-polyLength(x));
+ return projected[0];
+}
+
 function drawFrontCount(value,points,side,color){
  const mid=pointAtHalf(points),normalX=-mid.ty,normalY=mid.tx;
- const offset=side==='blue'?-28:28;
+ const offset=side==='blue'?-13:13;
  const x=mid.x+normalX*offset,y=mid.y+normalY*offset;
- // The theatre's frontline runs north-to-south: keep the count vertical and parallel to it.
- const angle=Math.PI/2;
- const target=Math.min(360,Math.max(210,mid.length*.28));
- const fontSize=82;
+ // Rotate with this particular border segment; no forced map-wide vertical orientation.
+ let angle=Math.atan2(mid.ty,mid.tx);
+ if(angle>Math.PI/2||angle< -Math.PI/2)angle+=Math.PI;
+ const fontSize=Math.max(10,Math.min(24,(mid.length-8)/(value.length*.72)));
  ctx.save();ctx.translate(x,y);ctx.rotate(angle);
  ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
- const natural=ctx.measureText(value).width||1;
- ctx.scale(target/natural,1);
  ctx.textAlign='center';ctx.textBaseline='middle';
- // Bare lettering only: no panel, badge, rectangle, border, or boxed background.
- ctx.shadowColor='rgba(20,27,28,.72)';ctx.shadowBlur=3;ctx.shadowOffsetX=1;ctx.shadowOffsetY=1;
+ // Plain text only: no box, pill, badge, or stretched lettering.
+ ctx.shadowColor='rgba(255,255,255,.9)';ctx.shadowBlur=2;ctx.shadowOffsetX=0;ctx.shadowOffsetY=0;
  ctx.fillStyle=color;ctx.fillText(value,0,0);
  ctx.restore();
 }
@@ -383,7 +440,9 @@ function draw(now){
  if(selectedCountry){const f=worldFeatures.find(x=>countryName(x)===selectedCountry);if(f){ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.strokeStyle='#ffe59a';ctx.lineWidth=4;ctx.stroke()}}
  if(activeWars.length){
   activeWars.forEach((war,index)=>{
-   const front=getFront(index),strength=activeWarStrength(war);
+   const front=war.front;
+   if(!front||front.length<2)return;
+   const strength=activeWarStrength(war);
    drawFrontline(front,now+index*173);
    drawFrontCount(fmt(strength.attackers),front,'red','#a51f25');
    drawFrontCount(fmt(strength.defenders),front,'blue','#145f98');
