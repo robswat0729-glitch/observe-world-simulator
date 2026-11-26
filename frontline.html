@@ -241,7 +241,7 @@ function equipmentCombatMultiplier(country){
  return Math.max(.65,Math.min(1.45,.72+armour*.48));
 }
 function isSeaPoint(x,y){
- for(const feature of worldFeatures){for(const polygon of geometryPolygons(feature.geometry)){if(polygon[0]&&pointInRing(x,y,polygon[0])){let hole=false;for(let h=1;h<polygon.length;h++)if(pointInRing(x,y,polygon[h]))hole=!hole;if(!hole)return false;}}}
+ for(const feature of worldFeatures){for(const polygon of geometryPolygons(feature.geometry)){if(polygon[0]&&pointInRing(x,y,polygon[0].map(project))){let hole=false;for(let h=1;h<polygon.length;h++)if(pointInRing(x,y,polygon[h].map(project)))hole=!hole;if(!hole)return false;}}}
  return x>4&&x<W-4&&y>4&&y<H-4;
 }
 function findNavalSeaPoint(a,b){
