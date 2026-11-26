@@ -496,11 +496,20 @@ function buildWarFront(a,b){
  // Start at endpoints and branch nodes; remaining edges are closed loops.
  for(const [key,edges] of nodes)if(edges.length!==2)for(const edge of edges)if(!used.has(edge))paths.push(walk(key,edge));
  for(let i=0;i<shared.length;i++)if(!used.has(i))paths.push(walk(borderPointKey(shared[i].a),i));
- const projected=paths.map(path=>path.map(project)).filter(path=>{
-  if(path.length<2||polyLength(path)<2.5)return false;
-  // Reject accidental jumps: legitimate adjacent border vertices stay close.
-  for(let i=1;i<path.length;i++)if(Math.hypot(path[i][0]-path[i-1][0],path[i][1]-path[i-1][1])>Math.max(W,H)*.16)return false;
-  return true;
+ const projected=[];
+ const maxJoinGap=Math.max(W,H)*.16;
+ // Split malformed chains at accidental long jumps instead of discarding the
+ // entire country's border. This preserves every valid shared-border section.
+ paths.forEach(path=>{
+  const points=path.map(project);let segment=[];
+  points.forEach((point,index)=>{
+   if(index&&Math.hypot(point[0]-points[index-1][0],point[1]-points[index-1][1])>maxJoinGap){
+    if(segment.length>1&&polyLength(segment)>.5)projected.push(segment);
+    segment=[];
+   }
+   segment.push(point);
+  });
+  if(segment.length>1&&polyLength(segment)>.5)projected.push(segment);
  });
  projected.sort((x,y)=>polyLength(y)-polyLength(x));
  if(projected.length)return projected;const known=knownHistoricalFront(a,b);if(known)return known;const fallback=fallbackAdjacentFront(a,b);return fallback||null;
