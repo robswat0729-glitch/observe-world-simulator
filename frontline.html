@@ -1174,14 +1174,45 @@ function draw(now){
   }
  });
  worldFeatures.forEach(f=>{const name=sovereignOwner(countryName(f)),side=belligerents.get(name);if(!side)return;ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle=side==='attacker'?'rgba(190,71,67,.48)':'rgba(55,139,202,.48)';ctx.fill()});
- // Civil-war states receive a distinct green overlay across their territory.
- countries.forEach((country,name)=>{
-  if(!country.civilWar||country.annexedTo)return;
-  worldFeatures.filter(f=>sovereignOwner(countryName(f))===name).forEach(f=>{
-   ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle='rgba(46,160,82,.34)';ctx.fill();
-   ctx.strokeStyle='rgba(90,220,125,.95)';ctx.lineWidth=2;ctx.setLineDash([5,4]);ctx.stroke();ctx.setLineDash([]);
+function createCivilWarTerritory(name){
+ const candidates=[];
+ worldFeatures.forEach((feature,index)=>{
+  if(countryName(feature)!==name||sovereignOwner(countryName(feature))!==name)return;
+  geometryPolygons(feature.geometry).forEach((poly,polyIndex)=>{
+   const ring=poly[0]||[];if(ring.length<4)return;
+   const pts=ring.map(ll=>project(ll)),xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+   const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+   candidates.push({index,polyIndex,feature,poly,minX,maxX,minY,maxY,area:(maxX-minX)*(maxY-minY)});
   });
  });
+ candidates.sort((a,b)=>b.area-a.area);const chosen=candidates[0];if(!chosen)return null;
+ const {minX,maxX,minY,maxY,poly}=chosen,ring=poly[0]||[];
+ let center=countryMapCenter(name);
+ if(!center||!pointInRing(center[0],center[1],ring)){
+  center=null;
+  for(let gy=1;gy<8&&!center;gy++)for(let gx=1;gx<8&&!center;gx++){
+   const x=minX+(maxX-minX)*gx/8,y=minY+(maxY-minY)*gy/8;
+   if(pointInRing(x,y,ring))center=[x,y];
+  }
+ }
+ if(!center)return null;
+ const rx=Math.max(2,(maxX-minX)*.20),ry=Math.max(2,(maxY-minY)*.20);
+ const points=[];for(let i=0;i<18;i++){const a=i*Math.PI*2/18,variation=.78+((i*7+chosen.index*3)%9)/30;points.push([center[0]+Math.cos(a)*rx*variation,center[1]+Math.sin(a)*ry*variation]);}
+ return {featureIndex:chosen.index,center,rx,ry,points,progress:0};
+}
+function drawCivilWarTerritory(country){
+ const cw=country.civilWar,region=cw?.territory;if(!cw||!region)return;
+ const feature=worldFeatures[region.featureIndex];if(!feature)return;
+ const growth=Math.max(.72,Math.min(1.65,1+(cw.progress||0)/150));
+ ctx.save();ctx.beginPath();traceGeometry(ctx,feature.geometry);ctx.clip();
+ ctx.beginPath();region.points.forEach((p,i)=>{const x=region.center[0]+(p[0]-region.center[0])*growth,y=region.center[1]+(p[1]-region.center[1])*growth;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});ctx.closePath();
+ ctx.fillStyle='rgba(38,168,83,.78)';ctx.fill();ctx.strokeStyle='rgba(113,245,151,.98)';ctx.lineWidth=2;ctx.setLineDash([5,3]);ctx.stroke();ctx.setLineDash([]);
+ // A small internal front line marks the contested edge between rebel and government-held land.
+ const center=countryMapCenter(country.name);if(center){ctx.beginPath();ctx.moveTo(region.center[0],region.center[1]);ctx.lineTo(center[0],center[1]);ctx.strokeStyle='rgba(255,235,170,.95)';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);}
+ ctx.restore();
+}
+ // Green marks only the rebel-held pocket, clipped to the country's real map polygon.
+ countries.forEach(country=>{if(country.civilWar&&!country.annexedTo)drawCivilWarTerritory(country)});
  drawPeaceDivisionMarkers();
 
  if(selectedCountry){
@@ -1354,7 +1385,9 @@ function tick(dt){
     if(rebelTroops>=1000){
      country.soldiers-=rebelTroops;
      country.reserve=Math.max(0,(country.reserve||0)-rebelReserve);
-     country.civilWar={troops:rebelTroops,reserve:rebelReserve,divisions:Math.max(1,Math.round(rebelTroops/12000)),progress:0};
+     country.civilWar={troops:rebelTroops,reserve:rebelReserve,divisions:Math.max(1,Math.round(rebelTroops/12000)),progress:0,territory:createCivilWarTerritory(country.name)};
+     if(!country.civilWar.territory){country.civilWar=null;country.soldiers+=rebelTroops;country.reserve+=rebelReserve;}
+     else publishNews(country.name.toUpperCase()+' CIVIL WAR','Rebel forces have seized a pocket of territory inside '+country.name+'. Green territory marks rebel control; government forces are mobilising to retake it.','CIVIL WAR');
     }
    }
   });
@@ -1408,16 +1441,20 @@ function tick(dt){
     }
     return;
    }
-   const governmentLoss=Math.min(country.soldiers,Math.max(0,country.soldiers*.00012*intensity*elapsedDays));
-   const rebelLoss=Math.min(cw.troops,Math.max(0,cw.troops*.00016*intensity*elapsedDays));
-   country.soldiers=Math.max(0,country.soldiers-governmentLoss);country.reserve=Math.min(Math.max(0,country.reserve||0),country.soldiers);
-   cw.troops=Math.max(0,cw.troops-rebelLoss);casualties+=governmentLoss+rebelLoss;
-   const recruits=Math.min(Math.max(0,country.citizens||0),country.population*.00001*elapsedDays);
-   if(recruits>0){country.citizens-=recruits;cw.troops+=recruits;cw.divisions=Math.max(1,Math.round(cw.troops/12000));}
-   const total=country.soldiers+cw.troops;
-   if(cw.troops<1000){country.civilWar=null;country.stability=Math.max(25,country.stability);}
-   else if(country.soldiers<1000||cw.troops>country.soldiers*1.15){country.soldiers+=cw.troops;country.reserve=(country.reserve||0)+cw.reserve;country.civilWar=null;country.stability=45;}
-   else{cw.progress=Math.max(0,Math.min(100,cw.progress+((cw.troops-country.soldiers)/Math.max(1,total))*.08*elapsedDays));cw.divisions=Math.max(1,Math.round(cw.troops/12000));}
+   const governmentBefore=Math.max(0,country.soldiers),rebelsBefore=Math.max(0,cw.troops);
+   const governmentLoss=Math.min(governmentBefore,Math.max(0,governmentBefore*.00010*intensity*elapsedDays*(rebelsBefore/Math.max(1,governmentBefore))**.35));
+   const rebelLoss=Math.min(rebelsBefore,Math.max(0,rebelsBefore*.00013*intensity*elapsedDays*(governmentBefore/Math.max(1,rebelsBefore))**.35));
+   country.soldiers=Math.max(0,governmentBefore-governmentLoss);country.reserve=Math.min(Math.max(0,country.reserve||0),country.soldiers);
+   cw.troops=Math.max(0,rebelsBefore-rebelLoss);casualties+=governmentLoss+rebelLoss;
+   const recruits=Math.min(Math.max(0,country.citizens||0),country.population*.000004*elapsedDays);
+   if(recruits>0){country.citizens-=recruits;cw.troops+=recruits;}
+   // Rebel territory expands when rebels gain the upper hand and contracts when government forces push them back.
+   const relative=(cw.troops-governmentBefore)/Math.max(1,cw.troops+governmentBefore);
+   cw.progress=Math.max(-35,Math.min(100,(cw.progress||0)+relative*.11*elapsedDays));
+   cw.divisions=Math.max(0,Math.round(cw.troops/12000));
+   if(cw.troops<1000){country.civilWar=null;country.stability=Math.max(25,country.stability);publishNews(country.name.toUpperCase()+' REBELLION DEFEATED','Government forces have eliminated the organised rebel army.','CIVIL WAR ENDS');}
+   else if(country.soldiers<1000||cw.progress>=100||cw.troops>country.soldiers*1.15){country.soldiers+=cw.troops;country.reserve=(country.reserve||0)+cw.reserve;country.civilWar=null;country.stability=45;publishNews(country.name.toUpperCase()+' REBELS WIN','The rebel faction has defeated the government and taken control of the country.','CIVIL WAR ENDS');}
+   else if(cw.progress<=-35){country.civilWar=null;country.stability=Math.max(35,country.stability);publishNews(country.name.toUpperCase()+' GOVERNMENT WINS','Government forces have retaken the rebel-held territory.','CIVIL WAR ENDS');}
   });
  }
  // Reserves are kept out of the frontline until needed. Each simulated day,
