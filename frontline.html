@@ -824,17 +824,40 @@ function buildWarFront(a,b){
  if(projected.length)return projected;const known=knownHistoricalFront(a,b);if(known)return known;const fallback=fallbackAdjacentFront(a,b);return fallback||null;
 }
 
+function countryHasCoastline(name,neighbors,edges){
+ const total=edges.reduce((n,e)=>n+Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1]),0);
+ let shared=0;
+ neighbors.forEach(other=>{const pieces=sharedBorderPieces(edges,countryBorderEdges(other));shared+=pieces.reduce((n,e)=>n+Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1]),0)});
+ return total-shared>.35;
+}
 function ensureBorderGarrisons(country){
  if(country.borderGarrisonReady)return;
  const neighbors=[...countries.keys()].filter(name=>name!==country.name&&!!buildWarFront(country.name,name));
- const coastal=/United Kingdom|Britain|France|Germany|Italy|Spain|Portugal|Netherlands|Belgium|Norway|Sweden|Denmark|Poland|Romania|Greece|Turkey|Soviet|Russia|Yugoslavia|Finland|Estonia|Latvia|Lithuania|Ireland|Bulgaria|Albania/i.test(country.name);
+ const edges=countryBorderEdges(country.name);
+ const coastal=countryHasCoastline(country.name,neighbors,edges)||/United Kingdom|Britain|France|Germany|Italy|Spain|Portugal|Netherlands|Belgium|Norway|Sweden|Denmark|Poland|Romania|Greece|Turkey|Soviet|Russia|Yugoslavia|Finland|Estonia|Latvia|Lithuania|Ireland|Bulgaria|Albania/i.test(country.name);
  const slots=Math.max(1,neighbors.length+(coastal?1:0));
+ // Keep a standing force at every land border and along the coast. Do not
+ // round garrisons into artificial 12,000-person blocks.
  const pool=Math.max(0,(country.soldiers||0)-(country.reserve||0))*.72;
- const per=Math.floor(pool/slots/12000)*12000;
+ const per=Math.floor(pool/slots);
  country.borderGarrisons={};
  neighbors.forEach(name=>country.borderGarrisons[name]=per);
  if(coastal)country.borderGarrisons.SEA=per;
  country.borderGarrisonReady=true;
+}
+function divisionUnitTarget(troops){
+ return Math.max(2500,Math.min(18000,Math.round(Math.sqrt(Math.max(1,troops))*38)));
+}
+function createDivisionUnits(troops,status='garrison'){
+ const units=[];let remaining=Math.max(0,Math.floor(troops));
+ while(remaining>=1000){
+  const target=divisionUnitTarget(remaining),variation=.78+Math.random()*.44;
+  const size=Math.min(remaining,Math.max(1000,Math.round(target*variation/100)*100));
+  units.push({troops:size,status,training:0,travel:0});
+  remaining-=size;
+ }
+ if(remaining>0){if(units.length)units[units.length-1].troops+=remaining;else units.push({troops:remaining,status,training:0,travel:0})}
+ return units;
 }
 function divisionList(w,side){
  const key=side==='A'?'divisionsA':'divisionsB';
@@ -872,9 +895,10 @@ function updateWarDeployments(){
     // Only the peacetime garrison assigned to this exact border enters combat.
     // Other land-border and sea garrisons remain stationed at their posts.
     const enemyName=item.war.a===name?item.war.b:item.war.a;
-    const stationed=item.support?Math.floor(committed*.35/12000)*12000:
-      (item.war.front?.length?(country.borderGarrisons[enemyName]||0):(country.borderGarrisons.SEA||0));
-    for(let n=0;n<stationed/12000;n++)divisions.push({troops:12000,status:'garrison',training:0,travel:0});
+    const stationed=item.support?Math.floor(committed*.35):
+      (item.war.civilWar?Math.floor(committed*.55):
+       (item.war.front?.length?(country.borderGarrisons[enemyName]||0):(country.borderGarrisons.SEA||0)));
+    divisions.push(...createDivisionUnits(stationed,'garrison'));
     item.war['garrisonReady'+item.side]=true;
     item.war['reinforcementClock'+item.side]=0;
   }
@@ -911,16 +935,18 @@ function tickDivisionReinforcements(simDt){
     else if(d.status==='marching'){d.travel-=elapsedDays;if(d.travel<=0)d.status='front';}
    });
    w['reinforcementClock'+side]=(w['reinforcementClock'+side]||0)+elapsedDays;
-   const active=divisions.filter(d=>d.status==='garrison'||d.status==='front').length;
-   const reserve= Math.max(0,country.reserve||0);
+   const reserve=Math.max(0,country.reserve||0);
    const otherWars=activeWars.filter(x=>x!==w&&(x.a===name||x.b===name||[...(x.supportA||[]),...(x.supportB||[])].some(y=>y.name===name))).length;
    const interval=3.2+otherWars*1.8;
-   if(w['reinforcementClock'+side]>=interval&&reserve>=12000&&active<Math.max(1,Math.floor((country.soldiers||0)/12000))){
+   const batch=Math.min(reserve,Math.max(1000,Math.round(divisionUnitTarget(country.soldiers||reserve)*(.72+Math.random()*.56)/100)*100));
+   if(w['reinforcementClock'+side]>=interval&&reserve>=1000&&batch>=1000){
     const city=nearestSupplyCity(name),front=w.front?.length?pointAlong(w.front.reduce((a,b)=>polyLength(a)>polyLength(b)?a:b),.5):null;
     const distance=city&&front?Math.hypot(city.x-front.x,city.y-front.y):45;
     const travelDays=Math.max(.5,Math.min(5,distance/95));
-    divisions.push({troops:12000,status:'training',training:1.5+(Math.random()*.8),travel:0,travelDays,origin:city?.name||'LOCAL DEPOT'});
-    country.reserve=Math.max(0,reserve-12000);
+    const unit=createDivisionUnits(batch,'training');
+    unit.forEach(d=>{d.training=1.5+(Math.random()*.8);d.travelDays=travelDays;d.origin=city?.name||'LOCAL DEPOT'});
+    divisions.push(...unit);
+    country.reserve=Math.max(0,reserve-batch);
     w['reinforcementClock'+side]=0;
    }
   });
@@ -1170,11 +1196,15 @@ function countryFlag(name){
 function buildPeaceDivisionMarkers(){
  peaceDivisionMarkers=[];
  [...countries.keys()].filter(name=>isSovereign(name)&&!countries.get(name)?.annexedTo).forEach(name=>{
+  const country=countries.get(name);ensureBorderGarrisons(country);
+  const garrisonTroops=Object.values(country.borderGarrisons||{}).reduce((n,v)=>n+Math.max(0,v||0),0);
+  if(garrisonTroops<1000)return;
   const edges=countryBorderEdges(name);if(!edges.length)return;
   const projected=edges.map(e=>{const a=project(e.a),b=project(e.b);return {a,b,len:Math.hypot(b[0]-a[0],b[1]-a[1])}}).filter(e=>e.len>2);
   const total=projected.reduce((n,e)=>n+e.len,0);if(total<8)return;
-  if(atWar(name))return;
-  const troops=Math.max(0,countries.get(name)?.soldiers||0),count=Math.max(6,Math.min(26,Math.round(troops/12000)));
+  // The number of displayed formations scales with the actual garrison pool;
+  // formations are variable strength, not fixed 12,000-person counters.
+  const count=Math.max(1,Math.min(30,Math.round(garrisonTroops/8500)));
   for(let i=0;i<count;i++){
    let remaining=(i+.5)/count*total,edge=projected[projected.length-1];
    for(const e of projected){if(remaining<=e.len){edge=e;break}remaining-=e.len}
@@ -1185,10 +1215,19 @@ function buildPeaceDivisionMarkers(){
   }
  });
 }
+function nearActiveWarFront(name,x,y){
+ const wars=activeWars.filter(w=>(w.a===name||w.b===name)&&w.front?.length);
+ for(const war of wars)for(const path of war.front)for(let i=1;i<path.length;i++){
+  const a=path[i-1],b=path[i],dx=b[0]-a[0],dy=b[1]-a[1],len2=dx*dx+dy*dy||1;
+  const t=Math.max(0,Math.min(1,((x-a[0])*dx+(y-a[1])*dy)/len2));
+  if(Math.hypot(x-(a[0]+dx*t),y-(a[1]+dy*t))<7)return true;
+ }
+ return false;
+}
 function drawPeaceDivisionMarkers(){
  if(!peaceDivisionMarkers.length)return;
  ctx.save();ctx.globalAlpha=.82;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='7px "Noto Color Emoji","Apple Color Emoji",Arial';ctx.lineWidth=1;ctx.strokeStyle='rgba(250,248,235,.9)';
- peaceDivisionMarkers.forEach(m=>{if(atWar(m.name))return;ctx.strokeText(m.flag,m.x,m.y);ctx.fillText(m.flag,m.x,m.y)});
+ peaceDivisionMarkers.forEach(m=>{if(nearActiveWarFront(m.name,m.x,m.y))return;ctx.strokeText(m.flag,m.x,m.y);ctx.fillText(m.flag,m.x,m.y)});
  ctx.restore();
 }
 function createSupportTransfer(ally,host,war,commitRatio=.30){
