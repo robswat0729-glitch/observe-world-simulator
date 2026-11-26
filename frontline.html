@@ -248,12 +248,14 @@ function renderHud(){
  $('red-territory-label').textContent='AXIS '+Math.round(redPct)+'%';
 }
 function tick(dt){
- // Personnel figures are annual historical snapshots, not randomly generated reinforcements.
- // Casualties are tracked separately and kept modest per simulated day.
+ // Keep troop strength fractional internally so small losses accumulate smoothly.
+ // The UI rounds only for display; the simulation updates this model at 100 Hz.
  const intensity=Number($('intensity').value);
- const dailyRate=.00012*intensity;
- const bLoss=Math.round(blueTroops*dailyRate*dt);
- const rLoss=Math.round(redTroops*dailyRate*dt);
+ const lossRate=.00012*intensity;
+ const bLoss=blueTroops*lossRate*dt;
+ const rLoss=redTroops*lossRate*dt;
+ blueTroops=Math.max(0,blueTroops-bLoss);
+ redTroops=Math.max(0,redTroops-rLoss);
  casualties+=bLoss+rLoss;
 }
 function nextDay(){
@@ -272,7 +274,8 @@ function frame(now){
  const dt=Math.min(.08,(now-last)/1000);last=now;
  if(!paused){
   acc+=dt;dayAcc+=dt*speed;
-  if(acc>=1/30){tick(acc);acc=0;renderHud()}
+  // Run the troop-strength and casualty model in fixed 10 ms steps (100 updates/sec).
+  while(acc>=.01){tick(.01);acc-=.01;renderHud()}
   while(dayAcc>=2){dayAcc-=2;nextDay()}
  }
  draw(now);requestAnimationFrame(frame);
