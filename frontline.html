@@ -172,6 +172,7 @@ function registerCountries(){
  if(countries.size&&!populationLoaded&&!populationLoading)load1936PopulationReference();
 }
 function atWar(name){return activeWars.some(w=>w.a===name||w.b===name)}
+function warsForCountry(name){return activeWars.filter(w=>w.a===name||w.b===name)}
 function showCountry(name){
  const c=countries.get(name);if(!c)return;selectedCountry=name;
  $('country-name').textContent=name.toUpperCase();
@@ -188,8 +189,9 @@ function declareWar(a,b,natural){
  if(!a||!b||a===b){$('war-status').textContent='Choose two different countries.';return false}
  if(!countries.has(a)||!countries.has(b)){ $('war-status').textContent='Choose countries shown on the map.';return false}
  if(activeWars.some(w=>(w.a===a&&w.b===b)||(w.a===b&&w.b===a))){$('war-status').textContent='Those countries are already at war.';return false}
- activeWars.push({a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b)});
- $('war-status').textContent=(natural?'A diplomatic crisis escalated: ':'War declared: ')+a+' vs '+b+'.'+(activeWars[activeWars.length-1].front?'':' No shared land border, so no land frontline is shown.');
+ const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0};
+ activeWars.push(war);updateWarDeployments();
+ $('war-status').textContent=(natural?'A diplomatic crisis escalated: ':'War declared: ')+a+' vs '+b+'.'+(war.front?'':' No shared land border, so no land frontline is shown.');
  renderWars();return true;
 }
 function pointInRing(x,y,ring){
@@ -237,10 +239,11 @@ async function load1936PopulationReference(){
 function naturalDiplomacy(){
  if(countries.size<2||activeWars.length>countries.size/5)return;
  if(Math.random()>.000025*countries.size)return;
- const eligible=[...countries.keys()].filter(n=>!atWar(n)&&isSovereign(n));if(eligible.length<2)return;
+ // Countries already fighting can open another front, but the AI avoids unlimited wars.
+ const eligible=[...countries.keys()].filter(n=>isSovereign(n)&&warsForCountry(n).length<3);
+ if(eligible.length<2)return;
  const a=eligible[Math.floor(Math.random()*eligible.length)];
- // Natural land wars start between neighboring countries so each new war has a real border front.
- const neighbors=eligible.filter(n=>n!==a&&buildWarFront(a,n));
+ const neighbors=eligible.filter(n=>n!==a&&!activeWars.some(w=>(w.a===a&&w.b===n)||(w.a===n&&w.b===a))&&buildWarFront(a,n));
  if(!neighbors.length)return;
  declareWar(a,neighbors[Math.floor(Math.random()*neighbors.length)],true);
 }
@@ -298,7 +301,7 @@ function buildBase(){
  const cities=[['LONDON',[-.12,51.5]],['PARIS',[2.35,48.86]],['BERLIN',[13.4,52.52]],['WARSAW',[21.01,52.23]],['VIENNA',[16.37,48.2]],['KYIV',[30.52,50.45]],['MINSK',[27.56,53.9]],['MOSCOW',[37.62,55.75]],['BUCHAREST',[26.1,44.43]]];
  cities.forEach(([name,ll])=>{const p=project(ll);c.beginPath();c.arc(p[0],p[1],portraitMap?6:4.5,0,Math.PI*2);c.fillStyle='#f5edcf';c.fill();c.strokeStyle='#334348';c.lineWidth=1.6;c.stroke();c.font='700 '+(portraitMap?16:12)+'px Arial';c.textAlign='left';c.textBaseline='middle';c.fillStyle='#283438';c.fillText(name,p[0]+8,p[1]+1)});
  c.font='700 '+(portraitMap?15:11)+'px Arial';c.fillStyle='rgba(38,53,58,.55)';c.textAlign='center';let seaPoint=project([-2,57]);c.fillText('NORTH SEA',seaPoint[0],seaPoint[1]);seaPoint=project([32,40]);c.fillText('BLACK SEA',seaPoint[0],seaPoint[1]);seaPoint=project([20,58]);c.fillText('BALTIC SEA',seaPoint[0],seaPoint[1]);
- c.restore();mapReady=true;registerCountries();activeWars.forEach(w=>{w.front=buildWarFront(w.a,w.b)});
+ c.restore();mapReady=true;registerCountries();activeWars.forEach(w=>{w.front=buildWarFront(w.a,w.b)});updateWarDeployments();
 }
 function catmullRom(pts,steps){
  const out=[];
@@ -358,15 +361,14 @@ function geometryRings(geometry){
 }
 function borderPointKey(p){return Number(p[0]).toFixed(4)+','+Number(p[1]).toFixed(4)}
 function countryBorderEdges(name){
- const feature=worldFeatures.find(f=>countryName(f)===name);
- if(!feature)return [];
+ const features=worldFeatures.filter(f=>countryName(f)===name);
  const edges=[];
- geometryRings(feature.geometry).forEach(ring=>{
+ features.forEach(feature=>geometryRings(feature.geometry).forEach(ring=>{
   for(let i=1;i<ring.length;i++){
    const a=[Number(ring[i-1][0]),Number(ring[i-1][1])],b=[Number(ring[i][0]),Number(ring[i][1])];
    if(Math.hypot(b[0]-a[0],b[1]-a[1])>1e-7)edges.push({a,b,minX:Math.min(a[0],b[0]),maxX:Math.max(a[0],b[0]),minY:Math.min(a[1],b[1]),maxY:Math.max(a[1],b[1])});
   }
- });
+ }));
  return edges;
 }
 // Match overlapping border portions, even when one country's GeoJSON edge is
@@ -398,11 +400,12 @@ function buildWarFront(a,b){
  if(!mapReady||!a||!b)return null;
  const shared=sharedBorderPieces(countryBorderEdges(a),countryBorderEdges(b));
  if(!shared.length)return null;
+ // Merge only degree-two joins. At corners/junctions stop instead of arbitrarily
+ // choosing an edge and accidentally drawing a line across unrelated borders.
  const nodes=new Map();
  shared.forEach((edge,index)=>{
   const ka=borderPointKey(edge.a),kb=borderPointKey(edge.b);
-  if(!nodes.has(ka))nodes.set(ka,[]);
-  if(!nodes.has(kb))nodes.set(kb,[]);
+  if(!nodes.has(ka))nodes.set(ka,[]);if(!nodes.has(kb))nodes.set(kb,[]);
   nodes.get(ka).push(index);nodes.get(kb).push(index);
  });
  const used=new Set(),paths=[];
@@ -413,20 +416,45 @@ function buildWarFront(a,b){
    const next=borderPointKey(edge.a)===current?edge.b:edge.a;
    points.push(next);current=borderPointKey(next);
    const options=(nodes.get(current)||[]).filter(i=>!used.has(i));
-   if(!options.length)break;
+   if(options.length!==1)break;
    edgeIndex=options[0];
   }
   return points;
  }
+ // Start at endpoints and branch nodes; remaining edges are closed loops.
  for(const [key,edges] of nodes)if(edges.length!==2)for(const edge of edges)if(!used.has(edge))paths.push(walk(key,edge));
  for(let i=0;i<shared.length;i++)if(!used.has(i))paths.push(walk(borderPointKey(shared[i].a),i));
- const projected=paths.map(path=>path.map(project)).filter(path=>path.length>1&&polyLength(path)>5);
+ const projected=paths.map(path=>path.map(project)).filter(path=>{
+  if(path.length<2||polyLength(path)<2.5)return false;
+  // Reject accidental jumps: legitimate adjacent border vertices stay close.
+  for(let i=1;i<path.length;i++)if(Math.hypot(path[i][0]-path[i-1][0],path[i][1]-path[i-1][1])>Math.max(W,H)*.16)return false;
+  return true;
+ });
  projected.sort((x,y)=>polyLength(y)-polyLength(x));
  return projected.length?projected:null;
 }
 
+function updateWarDeployments(){
+ const engagements=new Map();
+ activeWars.forEach(w=>{
+  const a=countries.get(w.a),b=countries.get(w.b);if(!a||!b)return;
+  const length=w.front?.reduce((sum,p)=>sum+polyLength(p),0)||0;
+  const push=(name,enemy,field)=>{
+   if(!engagements.has(name))engagements.set(name,[]);
+   // A larger and more capable enemy receives a larger share of the country's army.
+   const threat=Math.max(1,enemy.soldiers)*(1+Math.min(length/700,.8));
+   engagements.get(name).push({war:w,field,threat});
+  };
+  push(w.a,b,'troopsA');push(w.b,a,'troopsB');
+ });
+ engagements.forEach((list,name)=>{
+  const total=countries.get(name)?.soldiers||0,sum=list.reduce((v,x)=>v+x.threat,0);
+  list.forEach(x=>{x.war[x.field]=sum?Math.floor(total*x.threat/sum):0});
+ });
+ activeWars.forEach(w=>{w.troopsA=w.troopsA||0;w.troopsB=w.troopsB||0});
+}
 function activeWarStrength(w){
- return {attackers: countries.get(w.a)?.soldiers||0, defenders: countries.get(w.b)?.soldiers||0};
+ return {attackers:Math.max(0,Math.round(w.troopsA||0)), defenders:Math.max(0,Math.round(w.troopsB||0))};
 }
 function pointAlong(points,fraction){
  const full=polyLength(points),target=full*fraction;let walked=0;
@@ -441,14 +469,16 @@ function pointAlong(points,fraction){
  return pointAtHalf(points);
 }
 function drawFrontCount(value,points,fraction,side,color){
- const mid=pointAlong(points,fraction),nx=-mid.ty,ny=mid.tx,offset=side==='blue'?-17:17;
+ const mid=pointAlong(points,fraction),nx=-mid.ty,ny=mid.tx;
+ const rect=canvas.getBoundingClientRect(),displayScale=Math.max(.2,Math.min(rect.width/W,rect.height/H)*viewScale);
+ const offset=23/displayScale;
  let angle=Math.atan2(mid.ty,mid.tx);
  if(angle>Math.PI/2||angle< -Math.PI/2)angle+=Math.PI;
- const fontSize=Math.max(10,Math.min(16,mid.length/(value.length*.72)));
- ctx.save();ctx.translate(mid.x+nx*offset,mid.y+ny*offset);ctx.rotate(angle);
+ const fontSize=Math.max(12,Math.min(44,14/displayScale));
+ ctx.save();ctx.translate(mid.x+nx*offset*(side==='blue'?-1:1),mid.y+ny*offset*(side==='blue'?-1:1));ctx.rotate(angle);
  ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
  ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
- ctx.lineWidth=3.5;ctx.strokeStyle='rgba(255,255,255,.98)';ctx.strokeText(value,0,0);
+ ctx.lineWidth=Math.max(4,4/displayScale);ctx.strokeStyle='rgba(255,255,255,1)';ctx.strokeText(value,0,0);
  ctx.fillStyle=color;ctx.fillText(value,0,0);ctx.restore();
 }
 function drawFrontline(points,now){
@@ -474,10 +504,10 @@ function draw(now){
     const paths=Array.isArray(front[0]?.[0])?front:[front];
     paths.forEach((path,pathIndex)=>{if(path.length>1)drawFrontline(path,now+index*173+pathIndex*61)});
     const mainFront=paths.slice().sort((a,b)=>polyLength(b)-polyLength(a))[0];
-    if(mainFront&&mainFront.length>1&&polyLength(mainFront)>18){
+    if(mainFront&&mainFront.length>1&&polyLength(mainFront)>2){
      const strength=activeWarStrength(war);
-     drawFrontCount(fmt(strength.attackers),mainFront,.36,'red','#a51f25');
-     drawFrontCount(fmt(strength.defenders),mainFront,.64,'blue','#145f98');
+     drawFrontCount(fmt(strength.attackers),mainFront,.34,'red','#8f171b');
+     drawFrontCount(fmt(strength.defenders),mainFront,.66,'blue','#07538b');
     }
    });
  }else{
@@ -496,9 +526,15 @@ function renderHud(){
  $('red-territory-label').textContent='AXIS '+Math.round(redPct)+'%';
 }
 function tick(dt){
- const intensity=Number($('intensity').value),simDt=dt*speed,lossRate=.00012*intensity;let losses=0;
- activeWars.forEach(w=>{const a=countries.get(w.a),b=countries.get(w.b);if(!a||!b)return;const al=a.soldiers*lossRate*simDt,bl=b.soldiers*lossRate*simDt;a.soldiers=Math.max(0,a.soldiers-al);b.soldiers=Math.max(0,b.soldiers-bl);losses+=al+bl});
- casualties+=losses;
+ const intensity=Number($('intensity').value),simDt=dt*speed,lossRate=.00012*intensity,lossesByCountry=new Map();
+ updateWarDeployments();
+ activeWars.forEach(w=>{
+  const strength=activeWarStrength(w),al=strength.attackers*lossRate*simDt,bl=strength.defenders*lossRate*simDt;
+  lossesByCountry.set(w.a,(lossesByCountry.get(w.a)||0)+al);lossesByCountry.set(w.b,(lossesByCountry.get(w.b)||0)+bl);
+ });
+ let losses=0;
+ lossesByCountry.forEach((amount,name)=>{const c=countries.get(name);if(c){const actual=Math.min(c.soldiers,amount);c.soldiers=Math.max(0,c.soldiers-actual);losses+=actual}});
+ casualties+=losses;updateWarDeployments();
  if(activeWars.length){let pressureSum=0;activeWars.forEach(w=>{const strength=activeWarStrength(w),total=strength.attackers+strength.defenders;if(total>0)pressureSum+=(strength.attackers-strength.defenders)/total});const pressure=pressureSum/activeWars.length;territory=Math.max(5,Math.min(95,territory+pressure*.12*simDt))}
  if(selectedCountry&&countries.has(selectedCountry))$('country-army').textContent=fmt(countries.get(selectedCountry).soldiers);
 }
@@ -539,7 +575,6 @@ function handleCountryTap(name){
 canvas.addEventListener('click',e=>{if(suppressClick){suppressClick=false;return}const r=canvas.getBoundingClientRect(),scale=Math.min(r.width/W,r.height/H),drawW=W*scale,drawH=H*scale,ox=(r.width-drawW)/2,oy=(r.height-drawH)/2;const sx=(e.clientX-r.left-ox)/scale,sy=(e.clientY-r.top-oy)/scale;const x=(sx-viewX)/viewScale,y=(sy-viewY)/viewScale;if(x<0||x>W||y<0||y>H)return;handleCountryTap(hitCountry(x,y))});
 $('declare-war').addEventListener('click',()=>{
  if(!selectedCountry)return;
- if(atWar(selectedCountry)){$('war-status').textContent='This country is already at war. Choose another country.';return}
  pendingWarFrom=selectedCountry;$('country-panel').hidden=true;
  $('target-prompt').textContent='SELECT A TARGET COUNTRY · '+pendingWarFrom;
  $('target-prompt').hidden=false;
