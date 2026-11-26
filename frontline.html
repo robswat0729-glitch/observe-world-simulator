@@ -639,25 +639,18 @@ function drawFrontCounts(war,points,strength,borderPoints=points){
  const mid=pointAlong(points,.5),borderMid=pointAlong(borderPoints,.5);
  if(!Number.isFinite(mid.x)||!Number.isFinite(mid.y)||!Number.isFinite(borderMid.x)||!Number.isFinite(borderMid.y))return;
  const rect=canvas.getBoundingClientRect();
- const displayScale=Math.max(.18,Math.min(rect.width/W,rect.height/H)*viewScale);
- const fontSize=Math.max(15,Math.min(38,20/displayScale));
- const gap=Math.max(12,Math.min(22,15/displayScale));
- // Use the original shared border to establish the true geographic sides.
- // The moving frontline may cross into captured territory, so it must not
- // decide which country owns the blue/defender label.
+ const displayScale=Math.max(.22,Math.min(rect.width/W,rect.height/H)*viewScale);
+ const fontSize=Math.max(24,Math.min(42,30/displayScale));
+ const gap=Math.max(20,Math.min(36,24/displayScale));
  let nx=-borderMid.ty,ny=borderMid.tx,nlen=Math.hypot(nx,ny)||1;nx/=nlen;ny/=nlen;
- const sideOfCountry=(name)=>{
+ const sideOfCountry=name=>{
   for(const distance of [4,8,14,22,32,46]){
    const plus=countryContainsProjectedPoint(name,borderMid.x+nx*distance,borderMid.y+ny*distance);
    const minus=countryContainsProjectedPoint(name,borderMid.x-nx*distance,borderMid.y-ny*distance);
-   if(plus&&!minus)return 1;
-   if(minus&&!plus)return -1;
+   if(plus&&!minus)return 1;if(minus&&!plus)return -1;
   }
   const center=countryMapCenter(name);
-  if(center){
-   const cross=borderMid.tx*(center[1]-borderMid.y)-borderMid.ty*(center[0]-borderMid.x);
-   if(Math.abs(cross)>.5)return Math.sign(cross);
-  }
+  if(center){const cross=borderMid.tx*(center[1]-borderMid.y)-borderMid.ty*(center[0]-borderMid.x);if(Math.abs(cross)>.5)return Math.sign(cross)}
   return 0;
  };
  let attackerSide=sideOfCountry(war.a),defenderSide=sideOfCountry(war.b);
@@ -671,19 +664,17 @@ function drawFrontCounts(war,points,strength,borderPoints=points){
   {value:fmt(strength.defenders),side:defenderSide,color:'#245d91'}
  ];
  entries.forEach(entry=>{
+  if(!entry.value||entry.value==='0')return;
   ctx.save();
-  const labelX=Math.max(16,Math.min(W-16,mid.x+nx*gap*entry.side));
-  const labelY=Math.max(16,Math.min(H-16,mid.y+ny*gap*entry.side));
+  const labelX=Math.max(28,Math.min(W-28,mid.x+nx*gap*entry.side));
+  const labelY=Math.max(28,Math.min(H-28,mid.y+ny*gap*entry.side));
   ctx.translate(labelX,labelY);
   let angle=Math.atan2(ty,tx);if(angle>Math.PI/2||angle< -Math.PI/2)angle+=Math.PI;
   ctx.rotate(angle);
-  let fittedFont=fontSize;
-  ctx.font='900 '+fittedFont+'px Arial, Helvetica, sans-serif';
-  const maxWidth=Math.max(40,Math.min(W-32,rect.width/displayScale-32));
-  while(ctx.measureText(entry.value).width>maxWidth&&fittedFont>11){fittedFont-=1;ctx.font='900 '+fittedFont+'px Arial, Helvetica, sans-serif'}
+  ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
   ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
-  ctx.lineWidth=Math.max(3.5,4/displayScale);
-  ctx.strokeStyle='rgba(250,248,235,.99)';ctx.strokeText(entry.value,0,0);
+  ctx.lineWidth=Math.max(5,5/displayScale);
+  ctx.strokeStyle='rgba(250,248,235,1)';ctx.strokeText(entry.value,0,0);
   ctx.fillStyle=entry.color;ctx.fillText(entry.value,0,0);
   ctx.restore();
  });
@@ -723,7 +714,7 @@ function drawDivisionFlags(war,paths,strength,borderPaths=paths){
    let px=-p.ty,py=p.tx,plen=Math.hypot(px,py)||1;px/=plen;py/=plen;
    const offset=normalSide*12,x=p.x+px*offset,y=p.y+py*offset;
    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
-   ctx.font='14px "Noto Color Emoji", "Apple Color Emoji", Arial';
+   ctx.font='6px "Noto Color Emoji", "Apple Color Emoji", Arial';
    ctx.lineWidth=1.5;ctx.strokeStyle='rgba(248,246,232,.92)';
    ctx.strokeText(countryFlag(entry.name),x,y);
    ctx.restore();
@@ -773,9 +764,10 @@ function draw(now){
      const movingPath=advancedFrontPath(war,path);movingPaths.push(movingPath);
      drawFrontline(movingPath,now+index*173+pathIndex*61);
      const share=polyLength(path)/totalFrontLength;
-     drawFrontCounts(war,movingPath,strength,path);
     });
     drawDivisionFlags(war,movingPaths,strength,drawable);
+    // Render the two overall army totals last so flags cannot obscure them.
+    movingPaths.forEach((path,i)=>drawFrontCounts(war,path,strength,drawable[i]));
    });
  }else{
   ctx.save();ctx.fillStyle='rgba(30,48,52,.62)';ctx.font='900 '+(portraitMap?20:17)+'px Arial';ctx.textAlign='center';ctx.fillText('NO ACTIVE FRONTLINE · EUROPE AT PEACE',W/2,H*.88);ctx.restore();
