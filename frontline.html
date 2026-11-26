@@ -827,7 +827,7 @@ function buildPeaceDivisionMarkers(){
 function drawPeaceDivisionMarkers(){
  if(!peaceDivisionMarkers.length)return;
  ctx.save();ctx.globalAlpha=.82;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='7px "Noto Color Emoji","Apple Color Emoji",Arial';ctx.lineWidth=1;ctx.strokeStyle='rgba(250,248,235,.9)';
- peaceDivisionMarkers.forEach(m=>{ctx.strokeText(m.flag,m.x,m.y);ctx.fillText(m.flag,m.x,m.y)});
+ peaceDivisionMarkers.forEach(m=>{if(atWar(m.name))return;ctx.strokeText(m.flag,m.x,m.y);ctx.fillText(m.flag,m.x,m.y)});
  ctx.restore();
 }
 function nearestCityToFront(name,path){
