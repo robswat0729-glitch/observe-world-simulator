@@ -7,36 +7,38 @@
 <header><div><h1>FRONTLINE</h1><small>CONTINUOUS FRONTLINE SIMULATOR · ATLAS-INSPIRED</small></div><div class="controls" style="max-width:245px"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button></div></header>
 <div class="stats"><div class="stat"><label>WAR DAY</label><b id="day">001</b></div><div class="stat"><label>BLUE TERRITORY</label><b id="blueTerr">52.0%</b></div><div class="stat"><label>RED TERRITORY</label><b id="redTerr">48.0%</b></div><div class="stat"><label>BLUE TROOPS ON FRONT</label><b id="blueTotal">1,250,000</b></div><div class="stat"><label>RED TROOPS ON FRONT</label><b id="redTotal">1,310,000</b></div><div class="stat"><label>TOTAL CASUALTIES</label><b id="casualties">0</b></div></div>
 <main><div class="mapbox"><canvas id="map" width="1200" height="700"></canvas><div class="maptag">LIVE FRONTLINE · TROOP COUNTS POSITIONED DIRECTLY ON THE FRONT</div><div class="legend"><i class="dot" style="background:#55aaff"></i>BLUE ALLIANCE <i class="dot" style="background:#ff6868"></i>RED COALITION<br><span style="color:#f1d58b">━━</span> Active frontline</div></div>
-<section class="panel"><div class="controls"><button id="resume">▶ RESUME</button><button id="speed">1× SPEED</button><select id="intensity"><option value="1">Normal combat</option><option value="1.7">Heavy combat</option><option value=".55">Low combat</option></select></div><p class="muted">Every number is a whole troop count for a section of the same continuous frontline. The border itself advances as territory is captured or lost. Map animation: 60 FPS · troop counts: 30 updates/sec.</p></section>
+<section class="panel"><div class="controls"><button id="resume">▶ RESUME</button><button id="speed">1× SPEED</button><select id="intensity"><option value="1">Normal combat</option><option value="1.7">Heavy combat</option><option value=".55">Low combat</option></select></div><p class="muted">One large total troop count per side is displayed directly beside the continuous frontline. No army groups, no sector labels, no separate counters. The border itself advances as territory is captured or lost. Map animation: 60 FPS · troop counts: 30 updates/sec.</p></section>
 <section class="panel"><b>WAR CHRONICLE</b><div class="log" id="log"></div></section></main>
 <script>
 (()=>{const $=id=>document.getElementById(id),canvas=$('map'),ctx=canvas.getContext('2d'),fmt=n=>Math.max(0,Math.round(n)).toLocaleString('en-US');
 let day=1,paused=false,speed=1,casualties=0,territory=52,last=0,acc=0,dayAcc=0,logs=[];
-const N=13,blue=[],red=[];
-for(let i=0;i<N;i++){blue.push(72000+((i*19371+17713)%43000));red.push(69000+((i*23917+29011)%47000))}
+let blueTroops=1250000,redTroops=1310000;
 function note(s){logs.unshift(s);logs=logs.slice(0,12);$('log').innerHTML=logs.map(x=>'<div>'+x+'</div>').join('')}
-function frontX(t,y){let wave=Math.sin(y*.012)*34+Math.sin(y*.027+1.4)*16;return 600+(t-50)*10+wave}
+function frontX(t,y){return 600+(t-50)*10+Math.sin(y*.012)*34+Math.sin(y*.027+1.4)*16}
 function landPath(){ctx.beginPath();ctx.moveTo(95,135);ctx.lineTo(190,70);ctx.lineTo(360,80);ctx.lineTo(465,42);ctx.lineTo(625,90);ctx.lineTo(820,75);ctx.lineTo(1060,190);ctx.lineTo(970,320);ctx.lineTo(1080,470);ctx.lineTo(855,615);ctx.lineTo(660,590);ctx.lineTo(535,660);ctx.lineTo(385,590);ctx.lineTo(220,625);ctx.lineTo(85,490);ctx.lineTo(130,350);ctx.lineTo(48,245);ctx.closePath()}
 function draw(){let g=ctx;g.clearRect(0,0,1200,700);g.fillStyle='#142d38';g.fillRect(0,0,1200,700);
 g.strokeStyle='#25414c';g.lineWidth=1;for(let x=0;x<1200;x+=60){g.beginPath();g.moveTo(x,0);g.lineTo(x,700);g.stroke()}for(let y=0;y<700;y+=60){g.beginPath();g.moveTo(0,y);g.lineTo(1200,y);g.stroke()}
 landPath();g.fillStyle='#627968';g.fill();g.strokeStyle='#a2b39a';g.lineWidth=4;g.stroke();
 g.save();landPath();g.clip();
-g.beginPath();g.moveTo(0,0);g.lineTo(frontX(territory,0),0);for(let y=0;y<=700;y+=10)g.lineTo(frontX(territory,y),y);g.lineTo(0,700);g.closePath();g.fillStyle='rgba(55,139,213,.68)';g.fill();
-g.beginPath();g.moveTo(frontX(territory,0),0);g.lineTo(1200,0);g.lineTo(1200,700);g.lineTo(frontX(territory,700),700);for(let y=700;y>=0;y-=10)g.lineTo(frontX(territory,y),y);g.closePath();g.fillStyle='rgba(195,68,68,.66)';g.fill();g.restore();
-g.beginPath();for(let y=0;y<=700;y+=8){let x=frontX(territory,y);if(y===0)g.moveTo(x,y);else g.lineTo(x,y)}g.strokeStyle='#f1d58b';g.lineWidth=5;g.setLineDash([14,8]);g.stroke();g.setLineDash([]);
-g.font='bold 20px system-ui';g.textAlign='center';g.fillStyle='#d3eaff';g.fillText('BLUE ALLIANCE',265,43);g.fillStyle='#ffd1cb';g.fillText('RED COALITION',935,43);
+g.beginPath();g.moveTo(0,0);for(let y=0;y<=700;y+=8)g.lineTo(frontX(territory,y),y);g.lineTo(0,700);g.closePath();g.fillStyle='rgba(55,139,213,.72)';g.fill();
+g.beginPath();g.moveTo(frontX(territory,0),0);g.lineTo(1200,0);g.lineTo(1200,700);g.lineTo(frontX(territory,700),700);for(let y=700;y>=0;y-=8)g.lineTo(frontX(territory,y),y);g.closePath();g.fillStyle='rgba(195,68,68,.70)';g.fill();g.restore();
+g.beginPath();for(let y=0;y<=700;y+=5){let x=frontX(territory,y);if(y===0)g.moveTo(x,y);else g.lineTo(x,y)}g.strokeStyle='#f1d58b';g.lineWidth=5;g.setLineDash([14,8]);g.stroke();g.setLineDash([]);
+g.font='bold 20px system-ui';g.textAlign='center';g.fillStyle='#d3eaff';g.fillText('BLUE ALLIANCE',260,42);g.fillStyle='#ffd1cb';g.fillText('RED COALITION',940,42);
 [['VARDEN',255,295],['KORVIK',855,260],['MIREN',610,565]].forEach(a=>{g.beginPath();g.arc(a[1],a[2],5,0,Math.PI*2);g.fillStyle='#f2e7c8';g.fill();g.font='bold 12px system-ui';g.fillStyle='#f6f0dc';g.textAlign='left';g.fillText(a[0],a[1]+10,a[2]+4)});
-for(let i=0;i<N;i++){let y=58+i*48.5,x=frontX(territory,y),offset=(i%2?1:-1)*27;let bx=x-76,rx=x+76,by=y+offset,ry=y-offset;
-counter(bx,by,blue[i],'#8bcaff');counter(rx,ry,red[i],'#ff9999')}
+const mid=frontX(territory,350),blueLabel=fmt(blueTroops),redLabel=fmt(redTroops);
+drawFrontNumber(blueLabel,Math.max(200,mid-180),350,'#9bd2ff',470);
+drawFrontNumber(redLabel,Math.min(1000,mid+180),350,'#ffaaa3',470);
 }
-function counter(x,y,value,color){let g=ctx,s=fmt(value);g.font='900 24px system-ui';let w=Math.max(112,g.measureText(s).width+18),h=34;g.fillStyle='#07121beF';g.fillRect(x-w/2,y-h/2,w,h);g.strokeStyle=color;g.lineWidth=2;g.strokeRect(x-w/2,y-h/2,w,h);g.textAlign='center';g.textBaseline='middle';g.fillStyle=color;g.fillText(s,x,y+1)}
+function drawFrontNumber(value,x,y,color,maxWidth){let g=ctx;let size=64;g.font='900 '+size+'px system-ui,Arial';while(g.measureText(value).width>maxWidth&&size>24){size--;g.font='900 '+size+'px system-ui,Arial'}let w=g.measureText(value).width+28,h=size+24;g.fillStyle='#07121beF';g.fillRect(x-w/2,y-h/2,w,h);g.strokeStyle=color;g.lineWidth=3;g.strokeRect(x-w/2,y-h/2,w,h);g.textAlign='center';g.textBaseline='middle';g.fillStyle=color;g.fillText(value,x,y+1)}
 function totals(){return {b:blue.reduce((a,v)=>a+v,0),r:red.reduce((a,v)=>a+v,0)}}
-function render(){let t=totals();$('day').textContent=String(day).padStart(3,'0');$('blueTerr').textContent=territory.toFixed(1)+'%';$('redTerr').textContent=(100-territory).toFixed(1)+'%';$('blueTotal').textContent=fmt(t.b);$('redTotal').textContent=fmt(t.r);$('casualties').textContent=fmt(casualties)}
-function tick(dt){let intensity=Number($('intensity').value),pressure=0;for(let i=0;i<N;i++){let bLoss=Math.round(blue[i]*(.000018+Math.random()*.000025)*intensity*dt*30),rLoss=Math.round(red[i]*(.000018+Math.random()*.000025)*intensity*dt*30);blue[i]=Math.max(0,blue[i]-bLoss);red[i]=Math.max(0,red[i]-rLoss);casualties+=bLoss+rLoss;blue[i]+=Math.round((90+Math.random()*150)*dt*30);red[i]+=Math.round((90+Math.random()*150)*dt*30);pressure+=(blue[i]-red[i])/(blue[i]+red[i]||1)}
-// A small but visible push based on the local troop balance; random friction prevents a guaranteed winner.
-let balance=pressure/N,friction=(Math.random()-.5)*.0008;territory=Math.max(8,Math.min(92,territory+(balance*.012+friction)*dt*intensity));
+function render(){let t={b:blueTroops,r:redTroops};$('day').textContent=String(day).padStart(3,'0');$('blueTerr').textContent=territory.toFixed(1)+'%';$('redTerr').textContent=(100-territory).toFixed(1)+'%';$('blueTotal').textContent=fmt(t.b);$('redTotal').textContent=fmt(t.r);$('casualties').textContent=fmt(casualties)}
+function tick(dt){let intensity=Number($('intensity').value);
+let bLoss=Math.round(blueTroops*(.000018+Math.random()*.000025)*intensity*dt*30),rLoss=Math.round(redTroops*(.000018+Math.random()*.000025)*intensity*dt*30);
+blueTroops=Math.max(0,blueTroops-bLoss)+Math.round((110+Math.random()*180)*dt*30);
+redTroops=Math.max(0,redTroops-rLoss)+Math.round((110+Math.random()*180)*dt*30);
+casualties+=bLoss+rLoss;
 }
-function nextDay(){day++;let t=totals(),lead=t.b>t.r?'Blue':'Red';note('Day '+String(day).padStart(3,'0')+' — '+lead+' has the larger frontline force ('+fmt(t.b)+' vs '+fmt(t.r)+').');if(day%7===0){let push=(Math.random()-.42)*.35;territory=Math.max(8,Math.min(92,territory+push));note('A major offensive shifts the frontline by '+Math.abs(push).toFixed(2)+'% in '+(push>=0?'Blue':'Red')+' favour.')}}
+function nextDay(){day++;let balance=(blueTroops-redTroops)/(blueTroops+redTroops||1);let change=balance*.22+(Math.random()-.5)*.12;territory=Math.max(8,Math.min(92,territory+change));let lead=change>=0?'Blue':'Red';note('Day '+String(day).padStart(3,'0')+' — '+lead+' forces push the continuous frontline.');}
 function frame(now){if(!last)last=now;let dt=Math.min(.08,(now-last)/1000);last=now;if(!paused){acc+=dt;dayAcc+=dt*speed;if(acc>=1/30){tick(acc);acc=0;render()}while(dayAcc>=2){dayAcc-=2;nextDay();render()}}draw();requestAnimationFrame(frame)}
 function setPause(v){paused=v;$('pause').textContent=v?'▶ RESUME':'Ⅱ PAUSE';$('resume').textContent=v?'▶ RESUME':'Ⅱ PAUSE'}
 $('pause').onclick=()=>setPause(!paused);$('resume').onclick=()=>setPause(!paused);$('next').onclick=()=>{setPause(true);nextDay();render()};$('speed').onclick=()=>{speed=speed===1?2:speed===2?4:speed===4?8:1;$('speed').textContent=speed+'× SPEED'};
