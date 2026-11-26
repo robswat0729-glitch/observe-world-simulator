@@ -37,7 +37,7 @@ canvas{display:block;width:100%;height:100%;object-fit:contain;aspect-ratio:7/4;
 .hud-bottom strong{font-size:18px;font-variant-numeric:tabular-nums}
 .legend{position:absolute;left:13px;bottom:88px;z-index:2;background:rgba(12,20,25,.82);padding:7px 10px;font-size:10px;letter-spacing:1px;pointer-events:none}
 .legend i{display:inline-block;width:9px;height:9px;margin:0 5px 0 0;border-radius:50%}
-.country-panel{position:fixed;z-index:7;top:145px;left:9px;width:min(310px,calc(100vw - 18px));max-height:43vh;overflow:auto;padding:10px 12px;background:rgba(12,20,25,.92);border:1px solid rgba(220,235,232,.3);border-radius:5px;backdrop-filter:blur(8px);font-size:11px}.country-panel h3{margin:0 0 7px;font-size:14px;letter-spacing:1px}.country-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0}.country-stat{padding:6px 0;border-top:1px solid #52636a}.country-stat span{display:block;color:#bdc9c7;font-size:9px;letter-spacing:.7px}.country-stat strong{font-size:14px;font-variant-numeric:tabular-nums}.war-tools{display:grid;grid-template-columns:1fr;gap:6px;margin-top:10px}.war-tools button{width:100%;padding:11px}.country-panel{box-shadow:0 12px 35px rgba(0,0,0,.35)}.country-panel[hidden]{display:none!important}.target-prompt{position:fixed;z-index:8;top:145px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 24px);padding:10px 14px;background:rgba(12,20,25,.94);border:1px solid #e7d69e;border-radius:4px;color:#fff0bc;font-size:12px;font-weight:900;letter-spacing:.5px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.3)}.target-prompt[hidden]{display:none!important}.war-status,.war-list{margin-top:7px;color:#e7d69e;font-size:10px;line-height:1.35}.panel-close{float:right;padding:3px 7px;font-size:10px}@media(max-width:650px){.country-panel{top:140px;left:6px;width:min(270px,calc(100vw - 12px));max-height:39vh;padding:8px}.country-stat strong{font-size:12px}.country-panel h3{font-size:12px}}
+.country-panel{position:fixed;z-index:7;top:145px;left:9px;width:min(310px,calc(100vw - 18px));max-height:43vh;overflow:auto;padding:10px 12px;background:rgba(12,20,25,.92);border:1px solid rgba(220,235,232,.3);border-radius:5px;backdrop-filter:blur(8px);font-size:11px}.country-panel h3{margin:0 0 7px;font-size:14px;letter-spacing:1px}.country-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0}.country-stat{padding:6px 0;border-top:1px solid #52636a}.country-stat span{display:block;color:#bdc9c7;font-size:9px;letter-spacing:.7px}.country-stat strong{font-size:14px;font-variant-numeric:tabular-nums}.war-tools{display:grid;grid-template-columns:1fr;gap:6px;margin-top:10px}.war-tools button{width:100%;padding:11px}.country-panel{box-shadow:0 12px 35px rgba(0,0,0,.35)}.country-panel[hidden]{display:none!important}.target-prompt{position:fixed;z-index:8;top:145px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 24px);padding:10px 14px;background:rgba(12,20,25,.94);border:1px solid #e7d69e;border-radius:4px;color:#fff0bc;font-size:12px;font-weight:900;letter-spacing:.5px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.3)}.target-prompt[hidden]{display:none!important}.war-status,.war-list{margin-top:7px;color:#e7d69e;font-size:10px;line-height:1.35}@media(max-width:650px){.country-panel{top:140px;left:6px;width:min(270px,calc(100vw - 12px));max-height:39vh;padding:8px}.country-stat strong{font-size:12px}.country-panel h3{font-size:12px}}
 .controls{position:fixed;z-index:6;left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-between;gap:7px;padding:8px;background:rgba(12,20,25,.84);border:1px solid rgba(220,235,232,.24);border-radius:6px;backdrop-filter:blur(8px);flex-wrap:wrap}
 button,select{border:1px solid #576a72;border-radius:4px;background:#263b45;color:#eef3f1;padding:9px 13px;font-weight:800;font-size:12px;letter-spacing:.5px}
 button:active{transform:translateY(1px)}
@@ -74,9 +74,9 @@ button:active{transform:translateY(1px)}
   <div class="legend"><i style="background:#c65e59"></i>WAR DECLARER <i style="background:#5a9ed4;margin-left:10px"></i>DEFENDER</div>
   <div class="hud hud-bottom"><span>TOTAL CASUALTIES</span><strong id="casualties">0</strong></div>
  </div>
- <section class="country-panel" id="country-panel" hidden><button class="panel-close" id="panel-close">CLOSE</button><h3 id="country-name">COUNTRY</h3><div id="country-hint">1936 national statistics</div><div class="country-stats"><div class="country-stat"><span>POPULATION · 1936</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>TOTAL SOLDIERS</span><strong id="country-army">—</strong></div></div><div class="war-tools"><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">Choose this country as the attacker, then tap the target country on the map.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section><div class="target-prompt" id="target-prompt" hidden></div>
+ <section class="country-panel" id="country-panel" hidden><h3 id="country-name">COUNTRY</h3><div id="country-hint">1936 national statistics</div><div class="country-stats"><div class="country-stat"><span>POPULATION · 1936</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>TOTAL SOLDIERS</span><strong id="country-army">—</strong></div></div><div class="war-tools"><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">Choose this country as the attacker, then tap the target country on the map.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section><div class="target-prompt" id="target-prompt" hidden></div>
  <div class="controls">
-  <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div>
+  <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div><div class="control-group zoom-tools"><button id="zoom-out" aria-label="Zoom out">−</button><button id="zoom-in" aria-label="Zoom in">＋</button><button id="zoom-reset">RESET VIEW</button></div>
   <div class="control-group"><select id="mode" aria-label="Simulation mode"><option value="historical">HISTORICAL</option><option value="nonhistorical">NON-HISTORICAL</option></select><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
   <div class="note">EUROPE MAP · 1936 START · POPULATION & ARMED FORCES ESTIMATES</div>
  </div>
@@ -92,6 +92,7 @@ const $=id=>document.getElementById(id);
 const fmt=n=>Math.max(0,Math.round(n)).toLocaleString('en-US');
 let day=1,paused=false,speed=1,casualties=0,territory=50,last=0,acc=0,dayAcc=0,simDate=new Date(1936,0,1),mode='historical';
 let blueTroops=2400000,redTroops=1500000,worldFeatures=[],baseCanvas=null,mapReady=false,loadMessage='Loading geographic map…',lastForceYear=-1;
+let viewScale=1,viewX=0,viewY=0,pointers=new Map(),dragState=null,pinchStart=null,suppressClick=false;
 const countries=new Map();let selectedCountry=null,pendingWarFrom=null,activeWars=[],countryHitData=[],populationLoading=false,populationLoaded=false;
 const historicalForces={
  // Annual total armed-forces personnel (thousands), major powers; pre-1939 values are explicitly approximate buildup estimates.
@@ -309,9 +310,10 @@ function catmullRom(pts,steps){
  }
  out.push(pts[pts.length-1]);return out;
 }
-function getFront(){
+function getFront(warIndex=0){
  const shift=(territory-50)*.22;
- const projected=baseFront.map(([lon,lat])=>project([lon+shift,lat]));
+ const lane=(warIndex-(Math.max(1,activeWars.length)-1)/2)*3.0;
+ const projected=baseFront.map(([lon,lat],i)=>project([lon+shift+lane+Math.sin(i*.7+warIndex)*.65,lat+lane*.18]));
  return catmullRom(projected,8);
 }
 function pathFront(points){
@@ -344,11 +346,11 @@ function pointAtHalf(points){
 }
 function drawFrontCount(value,points,side,color){
  const mid=pointAtHalf(points),normalX=-mid.ty,normalY=mid.tx;
- const offset=side==='blue'?-78:78;
+ const offset=side==='blue'?-28:28;
  const x=mid.x+normalX*offset,y=mid.y+normalY*offset;
  // The theatre's frontline runs north-to-south: keep the count vertical and parallel to it.
  const angle=Math.PI/2;
- const target=Math.min(980,Math.max(540,mid.length*.88));
+ const target=Math.min(360,Math.max(210,mid.length*.28));
  const fontSize=82;
  ctx.save();ctx.translate(x,y);ctx.rotate(angle);
  ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
@@ -360,10 +362,8 @@ function drawFrontCount(value,points,side,color){
  ctx.fillStyle=color;ctx.fillText(value,0,0);
  ctx.restore();
 }
-function activeWarStrength(){
- let attackers=0,defenders=0;
- activeWars.forEach(w=>{attackers+=countries.get(w.a)?.soldiers||0;defenders+=countries.get(w.b)?.soldiers||0});
- return {attackers,defenders};
+function activeWarStrength(w){
+ return {attackers: countries.get(w.a)?.soldiers||0, defenders: countries.get(w.b)?.soldiers||0};
 }
 function drawFrontline(points,now){
  ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
@@ -375,18 +375,23 @@ function drawFrontline(points,now){
 }
 function draw(now){
  if(!mapReady){ctx.fillStyle='#b9c4c0';ctx.fillRect(0,0,W,H);ctx.fillStyle='#24353a';ctx.font='bold 28px Arial';ctx.textAlign='center';ctx.fillText(loadMessage,W/2,H/2);return}
+ ctx.fillStyle='#b9c5c4';ctx.fillRect(0,0,W,H);
+ ctx.save();ctx.translate(viewX,viewY);ctx.scale(viewScale,viewScale);
  ctx.drawImage(baseCanvas,0,0);
  const belligerents=new Map();activeWars.forEach(w=>{belligerents.set(w.a,'attacker');belligerents.set(w.b,'defender')});
  worldFeatures.forEach(f=>{const name=countryName(f),side=belligerents.get(name);if(!side)return;ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle=side==='attacker'?'rgba(190,71,67,.48)':'rgba(55,139,202,.48)';ctx.fill()});
  if(selectedCountry){const f=worldFeatures.find(x=>countryName(x)===selectedCountry);if(f){ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.strokeStyle='#ffe59a';ctx.lineWidth=4;ctx.stroke()}}
  if(activeWars.length){
-  const front=getFront(),strength=activeWarStrength();
-  drawFrontline(front,now);
-  drawFrontCount(fmt(strength.attackers),front,'red','#a51f25');
-  drawFrontCount(fmt(strength.defenders),front,'blue','#145f98');
+  activeWars.forEach((war,index)=>{
+   const front=getFront(index),strength=activeWarStrength(war);
+   drawFrontline(front,now+index*173);
+   drawFrontCount(fmt(strength.attackers),front,'red','#a51f25');
+   drawFrontCount(fmt(strength.defenders),front,'blue','#145f98');
+  });
  }else{
   ctx.save();ctx.fillStyle='rgba(30,48,52,.62)';ctx.font='900 '+(portraitMap?20:17)+'px Arial';ctx.textAlign='center';ctx.fillText('NO ACTIVE FRONTLINE · EUROPE AT PEACE',W/2,H*.88);ctx.restore();
  }
+ ctx.restore();
 }
 function renderHud(){
  $('date').textContent=simDate.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
@@ -402,7 +407,7 @@ function tick(dt){
  const intensity=Number($('intensity').value),simDt=dt*speed,lossRate=.00012*intensity;let losses=0;
  activeWars.forEach(w=>{const a=countries.get(w.a),b=countries.get(w.b);if(!a||!b)return;const al=a.soldiers*lossRate*simDt,bl=b.soldiers*lossRate*simDt;a.soldiers=Math.max(0,a.soldiers-al);b.soldiers=Math.max(0,b.soldiers-bl);losses+=al+bl});
  casualties+=losses;
- if(activeWars.length){const strength=activeWarStrength(),total=strength.attackers+strength.defenders;if(total>0){const pressure=(strength.attackers-strength.defenders)/total;territory=Math.max(5,Math.min(95,territory+pressure*.12*simDt))}}
+ if(activeWars.length){let pressureSum=0;activeWars.forEach(w=>{const strength=activeWarStrength(w),total=strength.attackers+strength.defenders;if(total>0)pressureSum+=(strength.attackers-strength.defenders)/total});const pressure=pressureSum/activeWars.length;territory=Math.max(5,Math.min(95,territory+pressure*.12*simDt))}
  if(selectedCountry&&countries.has(selectedCountry))$('country-army').textContent=fmt(countries.get(selectedCountry).soldiers);
 }
 function nextDay(){
@@ -439,8 +444,7 @@ function handleCountryTap(name){
  }
  showCountry(name);
 }
-canvas.addEventListener('click',e=>{const r=canvas.getBoundingClientRect(),scale=Math.min(r.width/W,r.height/H),drawW=W*scale,drawH=H*scale,ox=(r.width-drawW)/2,oy=(r.height-drawH)/2;const x=(e.clientX-r.left-ox)/scale,y=(e.clientY-r.top-oy)/scale;if(x<0||x>W||y<0||y>H)return;handleCountryTap(hitCountry(x,y))});
-$('panel-close').addEventListener('click',()=>{$('country-panel').hidden=true});
+canvas.addEventListener('click',e=>{if(suppressClick){suppressClick=false;return}const r=canvas.getBoundingClientRect(),scale=Math.min(r.width/W,r.height/H),drawW=W*scale,drawH=H*scale,ox=(r.width-drawW)/2,oy=(r.height-drawH)/2;const sx=(e.clientX-r.left-ox)/scale,sy=(e.clientY-r.top-oy)/scale;const x=(sx-viewX)/viewScale,y=(sy-viewY)/viewScale;if(x<0||x>W||y<0||y>H)return;handleCountryTap(hitCountry(x,y))});
 $('declare-war').addEventListener('click',()=>{
  if(!selectedCountry)return;
  if(atWar(selectedCountry)){$('war-status').textContent='This country is already at war. Choose another country.';return}
@@ -448,6 +452,18 @@ $('declare-war').addEventListener('click',()=>{
  $('target-prompt').textContent='SELECT A TARGET COUNTRY · '+pendingWarFrom;
  $('target-prompt').hidden=false;
 });
+
+function clampView(){const minX=W*(1-viewScale),minY=H*(1-viewScale);viewX=Math.max(minX,Math.min(0,viewX));viewY=Math.max(minY,Math.min(0,viewY))}
+function zoomAt(next,cx=W/2,cy=H/2){next=Math.max(1,Math.min(4,next));const wx=(cx-viewX)/viewScale,wy=(cy-viewY)/viewScale;viewScale=next;viewX=cx-wx*viewScale;viewY=cy-wy*viewScale;clampView()}
+$('zoom-in').addEventListener('click',()=>zoomAt(viewScale*1.25));
+$('zoom-out').addEventListener('click',()=>zoomAt(viewScale/1.25));
+$('zoom-reset').addEventListener('click',()=>{viewScale=1;viewX=0;viewY=0});
+canvas.addEventListener('wheel',e=>{e.preventDefault();const r=canvas.getBoundingClientRect(),sc=Math.min(r.width/W,r.height/H),ox=(e.clientX-r.left-(r.width-W*sc)/2)/sc,oy=(e.clientY-r.top-(r.height-H*sc)/2)/sc;zoomAt(viewScale*(e.deltaY<0?1.12:1/1.12),ox,oy)},{passive:false});
+canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===1)dragState={x:e.clientX,y:e.clientY,viewX,viewY,moved:false};else if(pointers.size===2){const pts=[...pointers.values()];pinchStart={distance:Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y),scale:viewScale};dragState=null}});
+canvas.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});const r=canvas.getBoundingClientRect(),sc=Math.min(r.width/W,r.height/H);if(pointers.size===1&&dragState){const p=pointers.get(e.pointerId),dx=(p.x-dragState.x)/sc,dy=(p.y-dragState.y)/sc;if(Math.abs(dx)+Math.abs(dy)>4)dragState.moved=true;if(dragState.moved){viewX=dragState.viewX+dx;viewY=dragState.viewY+dy;clampView()}}else if(pointers.size===2&&pinchStart){const pts=[...pointers.values()],dist=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y),cx=(pts[0].x+pts[1].x)/2,cy=(pts[0].y+pts[1].y)/2,ox=(cx-r.left-(r.width-W*sc)/2)/sc,oy=(cy-r.top-(r.height-H*sc)/2)/sc;zoomAt(pinchStart.scale*dist/(pinchStart.distance||1),ox,oy)}});
+function endPointer(e){if(dragState?.moved)suppressClick=true;pointers.delete(e.pointerId);if(pointers.size<2)pinchStart=null;if(!pointers.size)dragState=null}
+canvas.addEventListener('pointerup',endPointer);canvas.addEventListener('pointercancel',endPointer);
+
 function decodeTopoArc(topology,index){
  const reversed=index<0,arc=topology.arcs[reversed?~index:index],out=[];
  let x=0,y=0;
