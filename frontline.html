@@ -282,7 +282,7 @@ function declareWar(a,b,natural,allianceResponse=false){
  if(!countries.has(a)||!countries.has(b)){ $('war-status').textContent='Choose countries shown on the map.';return false}
  if(areAllied(a,b)){$('war-status').textContent=a+' and '+b+' are bound by a defensive alliance.';return false}
  if(activeWars.some(w=>(w.a===a&&w.b===b)||(w.a===b&&w.b===a))){$('war-status').textContent='Those countries are already at war.';return false}
- const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0,reinforcementA:null,reinforcementB:null,progress:0,seed:Math.random()*6.28,settlementPending:false,encirclements:[],encircledA:0,encircledB:0,encircledDivisionsA:0,encircledDivisionsB:0,supplyA:70,supplyB:70,supportA:[],supportB:[]};
+ const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0,progress:0,seed:Math.random()*6.28,settlementPending:false,encirclements:[],encircledA:0,encircledB:0,encircledDivisionsA:0,encircledDivisionsB:0,supplyA:70,supplyB:70,supportA:[],supportB:[]};
  activeWars.push(war);playWarAlarm();updateWarDeployments();
  // Allies independently weigh intervention; no alliance member is guaranteed to enter.
  const alliesSideA=new Set(alliesOf(a)),alliesSideB=new Set(alliesOf(b));
@@ -675,7 +675,7 @@ function updateWarDeployments(){
   const threatTotal=list.reduce((sum,item)=>sum+item.threat,0);
   list.forEach(item=>{
    const deployed=threatTotal?Math.floor(available*item.threat/threatTotal):0;
-   if(item.support)item.support.targetTroops=deployed;
+   if(item.support){item.support.targetTroops=deployed;item.support.troops=deployed;}
    else item.war[item.field]=deployed;
   });
  });
@@ -882,34 +882,6 @@ function drawPeaceDivisionMarkers(){
  ctx.save();ctx.globalAlpha=.82;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='7px "Noto Color Emoji","Apple Color Emoji",Arial';ctx.lineWidth=1;ctx.strokeStyle='rgba(250,248,235,.9)';
  peaceDivisionMarkers.forEach(m=>{if(atWar(m.name))return;ctx.strokeText(m.flag,m.x,m.y);ctx.fillText(m.flag,m.x,m.y)});
  ctx.restore();
-}
-function nearestCityToFront(name,path){
- const contact=path&&path.length>1?pointAlong(path,.5):null;if(!contact)return nearestSupplyCity(name);
- let best=null,distance=Infinity;
- supplyCities.forEach(([city,ll])=>{const p=project(ll);if(!countryContainsProjectedPoint(name,p[0],p[1]))return;const d=Math.hypot(p[0]-contact.x,p[1]-contact.y);if(d<distance){distance=d;best={name:city,x:p[0],y:p[1]}}});
- return best||nearestSupplyCity(name);
-}
-function createFrontReinforcement(name,war,side){
- const paths=Array.isArray(war.front?.[0]?.[0])?war.front:(war.front?[war.front]:[]);const path=paths.reduce((best,p)=>polyLength(p)>polyLength(best||[])?p:best,null);
- const front=path&&path.length>1?pointAlong(path,.5):null,city=nearestCityToFront(name,path);
- return {progress:0,target:0,arrived:0,city:city?{x:city.x,y:city.y,name:city.name}:null,front:front?{x:front.x,y:front.y}:null,frontLine:path?path.map(p=>[p[0],p[1]]):[],days:Math.max(8,Math.hypot((front?.x||0)-(city?.x||0),(front?.y||0)-(city?.y||0))/12),units:[]};
-}
-function drawFrontReinforcements(war){
- [['A',war.a,'reinforcementA'],['B',war.b,'reinforcementB']].forEach(([side,name,key])=>{
-  const state=war[key];if(!state?.city||!state.front||!state.units?.length)return;
-  const a=state.city,progress=Math.max(0,Math.min(1,state.progress||0)),path=state.frontLine||[];
-  ctx.save();ctx.globalAlpha=.32;ctx.strokeStyle=side==='A'?'#a9473f':'#347bb0';ctx.lineWidth=1.2;ctx.setLineDash([4,5]);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(state.front.x,state.front.y);ctx.stroke();ctx.setLineDash([]);
-  state.units.forEach((unit,i)=>{
-   const stagger=Math.max(0,(i%5)*.055),travel=Math.max(0,Math.min(1,((unit.progress??progress)-stagger)/(1-stagger||1)));
-   const angle=i*2.3999632297,radius=4+(i%4)*2,spread=travel<.14?1-travel/.14:0;
-   const origin={x:a.x+Math.cos(angle)*radius,y:a.y+Math.sin(angle)*radius};
-   const destination=path.length>1?pointAlong(path,(i+.5)/state.units.length):state.front;
-   const x=origin.x+(destination.x-origin.x)*travel,y=origin.y+(destination.y-origin.y)*travel;
-   ctx.font='9px "Noto Color Emoji","Apple Color Emoji",Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=1.5;ctx.strokeStyle='rgba(250,248,235,.96)';ctx.strokeText(countryFlag(name),x,y-5);ctx.fillStyle='#26343a';ctx.fillRect(x-4,y+1,8,4);
-   if(travel>=1){ctx.globalAlpha=1;ctx.strokeText(countryFlag(name),destination.x,destination.y-5);ctx.fillRect(destination.x-4,destination.y+1,8,4);ctx.globalAlpha=.32}
-  });
-  ctx.restore();
- });
 }
 function createSupportTransfer(ally,host,war){
  // Allied divisions join immediately; the simulator no longer animates
@@ -1135,11 +1107,7 @@ function tick(dt){
  updateWarDeployments();
  const transferDays=simDt/2;
  activeWars.forEach(w=>{
-  ['reinforcementA','reinforcementB'].forEach(key=>{const state=w[key];if(state&&state.target>0){state.progress=Math.min(1,(state.progress||0)+transferDays/Math.max(1,state.days||8));(state.units||[]).forEach((unit,i)=>{const stagger=Math.max(0,(i%5)*.025);unit.progress=Math.max(0,Math.min(1,(state.progress-stagger)/(1-stagger||1)));});state.arrived=Math.round(state.target*(state.units||[]).reduce((sum,u)=>sum+(u.progress||0),0)/Math.max(1,state.units?.length||1));w[key==='reinforcementA'?'troopsA':'troopsB']=state.arrived;}});
-  [...(w.supportA||[]),...(w.supportB||[])].forEach(x=>{
-  // Allied troops are present from the moment the alliance intervention occurs.
-  x.troops=Math.max(0,x.targetTroops||0);
-  });
+  [...(w.supportA||[]),...(w.supportB||[])].forEach(x=>{x.troops=Math.max(0,x.targetTroops||0)});
  });
  const elapsedSupplyDays=simDt/2;
  activeWars.forEach(w=>{
