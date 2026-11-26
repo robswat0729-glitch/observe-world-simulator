@@ -74,7 +74,7 @@ button:active{transform:translateY(1px)}
   <div class="legend"><i style="background:#c65e59"></i>WAR DECLARER <i style="background:#5a9ed4;margin-left:10px"></i>DEFENDER</div>
   <div class="hud hud-bottom"><span>TOTAL CASUALTIES</span><strong id="casualties">0</strong></div>
  </div>
- <section class="country-panel" id="country-panel"><button class="panel-close" id="panel-close">CLOSE</button><h3 id="country-name">SELECT A COUNTRY</h3><div id="country-hint">Tap any country on the world map to inspect its 1936 statistics.</div><div class="country-stats"><div class="country-stat"><span>POPULATION · 1936</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>ARMED FORCES · 1936</span><strong id="country-army">—</strong></div></div><div class="war-tools"><select id="war-attacker" aria-label="Country declaring war"><option value="">Attacker</option></select><select id="war-defender" aria-label="Country being attacked"><option value="">Target</option></select><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">Countries begin at peace. Select two countries to start a war. Population figures are historical estimates; some territories use model estimates.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section>
+ <section class="country-panel" id="country-panel"><button class="panel-close" id="panel-close">CLOSE</button><h3 id="country-name">SELECT A COUNTRY</h3><div id="country-hint">Tap any country on the world map to inspect its 1936 statistics.</div><div class="country-stats"><div class="country-stat"><span>POPULATION · 1936</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>ARMED FORCES · ESTIMATE</span><strong id="country-army">—</strong></div></div><div class="war-tools"><select id="war-attacker" aria-label="Country declaring war"><option value="">Attacker</option></select><select id="war-defender" aria-label="Country being attacked"><option value="">Target</option></select><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">Countries begin at peace. Select two countries to start a war. Population figures are historical estimates; some territories use model estimates.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section>
  <div class="controls">
   <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div>
   <div class="control-group"><select id="mode" aria-label="Simulation mode"><option value="historical">HISTORICAL</option><option value="nonhistorical">NON-HISTORICAL</option></select><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
@@ -174,14 +174,14 @@ function atWar(name){return activeWars.some(w=>w.a===name||w.b===name)}
 function showCountry(name){
  const c=countries.get(name);if(!c)return;selectedCountry=name;
  $('country-name').textContent=name.toUpperCase();
- $('country-hint').textContent=(atWar(name)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+(c.estimated?' · POPULATION / ARMY ESTIMATED':'');
+ $('country-hint').textContent=(atWar(name)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+' · ARMED FORCES ESTIMATED'+(c.estimated?' · POPULATION ESTIMATED':'');
  $('country-pop').textContent=fmt(c.population);$('country-army').textContent=fmt(c.soldiers);
  if(!$('war-attacker').value)$('war-attacker').value=name;
  else if(!$('war-defender').value&&$('war-attacker').value!==name)$('war-defender').value=name;
 }
 function renderWars(){
  $('war-list').textContent=activeWars.length?'ACTIVE WARS: '+activeWars.map(w=>w.a+' vs '+w.b).join(' | '):'ACTIVE WARS: NONE';
- if(selectedCountry)$('country-hint').textContent=(atWar(selectedCountry)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+(countries.get(selectedCountry)?.estimated?' · ESTIMATED DATA':'');
+ if(selectedCountry)$('country-hint').textContent=(atWar(selectedCountry)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+' · ARMY ESTIMATED'+(countries.get(selectedCountry)?.estimated?' · POPULATION ESTIMATED':'');
 }
 function declareWar(a,b,natural){
  if(!a||!b||a===b){$('war-status').textContent='Choose two different countries.';return false}
