@@ -80,7 +80,7 @@ button:active{transform:translateY(1px)}
   <div class="legend"><i style="background:#c65e59"></i>WAR DECLARER <i style="background:#5a9ed4;margin-left:10px"></i>DEFENDER</div>
   <div class="hud hud-bottom"><span>TOTAL CASUALTIES</span><strong id="casualties">0</strong></div>
  </div>
- <div id="peace-settlement" style="display:none;position:fixed;z-index:20;inset:0;background:rgba(4,10,14,.82);align-items:center;justify-content:center;padding:18px"><div style="width:min(420px,100%);background:#17252d;border:1px solid #aab8b8;padding:20px;color:#f2f4ef"><h2 id="settlement-title" style="margin:0 0 8px;font-size:20px">COUNTRY DEFEATED</h2><p id="settlement-copy" style="line-height:1.5;color:#cbd6d5">Choose the fate of the defeated country.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button id="annex-country">ANNEX TERRITORY</button><button id="puppet-country">INSTALL PUPPET</button></div></div></div><section class="country-panel" id="country-panel" hidden><div class="country-panel-head"><h3 id="country-name">COUNTRY</h3><button id="close-country-panel" class="country-close" aria-label="Close country menu">×</button></div><div id="country-hint">1936 national statistics</div><div id="country-alliances" class="war-status">1936 DEFENSIVE ALLIANCES: NONE</div><div id="country-supply" class="war-status">FRONT SUPPLY: NO ACTIVE FRONT</div><div class="country-stats"><div class="country-stat"><span>POPULATION</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>LOYAL SOLDIERS</span><strong id="country-army">—</strong></div><div class="country-stat"><span>RESERVES</span><strong id="country-reserve">—</strong></div><div class="country-stat"><span>STABILITY</span><strong id="country-stability">—</strong></div><div class="country-stat"><span>GDP</span><strong id="country-gdp">—</strong></div><div class="country-stat"><span>GDP PER CAPITA</span><strong id="country-gdp-pc">—</strong></div><div class="country-stat"><span>MILITARY SPENDING / YEAR</span><strong id="country-mil-spend">—</strong></div><div class="country-stat"><span>IDEOLOGY</span><strong id="country-ideology">—</strong></div><div class="country-stat"><span>TECH LEVEL</span><strong id="country-tech-level">1/40</strong></div><div class="country-stat"><span>SCIENTIFIC EFFORTS</span><strong id="country-science">1.00/SEC</strong></div></div><div id="country-ideology-effect" class="war-status"></div><div id="country-rebels" class="war-status" hidden></div><div class="war-tools"><button id="declare-war">DECLARE WAR</button><button id="open-details" class="details-button">DETAILS</button><button id="open-tech" class="details-button">TECHNOLOGY</button></div><div class="war-status" id="war-status">Choose this country as the attacker, then tap the target country on the map.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section><section id="military-details" hidden aria-label="Country military details"><div class="details-top"><div><h2 id="details-country">COUNTRY MILITARY</h2><div class="details-sub">NATIONAL MILITARY INVENTORY · LIVE SIMULATION ESTIMATES</div></div><button id="close-details" class="details-close" aria-label="Close details">X</button></div><div id="asset-grid" class="asset-grid"></div><div class="asset-note">Inventory figures are modeled estimates based on the country’s simulated armed forces and national profile. They are not verified historical equipment records. Personnel losses and annexations affect the displayed inventory.</div></section><section id="tech-details" hidden style="position:fixed;z-index:31;inset:0;background:rgba(5,11,15,.98);padding:calc(18px + env(safe-area-inset-top)) 16px;overflow:auto;color:#edf3f0"><div class="details-top"><div><h2 id="tech-country">NATIONAL RESEARCH COMMAND</h2><div class="details-sub">SCIENCE, DOCTRINE & MILITARY MODERNIZATION</div></div><button id="close-tech" class="details-close">X</button></div><div id="tech-summary" class="tech-panel"></div><div class="tech-panel"><h3>RESEARCH FUNDING</h3><div class="tech-copy">Allocate a share of annual national GDP to scientific research. Higher funding produces research points faster; zero funding stops research.</div><label for="research-funding" class="tech-copy" style="display:block;margin:10px 0 5px">ANNUAL GDP ALLOCATION</label><select id="research-funding" style="width:100%;padding:10px;background:#233942;color:#f3f5ef;border:1px solid #71858b"><option value="0">0% · No funding</option><option value="0.005">0.5% · Limited</option><option value="0.01">1% · Standard</option><option value="0.015">1.5% · Increased</option><option value="0.02">2% · High priority</option><option value="0.03">3% · Intensive</option><option value="0.05">5% · Maximum effort</option></select><div id="research-budget" class="tech-copy" style="margin-top:8px"></div></div><div class="tech-panel"><h3>TECHNOLOGY MILESTONES</h3><div id="tech-unlocks" class="tech-unlocks"></div></div><div class="asset-note">Nuclear effects are abstract strategy-game mechanics, not real-world weapon instructions.</div></section><aside id="ai-news" aria-live="polite"><div class="news-heading">AI WAR DESK · LIVE REPORTS</div><div id="news-feed"></div></aside><div class="target-prompt" id="target-prompt" hidden></div>
+ <div id="peace-settlement" style="display:none;position:fixed;z-index:20;inset:0;background:rgba(4,10,14,.82);align-items:center;justify-content:center;padding:18px"><div style="width:min(420px,100%);background:#17252d;border:1px solid #aab8b8;padding:20px;color:#f2f4ef"><h2 id="settlement-title" style="margin:0 0 8px;font-size:20px">COUNTRY DEFEATED</h2><p id="settlement-copy" style="line-height:1.5;color:#cbd6d5">Choose the fate of the defeated country.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button id="annex-country">ANNEX TERRITORY</button><button id="puppet-country">INSTALL PUPPET</button></div></div></div><section class="country-panel" id="country-panel" hidden><div class="country-panel-head"><h3 id="country-name">COUNTRY</h3><button id="close-country-panel" class="country-close" aria-label="Close country menu">×</button></div><div id="country-hint">1936 national statistics</div><div id="country-alliances" class="war-status">1936 DEFENSIVE ALLIANCES: NONE</div><div id="country-supply" class="war-status">FRONT SUPPLY: NO ACTIVE FRONT</div><div id="country-defenses" class="war-status">BORDER DEFENSES: NONE BUILT YET</div><div class="country-stats"><div class="country-stat"><span>POPULATION</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>LOYAL SOLDIERS</span><strong id="country-army">—</strong></div><div class="country-stat"><span>RESERVES</span><strong id="country-reserve">—</strong></div><div class="country-stat"><span>STABILITY</span><strong id="country-stability">—</strong></div><div class="country-stat"><span>GDP</span><strong id="country-gdp">—</strong></div><div class="country-stat"><span>GDP PER CAPITA</span><strong id="country-gdp-pc">—</strong></div><div class="country-stat"><span>MILITARY SPENDING / YEAR</span><strong id="country-mil-spend">—</strong></div><div class="country-stat"><span>IDEOLOGY</span><strong id="country-ideology">—</strong></div><div class="country-stat"><span>TECH LEVEL</span><strong id="country-tech-level">1/40</strong></div><div class="country-stat"><span>SCIENTIFIC EFFORTS</span><strong id="country-science">1.00/SEC</strong></div></div><div id="country-ideology-effect" class="war-status"></div><div id="country-rebels" class="war-status" hidden></div><div class="war-tools"><button id="declare-war">DECLARE WAR</button><button id="open-details" class="details-button">DETAILS</button><button id="open-tech" class="details-button">TECHNOLOGY</button></div><div class="war-status" id="war-status">Choose this country as the attacker, then tap the target country on the map.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section><section id="military-details" hidden aria-label="Country military details"><div class="details-top"><div><h2 id="details-country">COUNTRY MILITARY</h2><div class="details-sub">NATIONAL MILITARY INVENTORY · LIVE SIMULATION ESTIMATES</div></div><button id="close-details" class="details-close" aria-label="Close details">X</button></div><div id="asset-grid" class="asset-grid"></div><div class="asset-note">Inventory figures are modeled estimates based on the country’s simulated armed forces and national profile. They are not verified historical equipment records. Personnel losses and annexations affect the displayed inventory.</div></section><section id="tech-details" hidden style="position:fixed;z-index:31;inset:0;background:rgba(5,11,15,.98);padding:calc(18px + env(safe-area-inset-top)) 16px;overflow:auto;color:#edf3f0"><div class="details-top"><div><h2 id="tech-country">NATIONAL RESEARCH COMMAND</h2><div class="details-sub">SCIENCE, DOCTRINE & MILITARY MODERNIZATION</div></div><button id="close-tech" class="details-close">X</button></div><div id="tech-summary" class="tech-panel"></div><div class="tech-panel"><h3>RESEARCH FUNDING</h3><div class="tech-copy">Allocate a share of annual national GDP to scientific research. Higher funding produces research points faster; zero funding stops research.</div><label for="research-funding" class="tech-copy" style="display:block;margin:10px 0 5px">ANNUAL GDP ALLOCATION</label><select id="research-funding" style="width:100%;padding:10px;background:#233942;color:#f3f5ef;border:1px solid #71858b"><option value="0">0% · No funding</option><option value="0.005">0.5% · Limited</option><option value="0.01">1% · Standard</option><option value="0.015">1.5% · Increased</option><option value="0.02">2% · High priority</option><option value="0.03">3% · Intensive</option><option value="0.05">5% · Maximum effort</option></select><div id="research-budget" class="tech-copy" style="margin-top:8px"></div></div><div class="tech-panel"><h3>TECHNOLOGY MILESTONES</h3><div id="tech-unlocks" class="tech-unlocks"></div></div><div class="asset-note">Nuclear effects are abstract strategy-game mechanics, not real-world weapon instructions.</div></section><aside id="ai-news" aria-live="polite"><div class="news-heading">AI WAR DESK · LIVE REPORTS</div><div id="news-feed"></div></aside><div class="target-prompt" id="target-prompt" hidden></div>
  <div class="controls">
   <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div><div class="control-group zoom-tools"><button id="zoom-out" aria-label="Zoom out">−</button><button id="zoom-in" aria-label="Zoom in">＋</button><button id="zoom-reset">RESET VIEW</button></div>
   <div class="control-group"><select id="mode" aria-label="Simulation mode"><option value="historical">HISTORICAL</option><option value="nonhistorical">NON-HISTORICAL</option></select><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
@@ -226,7 +226,7 @@ function attemptNuclearStrike(w,dt){[{name:w.a,target:w.b},{name:w.b,target:w.a}
 function countryRecord(name){
  const k=Object.keys(country1936).find(x=>x.toLowerCase()===name.toLowerCase());
  const population=k?country1936[k][0]:1000000,soldiers=k?country1936[k][1]:5000;
- const economy=countryEconomicProfile(name,population);return {name,population,citizens:Math.max(0,population-soldiers),soldiers,reserve:soldiers*.35,stability:72+Math.random()*18,civilWar:null,estimated:!k,equipment:assetProfile(name,soldiers),equipmentBaseline:assetProfile(name,soldiers),initialSoldiers:soldiers,techLevel:1,scientificPoints:0,researchShare:.01,scientificRate:economy.ideology==='DEMOCRACY'?1.05:1,nuclearCooldown:0,...economy};
+ const economy=countryEconomicProfile(name,population);return {name,population,citizens:Math.max(0,population-soldiers),soldiers,reserve:soldiers*.35,stability:72+Math.random()*18,civilWar:null,estimated:!k,equipment:assetProfile(name,soldiers),equipmentBaseline:assetProfile(name,soldiers),initialSoldiers:soldiers,borderDefenses:initialBorderDefenses(name),defenseProgress:{},techLevel:1,scientificPoints:0,researchShare:.01,scientificRate:economy.ideology==='DEMOCRACY'?1.05:1,nuclearCooldown:0,...economy};
 }
 function registerCountries(){
  // Rebuilding the map must not recreate national records. In particular,
@@ -238,6 +238,7 @@ function registerCountries(){
  worldFeatures.forEach(f=>{
   const name=countryName(f);
   if(name){
+   ensureBorderDefenses(countries.get(name));
    if(!countries.has(name))countries.set(name,previousRecords.get(name)||countryRecord(name));
    countryHitData.push({name,geometry:f.geometry});
   }
@@ -251,7 +252,7 @@ function showCountry(name){
  name=sovereignOwner(name);const c=countries.get(name);if(!c||c.annexedTo)return;selectedCountry=name;
  $('country-name').textContent=name.toUpperCase();
  $('country-hint').textContent=(atWar(name)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+(c.estimated?' · SOME FIGURES ESTIMATED':' · 1936 ESTIMATES');
- const alliedNames=alliesOf(name);$('country-alliances').textContent=alliedNames.length?'1936 DEFENSIVE ALLIANCES: '+alliedNames.join(', '):'1936 DEFENSIVE ALLIANCES: NONE';$('country-supply').textContent=supplyStatusFor(name);
+ const alliedNames=alliesOf(name);$('country-alliances').textContent=alliedNames.length?'1936 DEFENSIVE ALLIANCES: '+alliedNames.join(', '):'1936 DEFENSIVE ALLIANCES: NONE';$('country-supply').textContent=supplyStatusFor(name);$('country-defenses').textContent=borderDefenseStatus(name);
  $('country-pop').textContent=fmt(c.population);$('country-army').textContent=fmt(c.soldiers);$('country-reserve').textContent=fmt(c.reserve||0);
  $('country-stability').textContent=Math.round(Math.max(0,Math.min(100,c.stability??75)))+'%';$('country-tech-level').textContent=(c.techLevel||1)+'/40';$('country-science').textContent=(c.scientificRate||1).toFixed(2)+'/SEC';
  const rebelBox=$('country-rebels');
@@ -549,6 +550,7 @@ function historicalEvents(){
  });
 }
 
+ borderNeighborCache.clear();countryCenterCache.clear();
 function buildBase(){
  baseCanvas=document.createElement('canvas');baseCanvas.width=W;baseCanvas.height=H;
  const c=baseCanvas.getContext('2d');
@@ -829,17 +831,17 @@ function activeWarStrength(w){
  const puppetSupport=overlord=>Array.from(countries.values()).filter(c=>c.puppetOf===overlord).reduce((sum,c)=>sum+Math.max(0,(c.soldiers||0)-(c.reserve||0))*.3,0);
  const alliesA=(w.supportA||[]).reduce((n,x)=>n+(x.troops||0),0),alliesB=(w.supportB||[]).reduce((n,x)=>n+(x.troops||0),0);
  const supplyA=Math.max(0,Math.min(100,w.supplyA??70)),supplyB=Math.max(0,Math.min(100,w.supplyB??70));
- const countryA=countries.get(w.a),countryB=countries.get(w.b),equipmentA=nationalCombatMultiplier(countryA)*frontOverstretch(w.a),equipmentB=nationalCombatMultiplier(countryB)*frontOverstretch(w.b)*(w.front&&w.front.length?defensiveTerrainBonus(w.b):1);
+  const countryA=countries.get(w.a),countryB=countries.get(w.b),hasLandFront=!!(w.front&&w.front.length),defenderName=(w.progress||0)<0?w.a:w.b,attackerName=defenderName===w.a?w.b:w.a,fortLevel=hasLandFront?borderDefenseLevel(defenderName,attackerName):0,defenseFactor=hasLandFront?defensiveTerrainBonus(defenderName)*(1+fortLevel*.085):1,defenseA=defenderName===w.a?defenseFactor:1,defenseB=defenderName===w.b?defenseFactor:1,equipmentA=nationalCombatMultiplier(countryA)*frontOverstretch(w.a),equipmentB=nationalCombatMultiplier(countryB)*frontOverstretch(w.b);
  const alliedEquipmentA=(w.supportA||[]).length?(w.supportA.reduce((n,x)=>n+nationalCombatMultiplier(countries.get(x.name))*Math.max(0,x.troops||0),0)/Math.max(1,alliesA)):equipmentA;
  const alliedEquipmentB=(w.supportB||[]).length?(w.supportB.reduce((n,x)=>n+nationalCombatMultiplier(countries.get(x.name))*Math.max(0,x.troops||0),0)/Math.max(1,alliesB)):equipmentB;
  ensureNavalWar(w);
- const hasLandFront=!!(w.front&&w.front.length);
+
  const transportA=w.naval.unitsA.filter(x=>x.type==='TRANSPORT').length,transportB=w.naval.unitsB.filter(x=>x.type==='TRANSPORT').length;
  const landA=hasLandFront?Math.max(0,w.troopsA||0):Math.min(Math.max(0,w.troopsA||0),transportA*10000);
  const landB=hasLandFront?Math.max(0,w.troopsB||0):Math.min(Math.max(0,w.troopsB||0),transportB*10000);
- const powerA=(landA*equipmentA+alliesA*alliedEquipmentA+puppetSupport(w.a)*equipmentA);
- const powerB=(landB*equipmentB+alliesB*alliedEquipmentB+puppetSupport(w.b)*equipmentB);
- return {attackers:Math.max(0,Math.round(powerA*(.48+supplyA*.0052))),defenders:Math.max(0,Math.round(powerB*(.48+supplyB*.0052))),supplyA,supplyB,alliesA,alliesB,equipmentA,equipmentB,transportCapacityA:transportA*10000,transportCapacityB:transportB*10000};
+ const powerA=(landA*equipmentA+alliesA*alliedEquipmentA+puppetSupport(w.a)*equipmentA)*defenseA;
+ const powerB=(landB*equipmentB+alliesB*alliedEquipmentB+puppetSupport(w.b)*equipmentB)*defenseB;
+ return {attackers:Math.max(0,Math.round(powerA*(.48+supplyA*.0052))),defenders:Math.max(0,Math.round(powerB*(.48+supplyB*.0052))),supplyA,supplyB,alliesA,alliesB,equipmentA,equipmentB,fortLevel,defenderName,defenseFactor,transportCapacityA:transportA*10000,transportCapacityB:transportB*10000};
 }
 function recordEncirclement(war,side,available){
  if(!war.encirclements)war.encirclements=[];
@@ -857,6 +859,7 @@ function recordEncirclement(war,side,available){
  war.encircledDivisionsB=(war.encirclements||[]).filter(e=>e.side==='B').reduce((n,e)=>n+e.divisions,0);
  return true;
 }
+function drawBorderDefenseMarkers(war,paths,borders,strength){const defender=strength?.defenderName||((war.progress||0)<0?war.a:war.b),attacker=defender===war.a?war.b:war.a,level=strength?.fortLevel??borderDefenseLevel(defender,attacker);if(level<1||!paths?.length)return;const total=paths.reduce((n,p)=>n+polyLength(p),0);if(total<1)return;let remain=total*.5,k=0;for(;k<paths.length-1;k++){const len=polyLength(paths[k]);if(remain<=len)break;remain-=len}const path=paths[k],bp=borders[k]||path,f=remain/(polyLength(path)||1),p=pointAlong(path,f),b=pointAlong(bp,f);let nx=-p.ty,ny=p.tx,n=Math.hypot(nx,ny)||1;nx/=n;ny/=n;const side=frontSideForCountry(defender,bp,f)||((war.progress||0)<0?-1:1),dir=(p.tx*b.tx+p.ty*b.ty)>=0?1:-1,x=p.x+nx*side*dir*7,y=p.y+ny*side*dir*7;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='13px Arial';ctx.lineWidth=2;ctx.strokeStyle='rgba(15,25,29,.95)';ctx.strokeText('🛡️',x,y);ctx.fillText('🛡️',x,y);if(level>=3){ctx.font='800 8px Arial';ctx.strokeText('FORT '+level+'/5',x,y-12);ctx.fillStyle='#f4df9d';ctx.fillText('FORT '+level+'/5',x,y-12)}ctx.restore()}
 function drawEncirclements(war,paths){
  if(!war.encirclements?.length||!paths?.length)return;
  const path=paths.reduce((best,p)=>polyLength(p)>polyLength(best||[])?p:best,null);
@@ -908,6 +911,14 @@ function countryContainsProjectedPoint(name,x,y){
  }
  return false;
 }
+const borderNeighborCache=new Map();
+function initialBorderDefenses(name){const n=String(name||'').toLowerCase(),d={};if(n==='france')Object.assign(d,{Germany:5,Italy:2});if(n==='czechoslovakia')d.Germany=4;if(n==='finland')d.USSR=3;if(n==='switzerland')Object.assign(d,{Germany:2,France:2,Italy:2,Austria:2});if(n==='poland')Object.assign(d,{Germany:1,USSR:1});if(n==='belgium'||n==='netherlands')d.Germany=1;if(n==='germany')d.France=1;if(n==='ussr'||n==='soviet union')Object.assign(d,{Poland:1,Romania:1,Finland:1});if(n==='greece')Object.assign(d,{Italy:1,Bulgaria:1});return d}
+function ensureBorderDefenses(c){if(!c.borderDefenses)c.borderDefenses=initialBorderDefenses(c.name);if(!c.defenseProgress)c.defenseProgress={};return c.borderDefenses}
+function borderDefenseLevel(name,enemy){const c=countries.get(name);if(!c)return 0;const d=ensureBorderDefenses(c),key=Object.keys(d).find(x=>x.toLowerCase()===String(enemy||'').toLowerCase());return Math.max(0,Math.min(5,Number(key?d[key]:0)||0))}
+function borderDefenseLabel(name,enemy){if(name==='France'&&enemy==='Germany')return 'MAGINOT LINE';if(name==='Czechoslovakia'&&enemy==='Germany')return 'SUDETEN FORTIFICATIONS';if(name==='Finland'&&/ussr|soviet union/i.test(enemy))return 'MANNERHEIM LINE';return 'BORDER FORTIFICATIONS'}
+function getBorderNeighbors(name){if(borderNeighborCache.has(name))return borderNeighborCache.get(name);const a=[...countries.keys()].filter(n=>n!==name&&isSovereign(n)&&!!buildWarFront(name,n));borderNeighborCache.set(name,a);return a}
+function updateBorderDefenseConstruction(days){if(days<=0)return;countries.forEach((c,name)=>{if(c.annexedTo)return;const d=ensureBorderDefenses(c),neighbors=getBorderNeighbors(name);if(!neighbors.length)return;const war=activeWars.find(w=>(w.a===name||w.b===name)&&w.front?.length);let target=war?(war.a===name?war.b:war.a):null;if(!target)target=neighbors.filter(n=>!areAllied(name,n)).sort((a,b)=>{const x=countries.get(a),y=countries.get(b);return ((y?.soldiers||0)+(y?.gdp||0)/1200)-((x?.soldiers||0)+(x?.gdp||0)/1200)})[0]||neighbors[0];if(!target)return;const level=borderDefenseLevel(name,target);if(level>=5)return;const share=Math.max(.02,Math.min(.12,(c.militarySpending||0)/Math.max(1,c.gdp||1))),rate=Math.min(.0038,(.0009+share*.014)*(war?1.8:1));c.defenseProgress[target]=(c.defenseProgress[target]||0)+days*rate;if(c.defenseProgress[target]>=1){c.defenseProgress[target]-=1;d[target]=level+1;publishNews(name.toUpperCase()+' STRENGTHENS ITS BORDER',name+' completed another level of '+borderDefenseLabel(name,target).toLowerCase()+' facing '+target+'. Fortification level '+(level+1)+'/5.','FORTIFICATION CONSTRUCTION')}})}
+function borderDefenseStatus(name){const c=countries.get(name);if(!c)return 'BORDER DEFENSES: UNAVAILABLE';const e=Object.entries(ensureBorderDefenses(c)).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);return e.length?'BORDER DEFENSES: '+e.slice(0,4).map(([n,v])=>borderDefenseLabel(name,n)+' '+v+'/5').join(' · '):'BORDER DEFENSES: NONE BUILT YET'}
 const countryCenterCache=new Map(),supplyCityCache=new Map();
 function countryMapCenter(name){
  if(countryCenterCache.has(name))return countryCenterCache.get(name);
@@ -1073,13 +1084,14 @@ function drawDivisionFlags(war,paths,strength,borderPaths=paths){
    const borderPath=borderPaths[pathIndex]||path,borderP=pointAlong(borderPath,fraction);
    let px=-p.ty,py=p.tx,plen=Math.hypot(px,py)||1;px/=plen;py/=plen;
    const direction=(p.tx*borderP.tx+p.ty*borderP.ty)>=0?1:-1;
-   const territorySide=frontSideForCountry(entry.name,borderPath,fraction);
-   if(!territorySide)return;
+    let territorySide=frontSideForCountry(entry.name,borderPath,fraction);
+    if(!territorySide){const sa=frontSideForCountry(war.a,borderPath,fraction),sb=frontSideForCountry(war.b,borderPath,fraction);territorySide=entry.frontSide==='A'?(sa||-sb):(sb||-sa)}
+    if(!territorySide)territorySide=entry.frontSide==='A'?-1:1;
    const offset=territorySide*direction*3.5,x=p.x+px*offset,y=p.y+py*offset;
    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
    ctx.font='9px "Noto Color Emoji", "Apple Color Emoji", Arial';
    ctx.lineWidth=1.5;ctx.strokeStyle='rgba(248,246,232,.92)';
-   ctx.strokeText(countryFlag(entry.name),x,y);
+   ctx.strokeText(countryFlag(entry.name),x,y);ctx.fillStyle='white';ctx.fillText(countryFlag(entry.name),x,y);
    ctx.restore();
   }
  });
@@ -1187,6 +1199,7 @@ function draw(now){
      drawFrontline(movingPath,now+index*173+pathIndex*61);
      const share=polyLength(path)/totalFrontLength;
     });
+     drawBorderDefenseMarkers(war,movingPaths,drawable,strength);
     drawDivisionFlags(war,movingPaths,strength,drawable);
     drawEncirclements(war,movingPaths);
     drawSupplyTrains(war,movingPaths,now+index*1200);
@@ -1255,13 +1268,14 @@ function resolveSettlement(choice){
 $('annex-country').addEventListener('click',()=>resolveSettlement('annex'));
 $('puppet-country').addEventListener('click',()=>resolveSettlement('puppet'));
 function tick(dt){
- const intensity=Number($('intensity').value),simDt=dt*speed,lossRate=.00022*intensity,lossesByCountry=new Map();
+ const intensity=Number($('intensity').value),simDt=dt*speed,lossRate=.00020*intensity,lossesByCountry=new Map();
  updateWarDeployments();
  researchTick(simDt);countries.forEach(c=>{ensureTech(c);c.nuclearCooldown=Math.max(0,c.nuclearCooldown-simDt/2)});
   const transferDays=simDt/2;
  activeWars.forEach(w=>{
   [...(w.supportA||[]),...(w.supportB||[])].forEach(x=>{x.troops=Math.max(0,x.targetTroops||0)});
  });
+ updateBorderDefenseConstruction(elapsedSupplyDays);
  const elapsedSupplyDays=simDt/2;
  activeWars.forEach(w=>{
   const longest=w.front?.reduce((best,p)=>polyLength(p)>polyLength(best||[])?p:best,null);
@@ -1434,8 +1448,8 @@ function tick(dt){
     }
     // A sustained numerical advantage advances the front into the defender.
     // The rate is deliberately gradual so a large country is not overrun in days.
-    const campaignMomentum=Math.sign(advantage)*Math.pow(Math.abs(advantage),.75);
-    w.progress=Math.max(-.68,Math.min(.68,(w.progress||0)+campaignMomentum*.006*simDt));
+     const campaignMomentum=Math.sign(advantage)*Math.pow(Math.abs(advantage),.82);
+    w.progress=Math.max(-.68,Math.min(.68,(w.progress||0)+campaignMomentum*.0042*simDt));
     // A sustained campaign advantage is required before either side can force surrender.
     if(w.progress>=.68&&!w.settlementPending)offerSettlement(w,'A');
     else if(w.progress<=-.68&&!w.settlementPending)offerSettlement(w,'B');
@@ -1450,7 +1464,7 @@ function tick(dt){
   $('country-army').textContent=fmt(c.soldiers);
   $('country-reserve').textContent=fmt(c.reserve||0);
   $('country-stability').textContent=Math.round(Math.max(0,Math.min(100,c.stability??75)))+'%';
-  const alliedNames=alliesOf(selectedCountry);$('country-alliances').textContent=alliedNames.length?'1936 DEFENSIVE ALLIANCES: '+alliedNames.join(', '):'1936 DEFENSIVE ALLIANCES: NONE';$('country-supply').textContent=supplyStatusFor(selectedCountry);
+  const alliedNames=alliesOf(selectedCountry);$('country-alliances').textContent=alliedNames.length?'1936 DEFENSIVE ALLIANCES: '+alliedNames.join(', '):'1936 DEFENSIVE ALLIANCES: NONE';$('country-supply').textContent=supplyStatusFor(selectedCountry);$('country-defenses').textContent=borderDefenseStatus(selectedCountry);
   const rebelBox=$('country-rebels');
   if(c.civilWar){rebelBox.hidden=false;rebelBox.textContent='CIVIL WAR · REBELS: '+fmt(c.civilWar.troops)+' SOLDIERS · '+c.civilWar.divisions+' DIVISIONS';}
   else{rebelBox.hidden=true;rebelBox.textContent='';}
