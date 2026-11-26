@@ -356,7 +356,7 @@ function geometryRings(geometry){
  if(geometry.type==='MultiPolygon')return (geometry.coordinates||[]).flat();
  return [];
 }
-function borderPointKey(p){return Number(p[0]).toFixed(3)+','+Number(p[1]).toFixed(3)}
+function borderPointKey(p){return Number(p[0]).toFixed(4)+','+Number(p[1]).toFixed(4)}
 function countryBorderEdges(name){
  const feature=worldFeatures.find(f=>countryName(f)===name);
  if(!feature)return [];
@@ -372,7 +372,7 @@ function countryBorderEdges(name){
 // Match overlapping border portions, even when one country's GeoJSON edge is
 // split into several points and the neighbouring country's edge is not.
 function sharedBorderPieces(edgesA,edgesB){
- const pieces=[],seen=new Set(),tol=.035,parallel=.02,minLength=.003;
+ const pieces=[],seen=new Set(),tol=.003,parallel=.005,minLength=.002;
  for(const a of edgesA){
   const ux=a.b[0]-a.a[0],uy=a.b[1]-a.a[1],len2=ux*ux+uy*uy,len=Math.sqrt(len2);
   if(len<minLength)continue;
@@ -428,16 +428,28 @@ function buildWarFront(a,b){
 function activeWarStrength(w){
  return {attackers: countries.get(w.a)?.soldiers||0, defenders: countries.get(w.b)?.soldiers||0};
 }
-function drawFrontCount(value,points,side,color){
- const mid=pointAtHalf(points),nx=-mid.ty,ny=mid.tx,offset=side==='blue'?-12:12;
+function pointAlong(points,fraction){
+ const full=polyLength(points),target=full*fraction;let walked=0;
+ for(let i=1;i<points.length;i++){
+  const a=points[i-1],b=points[i],seg=Math.hypot(b[0]-a[0],b[1]-a[1]);
+  if(walked+seg>=target){
+   const t=(target-walked)/(seg||1);
+   return {x:a[0]+(b[0]-a[0])*t,y:a[1]+(b[1]-a[1])*t,tx:(b[0]-a[0])/(seg||1),ty:(b[1]-a[1])/(seg||1),length:full};
+  }
+  walked+=seg;
+ }
+ return pointAtHalf(points);
+}
+function drawFrontCount(value,points,fraction,side,color){
+ const mid=pointAlong(points,fraction),nx=-mid.ty,ny=mid.tx,offset=side==='blue'?-17:17;
  let angle=Math.atan2(mid.ty,mid.tx);
  if(angle>Math.PI/2||angle< -Math.PI/2)angle+=Math.PI;
- const fontSize=Math.max(8,Math.min(15,(mid.length-12)/(value.length*.68)));
+ const fontSize=Math.max(10,Math.min(16,mid.length/(value.length*.72)));
  ctx.save();ctx.translate(mid.x+nx*offset,mid.y+ny*offset);ctx.rotate(angle);
  ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
- ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=color;
- ctx.shadowColor='rgba(255,255,255,.98)';ctx.shadowBlur=3;ctx.shadowOffsetX=0;ctx.shadowOffsetY=0;
- ctx.fillText(value,0,0);ctx.restore();
+ ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
+ ctx.lineWidth=3.5;ctx.strokeStyle='rgba(255,255,255,.98)';ctx.strokeText(value,0,0);
+ ctx.fillStyle=color;ctx.fillText(value,0,0);ctx.restore();
 }
 function drawFrontline(points,now){
  ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
@@ -461,11 +473,11 @@ function draw(now){
     if(!front||!front.length)return;
     const paths=Array.isArray(front[0]?.[0])?front:[front];
     paths.forEach((path,pathIndex)=>{if(path.length>1)drawFrontline(path,now+index*173+pathIndex*61)});
-    const mainFront=paths[0];
-    if(mainFront&&mainFront.length>1){
+    const mainFront=paths.slice().sort((a,b)=>polyLength(b)-polyLength(a))[0];
+    if(mainFront&&mainFront.length>1&&polyLength(mainFront)>18){
      const strength=activeWarStrength(war);
-     drawFrontCount(fmt(strength.attackers),mainFront,'red','#a51f25');
-     drawFrontCount(fmt(strength.defenders),mainFront,'blue','#145f98');
+     drawFrontCount(fmt(strength.attackers),mainFront,.36,'red','#a51f25');
+     drawFrontCount(fmt(strength.defenders),mainFront,.64,'blue','#145f98');
     }
    });
  }else{
