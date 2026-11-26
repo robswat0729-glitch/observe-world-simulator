@@ -87,7 +87,7 @@ const canvas=document.getElementById('map'),ctx=canvas.getContext('2d');
 const $=id=>document.getElementById(id);
 const fmt=n=>Math.max(0,Math.round(n)).toLocaleString('en-US');
 let day=1,paused=false,speed=1,casualties=0,territory=50,last=0,acc=0,dayAcc=0,simDate=new Date(1936,0,1),mode='historical';
-let blueTroops=2400000,redTroops=1500000,worldFeatures=[],baseCanvas=null,mapReady=false,loadMessage='Loading geographic map…';
+let blueTroops=2400000,redTroops=1500000,worldFeatures=[],baseCanvas=null,mapReady=false,loadMessage='Loading geographic map…',lastForceYear=-1;
 const historicalForces={
  // Annual total armed-forces personnel (thousands), major powers; pre-1939 values are explicitly approximate buildup estimates.
  1936:{allies:2400,axis:1500},1937:{allies:2600,axis:1750},1938:{allies:3100,axis:2200},
@@ -112,7 +112,7 @@ function forcesForDate(date){
 }
 function syncHistoricalForces(){
  if(mode!=='historical')return;
- const f=forcesForDate(simDate);blueTroops=f.blue;redTroops=f.red;
+ const f=forcesForDate(simDate);blueTroops=f.blue;redTroops=f.red;lastForceYear=simDate.getFullYear();
 }
 // Offline built-in geographic shapes: no remote map downloads are required.
 const GEO_SOURCES=[];
@@ -259,8 +259,7 @@ function tick(dt){
 function nextDay(){
  day++;simDate.setDate(simDate.getDate()+1);
  if(mode==='historical'){
-  const previousYear=simDate.getFullYear()-1;
-  if(simDate.getFullYear()!==previousYear)syncHistoricalForces();
+  if(simDate.getFullYear()!==lastForceYear)syncHistoricalForces();
  }
  const balance=(blueTroops-redTroops)/(blueTroops+redTroops||1);
  const drift=mode==='historical'?0.018:0.12;
@@ -330,10 +329,10 @@ function loadMap(){
 }
 function loadGeography(){
  if(mode==='historical'){
-  // The public historical-basemaps collection has a 1930 prewar snapshot, used as an approximate political-border reference for the 1936 start.
+  // The public historical-basemaps collection's 1938 snapshot is used as the closest available pre-war Europe reference; it is not a year-by-year border animation.
   const sources=[
-   'https://cdn.jsdelivr.net/gh/aourednik/historical-basemaps@master/geojson/world_1930.geojson',
-   'https://raw.githubusercontent.com/aourednik/historical-basemaps/master/geojson/world_1930.geojson'
+   'https://cdn.jsdelivr.net/gh/aourednik/historical-basemaps@master/geojson/world_1938.geojson',
+   'https://raw.githubusercontent.com/aourednik/historical-basemaps/master/geojson/world_1938.geojson'
   ];
   tryHistoricalSource(sources,0);
  }else{
