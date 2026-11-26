@@ -571,26 +571,27 @@ function buildBase(){
  borderNeighborCache.clear();countryCenterCache.clear();
  baseCanvas=document.createElement('canvas');baseCanvas.width=W;baseCanvas.height=H;
  const c=baseCanvas.getContext('2d');
- // Deep blue-green sea with subtle bathymetric rings and a restrained atlas grid.
- const sea=c.createLinearGradient(0,0,W,H);sea.addColorStop(0,'#526f7a');sea.addColorStop(.48,'#405e6a');sea.addColorStop(1,'#304c59');
+ // Clean historical-atlas basemap: pale blue sea, parchment land and restrained
+ // topographic detail. Keep the geography readable rather than over-decorated.
+ const sea=c.createLinearGradient(0,0,W,H);sea.addColorStop(0,'#d5e0df');sea.addColorStop(.52,'#c4d3d4');sea.addColorStop(1,'#b7c9cb');
  c.fillStyle=sea;c.fillRect(0,0,W,H);
  c.save();c.beginPath();c.rect(0,0,W,H);c.clip();
- c.strokeStyle='rgba(193,215,211,.10)';c.lineWidth=1;
+ c.strokeStyle='rgba(75,105,111,.13)';c.lineWidth=1;
  for(let lon=-20;lon<=60;lon+=5){const p1=project([lon,LAT_MIN]),p2=project([lon,LAT_MAX]);c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke()}
  for(let lat=35;lat<=70;lat+=2.5){const p1=project([LON_MIN,lat]),p2=project([LON_MAX,lat]);c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke()}
- c.save();c.globalAlpha=.13;c.strokeStyle='#c0d4cf';c.lineWidth=1;
+ c.save();c.globalAlpha=.10;c.strokeStyle='#829da0';c.lineWidth=1;
  for(let i=0;i<34;i++){const x=-100+(i*173)%1600,y=-80+(i*239)%1000;c.beginPath();c.ellipse(x,y,105+(i%5)*31,34+(i%4)*17,(i%9)*.19,0,Math.PI*2);c.stroke()}
  c.restore();
- const landTones=['#c9c8ad','#c2c6a9','#d0c9ad','#c2cbb8','#c9c4a8','#c5cbb5','#d1cdb8','#bdc7b2'];
+ const landTones=['#e4dfc9','#dcdcc5','#e8e1cf','#d8dfd0','#e3ddc8','#d9dfd1','#e8e4d4','#d5ddcb'];
  const toneFor=name=>{let h=0;for(let i=0;i<String(name||'').length;i++)h=(h*31+String(name).charCodeAt(i))>>>0;return landTones[h%landTones.length]};
  worldFeatures.forEach(f=>{c.beginPath();traceGeometry(c,f.geometry);c.fillStyle=toneFor(countryName(f));c.fill()});
  // Terrain-style contour engraving, clipped to land.
- c.save();traceCountries(c);c.clip();c.globalAlpha=.19;c.lineWidth=1.15;
- for(let i=0;i<48;i++){const x=35+(i*127)%1430,y=25+(i*193)%750,rx=32+(i%6)*19,ry=13+(i%5)*11;c.beginPath();c.ellipse(x,y,rx,ry,(i%11)*.21,0,Math.PI*2);c.strokeStyle=i%3===0?'#6b765f':'#f4f0d9';c.stroke();if(i%3===0){c.beginPath();c.ellipse(x+7,y-4,rx*.72,ry*.72,(i%11)*.21,0,Math.PI*2);c.stroke()}}
+ c.save();traceCountries(c);c.clip();c.globalAlpha=.13;c.lineWidth=1.05;
+ for(let i=0;i<48;i++){const x=35+(i*127)%1430,y=25+(i*193)%750,rx=32+(i%6)*19,ry=13+(i%5)*11;c.beginPath();c.ellipse(x,y,rx,ry,(i%11)*.21,0,Math.PI*2);c.strokeStyle=i%3===0?'#87927b':'#f7f3e6';c.stroke();if(i%3===0){c.beginPath();c.ellipse(x+7,y-4,rx*.72,ry*.72,(i%11)*.21,0,Math.PI*2);c.stroke()}}
  c.restore();
- traceCountries(c);c.strokeStyle='rgba(32,53,55,.88)';c.lineWidth=2.35;c.stroke();
- worldFeatures.forEach(f=>{c.beginPath();traceGeometry(c,f.geometry);c.strokeStyle='rgba(247,241,218,.76)';c.lineWidth=.8;c.stroke()});
- c.save();c.textAlign='center';c.textBaseline='middle';c.fillStyle='rgba(35,48,43,.94)';c.shadowColor='rgba(245,241,218,.92)';c.shadowBlur=3;
+ traceCountries(c);c.strokeStyle='rgba(89,91,78,.76)';c.lineWidth=1.65;c.stroke();
+ worldFeatures.forEach(f=>{c.beginPath();traceGeometry(c,f.geometry);c.strokeStyle='rgba(125,119,99,.62)';c.lineWidth=.75;c.stroke()});
+ c.save();c.textAlign='center';c.textBaseline='middle';c.fillStyle='rgba(54,61,53,.88)';c.shadowColor='rgba(248,245,229,.96)';c.shadowBlur=2;
  const hasHistoricalNames=worldFeatures.some(f=>countryName(f));
  if(hasHistoricalNames){
   worldFeatures.forEach(f=>{const name=countryName(f);if(!name||countries.get(name)?.annexedTo)return;let ring=null;const g=f.geometry;if(g.type==='Polygon')ring=g.coordinates[0];else if(g.type==='MultiPolygon'&&g.coordinates.length)ring=g.coordinates.reduce((best,p)=>p[0].length>(best?best.length:0)?p[0]:best,null);if(!ring||ring.length<4)return;let sx=0,sy=0,n=0;for(let j=0;j<ring.length;j+=Math.max(1,Math.floor(ring.length/45))){sx+=ring[j][0];sy+=ring[j][1];n++}const p=project([sx/n,sy/n]);if(p[0]<35||p[0]>W-35||p[1]<25||p[1]>H-25)return;const size=(portraitMap?1.35:1)*Math.max(9,Math.min(14,13-(name.length>15?2:0)));c.font='900 '+size+'px Arial, sans-serif';c.fillText(String(name).toUpperCase(),p[0],p[1])});
@@ -599,9 +600,9 @@ function buildBase(){
  }
  c.restore();
  const cities=[['LONDON',[-.12,51.5]],['PARIS',[2.35,48.86]],['BERLIN',[13.4,52.52]],['WARSAW',[21.01,52.23]],['VIENNA',[16.37,48.2]],['KYIV',[30.52,50.45]],['MINSK',[27.56,53.9]],['MOSCOW',[37.62,55.75]],['BUCHAREST',[26.1,44.43]]];
- cities.forEach(([name,ll])=>{const p=project(ll);c.save();c.shadowColor='rgba(18,31,33,.55)';c.shadowBlur=4;c.beginPath();c.arc(p[0],p[1],portraitMap?6:4.5,0,Math.PI*2);c.fillStyle='#f4e6bd';c.fill();c.strokeStyle='#273d40';c.lineWidth=1.8;c.stroke();c.font='900 '+(portraitMap?16:12)+'px Arial';c.textAlign='left';c.textBaseline='middle';c.lineWidth=3;c.strokeStyle='rgba(238,234,211,.9)';c.strokeText(name,p[0]+8,p[1]+1);c.fillStyle='#293b39';c.fillText(name,p[0]+8,p[1]+1);c.restore()});
- c.font='900 '+(portraitMap?15:11)+'px Arial';c.fillStyle='rgba(220,232,222,.62)';c.textAlign='center';let seaPoint=project([-2,57]);c.fillText('NORTH SEA',seaPoint[0],seaPoint[1]);seaPoint=project([32,40]);c.fillText('BLACK SEA',seaPoint[0],seaPoint[1]);seaPoint=project([20,58]);c.fillText('BALTIC SEA',seaPoint[0],seaPoint[1]);
- const vignette=c.createRadialGradient(W/2,H/2,Math.min(W,H)*.24,W/2,H/2,Math.max(W,H)*.72);vignette.addColorStop(0,'rgba(8,19,25,0)');vignette.addColorStop(1,'rgba(8,19,25,.28)');c.fillStyle=vignette;c.fillRect(0,0,W,H);
+ cities.forEach(([name,ll])=>{const p=project(ll);c.save();c.shadowColor='rgba(45,54,50,.28)';c.shadowBlur=2;c.beginPath();c.arc(p[0],p[1],portraitMap?6:4.5,0,Math.PI*2);c.fillStyle='#f8f2df';c.fill();c.strokeStyle='#5b665e';c.lineWidth=1.35;c.stroke();c.font='900 '+(portraitMap?16:12)+'px Arial';c.textAlign='left';c.textBaseline='middle';c.lineWidth=3;c.strokeStyle='rgba(248,245,229,.94)';c.strokeText(name,p[0]+8,p[1]+1);c.fillStyle='#46534b';c.fillText(name,p[0]+8,p[1]+1);c.restore()});
+ c.font='900 '+(portraitMap?15:11)+'px Arial';c.fillStyle='rgba(65,91,96,.58)';c.textAlign='center';let seaPoint=project([-2,57]);c.fillText('NORTH SEA',seaPoint[0],seaPoint[1]);seaPoint=project([32,40]);c.fillText('BLACK SEA',seaPoint[0],seaPoint[1]);seaPoint=project([20,58]);c.fillText('BALTIC SEA',seaPoint[0],seaPoint[1]);
+ const vignette=c.createRadialGradient(W/2,H/2,Math.min(W,H)*.24,W/2,H/2,Math.max(W,H)*.72);vignette.addColorStop(0,'rgba(40,54,48,0)');vignette.addColorStop(1,'rgba(53,67,61,.12)');c.fillStyle=vignette;c.fillRect(0,0,W,H);
  c.restore();mapReady=true;registerCountries();buildPeaceDivisionMarkers();activeWars.forEach(w=>{w.front=buildWarFront(w.a,w.b)});updateWarDeployments();
 }
 function catmullRom(pts,steps){
@@ -1013,12 +1014,26 @@ function drawFrontCounts(war,points,strength,borderPoints=points){
  const displayScale=Math.max(.22,Math.min(rect.width/W,rect.height/H)*viewScale);
  const fontSize=Math.max(14,Math.min(22,18/displayScale));
  const offset=Math.max(16,Math.min(34,23/displayScale));
- // Estimate the frontline's direction over a wider local window. A single
- // tiny polyline segment can be horizontal even when the visible front here
- // is vertical or diagonal, so do not use pointAlong()'s one-segment tangent.
- const before=pointAlong(points,.40),after=pointAlong(points,.60);
- let tx=after.x-before.x,ty=after.y-before.y,tlen=Math.hypot(tx,ty)||1;
- tx/=tlen;ty/=tlen;
+ // Find the dominant direction of the actual frontline near the label.
+ // Use local point covariance instead of a distant chord that can flatten
+ // a curved or near-vertical section into an apparently horizontal angle.
+ const totalLength=polyLength(points),windowRadius=Math.max(7,totalLength*.075);
+ const midDistance=totalLength*.5,local=[];
+ let walked=0;
+ for(let i=1;i<points.length;i++){
+  const a=points[i-1],b=points[i],seg=Math.hypot(b[0]-a[0],b[1]-a[1]);
+  if(!seg)continue;
+  const lo=Math.max(0,(midDistance-windowRadius-walked)/seg),hi=Math.min(1,(midDistance+windowRadius-walked)/seg);
+  if(hi>=lo){local.push([a[0]+(b[0]-a[0])*lo,a[1]+(b[1]-a[1])*lo]);local.push([a[0]+(b[0]-a[0])*hi,a[1]+(b[1]-a[1])*hi]);}
+  walked+=seg;
+ }
+ if(local.length<2)local.push(points[0],points[points.length-1]);
+ const cx=local.reduce((v,p)=>v+p[0],0)/local.length,cy=local.reduce((v,p)=>v+p[1],0)/local.length;
+ let xx=0,xy=0,yy=0;local.forEach(p=>{const dx=p[0]-cx,dy=p[1]-cy;xx+=dx*dx;xy+=dx*dy;yy+=dy*dy});
+ const axisAngle=.5*Math.atan2(2*xy,xx-yy);
+ let tx=Math.cos(axisAngle),ty=Math.sin(axisAngle);
+ const progression=pointAlong(points,.52),prior=pointAlong(points,.48);
+ if(tx*(progression.x-prior.x)+ty*(progression.y-prior.y)<0){tx=-tx;ty=-ty;}
  const nx=-ty,ny=tx;
  let sideA=frontSideForCountry(war.a,borderPoints,.5);
  let sideB=frontSideForCountry(war.b,borderPoints,.5);
