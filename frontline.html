@@ -90,6 +90,14 @@ button:active{transform:translateY(1px)}
 <script>
 (function(){
 'use strict';
+// Report startup failures visibly instead of leaving an apparently blank page.
+function startupFailure(message){
+ let panel=document.getElementById('startup-error');
+ if(!panel){panel=document.createElement('pre');panel.id='startup-error';panel.style.cssText='position:fixed;z-index:100000;inset:12px;padding:14px;background:#301b1b;color:#fff;border:2px solid #ff9d58;white-space:pre-wrap;overflow:auto;font:12px/1.4 monospace';document.body.appendChild(panel)}
+ panel.textContent='GAME STARTUP ERROR\\n'+String(message||'Unknown error').slice(0,2200);
+}
+window.addEventListener('error',event=>startupFailure(event.error?.stack||event.message||'Script error'));
+window.addEventListener('unhandledrejection',event=>startupFailure(event.reason?.stack||event.reason||'Unhandled promise rejection'));
 const canvas=document.getElementById('map'),ctx=canvas.getContext('2d');
 const portraitMap=window.innerWidth<700;
 const W=portraitMap?900:1400,H=portraitMap?1200:800;
@@ -1938,7 +1946,9 @@ function loadMap(){
   feature([[13,54],[15,53],[18,54],[20,56],[18,58],[15,57],[13,54]]),
   feature([[28,45],[30,43],[33,44],[35,46],[34,49],[31,50],[28,48],[28,45]])
  ];
- buildBase();requestAnimationFrame(frame);
+ buildBase();
+ try{draw(performance.now())}catch(error){startupFailure(error?.stack||error)}
+ requestAnimationFrame(frame);
  loadGeography();
 }
 function loadGeography(){
