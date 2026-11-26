@@ -37,7 +37,7 @@ canvas{display:block;width:100%;height:100%;object-fit:contain;aspect-ratio:7/4;
 .hud-bottom strong{font-size:18px;font-variant-numeric:tabular-nums}
 .legend{position:absolute;left:13px;bottom:88px;z-index:2;background:rgba(12,20,25,.82);padding:7px 10px;font-size:10px;letter-spacing:1px;pointer-events:none}
 .legend i{display:inline-block;width:9px;height:9px;margin:0 5px 0 0;border-radius:50%}
-.country-panel{position:fixed;z-index:7;top:145px;left:9px;width:min(310px,calc(100vw - 18px));max-height:43vh;overflow:auto;padding:10px 12px;background:rgba(12,20,25,.92);border:1px solid rgba(220,235,232,.3);border-radius:5px;backdrop-filter:blur(8px);font-size:11px}.country-panel h3{margin:0 0 7px;font-size:14px;letter-spacing:1px}.country-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0}.country-stat{padding:6px 0;border-top:1px solid #52636a}.country-stat span{display:block;color:#bdc9c7;font-size:9px;letter-spacing:.7px}.country-stat strong{font-size:14px;font-variant-numeric:tabular-nums}.war-tools{display:grid;grid-template-columns:1fr;gap:6px;margin-top:10px}.war-tools button{width:100%;padding:11px}.country-panel{box-shadow:0 12px 35px rgba(0,0,0,.35)}.country-panel[hidden]{display:none!important}.target-prompt{position:fixed;z-index:8;top:145px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 24px);padding:10px 14px;background:rgba(12,20,25,.94);border:1px solid #e7d69e;border-radius:4px;color:#fff0bc;font-size:12px;font-weight:900;letter-spacing:.5px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.3)}.target-prompt[hidden]{display:none!important}.war-status,.war-list{margin-top:7px;color:#e7d69e;font-size:10px;line-height:1.35}@media(max-width:650px){.country-panel{top:140px;left:6px;width:min(270px,calc(100vw - 12px));max-height:39vh;padding:8px}.country-stat strong{font-size:12px}.country-panel h3{font-size:12px}}
+.country-panel{position:fixed;z-index:7;top:145px;left:9px;width:min(310px,calc(100vw - 18px));max-height:43vh;overflow:auto;padding:10px 12px;background:rgba(12,20,25,.92);border:1px solid rgba(220,235,232,.3);border-radius:5px;backdrop-filter:blur(8px);font-size:11px}.country-panel h3{margin:0 0 7px;font-size:14px;letter-spacing:1px}.country-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:8px 0}.country-stat{padding:6px 0;border-top:1px solid #52636a}.country-stat span{display:block;color:#bdc9c7;font-size:9px;letter-spacing:.7px}.country-stat strong{font-size:14px;font-variant-numeric:tabular-nums}.war-tools{display:grid;grid-template-columns:1fr;gap:6px;margin-top:10px}.war-tools button{width:100%;padding:11px}.country-panel{box-shadow:0 12px 35px rgba(0,0,0,.35)}.country-panel[hidden]{display:none!important}.target-prompt{position:fixed;z-index:8;top:145px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 24px);padding:10px 14px;background:rgba(12,20,25,.94);border:1px solid #e7d69e;border-radius:4px;color:#fff0bc;font-size:12px;font-weight:900;letter-spacing:.5px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.3)}.target-prompt[hidden]{display:none!important}.war-status,.war-list{margin-top:7px;color:#e7d69e;font-size:10px;line-height:1.35}@media(max-width:650px){.country-panel{top:140px;left:6px;width:min(270px,calc(100vw - 12px));max-height:39vh;padding:8px}.country-stat strong{font-size:12px}.country-panel h3{font-size:12px}}
 .controls{position:fixed;z-index:6;left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-between;gap:7px;padding:8px;background:rgba(12,20,25,.84);border:1px solid rgba(220,235,232,.24);border-radius:6px;backdrop-filter:blur(8px);flex-wrap:wrap}
 button,select{border:1px solid #576a72;border-radius:4px;background:#263b45;color:#eef3f1;padding:9px 13px;font-weight:800;font-size:12px;letter-spacing:.5px}
 button:active{transform:translateY(1px)}
@@ -74,7 +74,7 @@ button:active{transform:translateY(1px)}
   <div class="legend"><i style="background:#c65e59"></i>WAR DECLARER <i style="background:#5a9ed4;margin-left:10px"></i>DEFENDER</div>
   <div class="hud hud-bottom"><span>TOTAL CASUALTIES</span><strong id="casualties">0</strong></div>
  </div>
- <section class="country-panel" id="country-panel" hidden><h3 id="country-name">COUNTRY</h3><div id="country-hint">1936 national statistics</div><div class="country-stats"><div class="country-stat"><span>POPULATION · 1936</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>TOTAL SOLDIERS</span><strong id="country-army">—</strong></div></div><div class="war-tools"><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">Choose this country as the attacker, then tap the target country on the map.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section><div class="target-prompt" id="target-prompt" hidden></div>
+ <section class="country-panel" id="country-panel" hidden><h3 id="country-name">COUNTRY</h3><div id="country-hint">1936 national statistics</div><div class="country-stats"><div class="country-stat"><span>POPULATION · 1936</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>TOTAL SOLDIERS</span><strong id="country-army">—</strong></div><div class="country-stat"><span>RESERVES</span><strong id="country-reserve">—</strong></div></div><div class="war-tools"><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">Choose this country as the attacker, then tap the target country on the map.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section><div class="target-prompt" id="target-prompt" hidden></div>
  <div class="controls">
   <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div><div class="control-group zoom-tools"><button id="zoom-out" aria-label="Zoom out">−</button><button id="zoom-in" aria-label="Zoom in">＋</button><button id="zoom-reset">RESET VIEW</button></div>
   <div class="control-group"><select id="mode" aria-label="Simulation mode"><option value="historical">HISTORICAL</option><option value="nonhistorical">NON-HISTORICAL</option></select><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
@@ -163,8 +163,8 @@ const country1936={
 function countryName(f){const p=f.properties||{};return String(p.NAME||p.ADMIN||p.name||p.NAME_EN||p.SOVEREIGNT||'').trim()}
 function countryRecord(name){
  const k=Object.keys(country1936).find(x=>x.toLowerCase()===name.toLowerCase());
- if(k)return {name,population:country1936[k][0],soldiers:country1936[k][1],estimated:false};
- return {name,population:1000000,soldiers:5000,estimated:true};
+ if(k){const soldiers=country1936[k][1];return {name,population:country1936[k][0],soldiers,reserve:soldiers*.35,estimated:false};}
+ return {name,population:1000000,soldiers:5000,reserve:1750,estimated:true};
 }
 function registerCountries(){
  countries.clear();countryHitData=[];
@@ -177,7 +177,7 @@ function showCountry(name){
  const c=countries.get(name);if(!c)return;selectedCountry=name;
  $('country-name').textContent=name.toUpperCase();
  $('country-hint').textContent=(atWar(name)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+(c.estimated?' · SOME FIGURES ESTIMATED':' · 1936 ESTIMATES');
- $('country-pop').textContent=fmt(c.population);$('country-army').textContent=fmt(c.soldiers);
+ $('country-pop').textContent=fmt(c.population);$('country-army').textContent=fmt(c.soldiers);$('country-reserve').textContent=fmt(c.reserve||0);
  $('war-status').textContent='Press DECLARE WAR, then tap the country you want to attack.';
  $('country-panel').hidden=false;
 }
@@ -230,7 +230,7 @@ async function load1936PopulationReference(){
   const aliases={'empire of japan':'japan','united kingdom':'united kingdom','soviet union':'ussr','persia':'iran','siam':'thailand','union of south africa':'south africa'};
   countries.forEach((rec,name)=>{
    const key=name.toLowerCase(),match=values.get(aliases[key]||key);
-   if(match){rec.population=match;if(rec.estimated)rec.soldiers=Math.round(match*.005)}
+   if(match){rec.population=match;if(rec.estimated){rec.soldiers=Math.round(match*.005);rec.reserve=rec.soldiers*.35}}
   });
   if(selectedCountry)showCountry(selectedCountry);populationLoaded=true;
  }catch(error){console.warn('1936 population reference not loaded; using built-in historical estimates.',error)}finally{populationLoading=false}
@@ -512,7 +512,8 @@ function updateWarDeployments(){
   push(w.a,b,'troopsA');push(w.b,a,'troopsB');
  });
  engagements.forEach((list,name)=>{
-  const total=countries.get(name)?.soldiers||0,sum=list.reduce((v,x)=>v+x.threat,0);
+  const country=countries.get(name);if(!country)return;
+  const total=Math.max(0,(country.soldiers||0)-(country.reserve||0)),sum=list.reduce((v,x)=>v+x.threat,0);
   list.forEach(x=>{x.war[x.field]=sum?Math.floor(total*x.threat/sum):0});
  });
  activeWars.forEach(w=>{w.troopsA=w.troopsA||0;w.troopsB=w.troopsB||0});
@@ -714,7 +715,19 @@ function tick(dt){
  });
  let losses=0;
  lossesByCountry.forEach((amount,name)=>{const c=countries.get(name);if(c){const actual=Math.min(c.soldiers,amount);c.soldiers=Math.max(0,c.soldiers-actual);losses+=actual}});
- casualties+=losses;updateWarDeployments();
+ casualties+=losses;
+ // Reserves are kept out of the frontline until needed. Each simulated day,
+ // a small share is committed as reinforcements; this raises front counts
+ // while reducing the country's reserve count without creating new soldiers.
+ if(activeWars.length){
+  const reinforcementRate=.0075;
+  countries.forEach((country,name)=>{
+   if(!atWar(name)||!country.reserve)return;
+   const committed=Math.min(country.reserve,Math.max(0,country.reserve*reinforcementRate*simDt));
+   country.reserve=Math.max(0,country.reserve-committed);
+  });
+ }
+ updateWarDeployments();
  if(activeWars.length){
   let pressureSum=0;
   activeWars.forEach(w=>{
@@ -730,7 +743,11 @@ function tick(dt){
   const pressure=pressureSum/activeWars.length;
   territory=Math.max(5,Math.min(95,territory+pressure*.12*simDt));
  }
- if(selectedCountry&&countries.has(selectedCountry))$('country-army').textContent=fmt(countries.get(selectedCountry).soldiers);
+ if(selectedCountry&&countries.has(selectedCountry)){
+  const c=countries.get(selectedCountry);
+  $('country-army').textContent=fmt(c.soldiers);
+  $('country-reserve').textContent=fmt(c.reserve||0);
+ }
 }
 function nextDay(){
  day++;simDate.setDate(simDate.getDate()+1);if(mode==='historical')historicalEvents();else naturalDiplomacy();renderHud();renderWars();
