@@ -356,26 +356,47 @@ function geometryRings(geometry){
  if(geometry.type==='MultiPolygon')return (geometry.coordinates||[]).flat();
  return [];
 }
-function borderPointKey(p){return Number(p[0]).toFixed(4)+','+Number(p[1]).toFixed(4)}
+function borderPointKey(p){return Number(p[0]).toFixed(3)+','+Number(p[1]).toFixed(3)}
 function countryBorderEdges(name){
  const feature=worldFeatures.find(f=>countryName(f)===name);
- if(!feature)return new Map();
- const edges=new Map();
+ if(!feature)return [];
+ const edges=[];
  geometryRings(feature.geometry).forEach(ring=>{
   for(let i=1;i<ring.length;i++){
-   const a=ring[i-1],b=ring[i],ka=borderPointKey(a),kb=borderPointKey(b);
-   if(ka===kb)continue;
-   const key=ka<kb?ka+'|'+kb:kb+'|'+ka;
-   edges.set(key,{a:[Number(a[0]),Number(a[1])],b:[Number(b[0]),Number(b[1])]});
+   const a=[Number(ring[i-1][0]),Number(ring[i-1][1])],b=[Number(ring[i][0]),Number(ring[i][1])];
+   if(Math.hypot(b[0]-a[0],b[1]-a[1])>1e-7)edges.push({a,b,minX:Math.min(a[0],b[0]),maxX:Math.max(a[0],b[0]),minY:Math.min(a[1],b[1]),maxY:Math.max(a[1],b[1])});
   }
  });
  return edges;
 }
+// Match overlapping border portions, even when one country's GeoJSON edge is
+// split into several points and the neighbouring country's edge is not.
+function sharedBorderPieces(edgesA,edgesB){
+ const pieces=[],seen=new Set(),tol=.035,parallel=.02,minLength=.003;
+ for(const a of edgesA){
+  const ux=a.b[0]-a.a[0],uy=a.b[1]-a.a[1],len2=ux*ux+uy*uy,len=Math.sqrt(len2);
+  if(len<minLength)continue;
+  for(const b of edgesB){
+   if(b.maxX<a.minX-tol||b.minX>a.maxX+tol||b.maxY<a.minY-tol||b.minY>a.maxY+tol)continue;
+   const vx=b.b[0]-b.a[0],vy=b.b[1]-b.a[1],blen=Math.hypot(vx,vy);
+   if(blen<minLength||Math.abs(ux*vy-uy*vx)/(len*blen)>parallel)continue;
+   const da=Math.abs(ux*(b.a[1]-a.a[1])-uy*(b.a[0]-a.a[0]))/len;
+   const db=Math.abs(ux*(b.b[1]-a.a[1])-uy*(b.b[0]-a.a[0]))/len;
+   if(da>tol||db>tol)continue;
+   const t0=((b.a[0]-a.a[0])*ux+(b.a[1]-a.a[1])*uy)/len2;
+   const t1=((b.b[0]-a.a[0])*ux+(b.b[1]-a.a[1])*uy)/len2;
+   const lo=Math.max(0,Math.min(t0,t1)),hi=Math.min(1,Math.max(t0,t1));
+   if((hi-lo)*len<minLength)continue;
+   const p=[a.a[0]+ux*lo,a.a[1]+uy*lo],q=[a.a[0]+ux*hi,a.a[1]+uy*hi];
+   const kp=borderPointKey(p),kq=borderPointKey(q),key=kp<kq?kp+'|'+kq:kq+'|'+kp;
+   if(!seen.has(key)){seen.add(key);pieces.push({a:p,b:q})}
+  }
+ }
+ return pieces;
+}
 function buildWarFront(a,b){
  if(!mapReady||!a||!b)return null;
- const aEdges=countryBorderEdges(a),bEdges=countryBorderEdges(b);
- const shared=[];
- for(const [key,edge] of aEdges)if(bEdges.has(key))shared.push(edge);
+ const shared=sharedBorderPieces(countryBorderEdges(a),countryBorderEdges(b));
  if(!shared.length)return null;
  const nodes=new Map();
  shared.forEach((edge,index)=>{
@@ -397,24 +418,33 @@ function buildWarFront(a,b){
   }
   return points;
  }
- // Start at endpoints and junctions first, then consume any closed loops.
  for(const [key,edges] of nodes)if(edges.length!==2)for(const edge of edges)if(!used.has(edge))paths.push(walk(key,edge));
  for(let i=0;i<shared.length;i++)if(!used.has(i))paths.push(walk(borderPointKey(shared[i].a),i));
- const projected=paths.map(path=>path.map(project)).filter(path=>path.length>1);
- if(!projected.length)return null;
+ const projected=paths.map(path=>path.map(project)).filter(path=>path.length>1&&polyLength(path)>5);
  projected.sort((x,y)=>polyLength(y)-polyLength(x));
- return projected[0];
+ return projected.length?projected:null;
 }
 
 function activeWarStrength(w){
  return {attackers: countries.get(w.a)?.soldiers||0, defenders: countries.get(w.b)?.soldiers||0};
 }
+function drawFrontCount(value,points,side,color){
+ const mid=pointAtHalf(points),nx=-mid.ty,ny=mid.tx,offset=side==='blue'?-12:12;
+ let angle=Math.atan2(mid.ty,mid.tx);
+ if(angle>Math.PI/2||angle< -Math.PI/2)angle+=Math.PI;
+ const fontSize=Math.max(8,Math.min(15,(mid.length-12)/(value.length*.68)));
+ ctx.save();ctx.translate(mid.x+nx*offset,mid.y+ny*offset);ctx.rotate(angle);
+ ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
+ ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=color;
+ ctx.shadowColor='rgba(255,255,255,.98)';ctx.shadowBlur=3;ctx.shadowOffsetX=0;ctx.shadowOffsetY=0;
+ ctx.fillText(value,0,0);ctx.restore();
+}
 function drawFrontline(points,now){
  ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
- pathFront(points);ctx.strokeStyle='rgba(28,42,47,.38)';ctx.lineWidth=15;ctx.shadowColor='rgba(20,30,35,.35)';ctx.shadowBlur=12;ctx.stroke();
- ctx.shadowBlur=0;pathFront(points);ctx.strokeStyle='#f1e6c6';ctx.lineWidth=5;ctx.stroke();
+ pathFront(points);ctx.strokeStyle='rgba(28,42,47,.38)';ctx.lineWidth=12;ctx.shadowColor='rgba(20,30,35,.3)';ctx.shadowBlur=8;ctx.stroke();
+ ctx.shadowBlur=0;pathFront(points);ctx.strokeStyle='#f1e6c6';ctx.lineWidth=4;ctx.stroke();
  pathFront(points);ctx.strokeStyle='#293b40';ctx.lineWidth=1.5;ctx.setLineDash([8,7]);ctx.lineDashOffset=-(now/90)%15;ctx.stroke();ctx.setLineDash([]);
- for(let i=0;i<5;i++){const p=points[Math.floor((i/5)*points.length+((now/700+i*17)%Math.max(1,points.length/5)))%points.length];ctx.beginPath();ctx.arc(p[0],p[1],3.2,0,Math.PI*2);ctx.fillStyle=i%2?'#ffb4a9':'#b8e1ff';ctx.fill()}
+ for(let i=0;i<4;i++){const p=points[Math.floor((i/4)*points.length+((now/850+i*13)%Math.max(1,points.length/4)))%points.length];ctx.beginPath();ctx.arc(p[0],p[1],2.8,0,Math.PI*2);ctx.fillStyle=i%2?'#ffb4a9':'#b8e1ff';ctx.fill()}
  ctx.restore();
 }
 function draw(now){
@@ -428,8 +458,15 @@ function draw(now){
  if(activeWars.length){
   activeWars.forEach((war,index)=>{
     const front=war.front;
-    if(!front||front.length<2)return;
-    drawFrontline(front,now+index*173);
+    if(!front||!front.length)return;
+    const paths=Array.isArray(front[0]?.[0])?front:[front];
+    paths.forEach((path,pathIndex)=>{if(path.length>1)drawFrontline(path,now+index*173+pathIndex*61)});
+    const mainFront=paths[0];
+    if(mainFront&&mainFront.length>1){
+     const strength=activeWarStrength(war);
+     drawFrontCount(fmt(strength.attackers),mainFront,'red','#a51f25');
+     drawFrontCount(fmt(strength.defenders),mainFront,'blue','#145f98');
+    }
    });
  }else{
   ctx.save();ctx.fillStyle='rgba(30,48,52,.62)';ctx.font='900 '+(portraitMap?20:17)+'px Arial';ctx.textAlign='center';ctx.fillText('NO ACTIVE FRONTLINE · EUROPE AT PEACE',W/2,H*.88);ctx.restore();
