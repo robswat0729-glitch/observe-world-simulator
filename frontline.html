@@ -90,7 +90,7 @@ const $=id=>document.getElementById(id);
 const fmt=n=>Math.max(0,Math.round(n)).toLocaleString('en-US');
 let day=1,paused=false,speed=1,casualties=0,territory=50,last=0,acc=0,dayAcc=0,simDate=new Date(1936,0,1),mode='historical';
 let blueTroops=2400000,redTroops=1500000,worldFeatures=[],baseCanvas=null,mapReady=false,loadMessage='Loading geographic map…',lastForceYear=-1;
-const countries=new Map();let selectedCountry=null,activeWars=[],countryHitData=[];
+const countries=new Map();let selectedCountry=null,activeWars=[],countryHitData=[],populationLoading=false,populationLoaded=false;
 const historicalForces={
  // Annual total armed-forces personnel (thousands), major powers; pre-1939 values are explicitly approximate buildup estimates.
  1936:{allies:2400,axis:1500},1937:{allies:2600,axis:1750},1938:{allies:3100,axis:2200},
