@@ -74,7 +74,7 @@ button:active{transform:translateY(1px)}
   <div class="legend"><i style="background:#c65e59"></i>WAR DECLARER <i style="background:#5a9ed4;margin-left:10px"></i>DEFENDER</div>
   <div class="hud hud-bottom"><span>TOTAL CASUALTIES</span><strong id="casualties">0</strong></div>
  </div>
- <div id="peace-settlement" style="display:none;position:fixed;z-index:20;inset:0;background:rgba(4,10,14,.82);align-items:center;justify-content:center;padding:18px"><div style="width:min(420px,100%);background:#17252d;border:1px solid #aab8b8;padding:20px;color:#f2f4ef"><h2 id="settlement-title" style="margin:0 0 8px;font-size:20px">COUNTRY DEFEATED</h2><p id="settlement-copy" style="line-height:1.5;color:#cbd6d5">Choose the fate of the defeated country.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button id="annex-country">ANNEX TERRITORY</button><button id="puppet-country">INSTALL PUPPET</button></div></div></div><section class="country-panel" id="country-panel" hidden><h3 id="country-name">COUNTRY</h3><div id="country-hint">1936 national statistics</div><div class="country-stats"><div class="country-stat"><span>POPULATION</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>LOYAL SOLDIERS</span><strong id="country-army">—</strong></div><div class="country-stat"><span>RESERVES</span><strong id="country-reserve">—</strong></div><div class="country-stat"><span>STABILITY</span><strong id="country-stability">—</strong></div></div><div id="country-rebels" class="war-status" hidden></div><div class="war-tools"><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">Choose this country as the attacker, then tap the target country on the map.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section><div class="target-prompt" id="target-prompt" hidden></div>
+ <div id="peace-settlement" style="display:none;position:fixed;z-index:20;inset:0;background:rgba(4,10,14,.82);align-items:center;justify-content:center;padding:18px"><div style="width:min(420px,100%);background:#17252d;border:1px solid #aab8b8;padding:20px;color:#f2f4ef"><h2 id="settlement-title" style="margin:0 0 8px;font-size:20px">COUNTRY DEFEATED</h2><p id="settlement-copy" style="line-height:1.5;color:#cbd6d5">Choose the fate of the defeated country.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button id="annex-country">ANNEX TERRITORY</button><button id="puppet-country">INSTALL PUPPET</button></div></div></div><section class="country-panel" id="country-panel" hidden><h3 id="country-name">COUNTRY</h3><div id="country-hint">1936 national statistics</div><div id="country-alliances" class="war-status">1936 DEFENSIVE ALLIANCES: NONE</div><div class="country-stats"><div class="country-stat"><span>POPULATION</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>LOYAL SOLDIERS</span><strong id="country-army">—</strong></div><div class="country-stat"><span>RESERVES</span><strong id="country-reserve">—</strong></div><div class="country-stat"><span>STABILITY</span><strong id="country-stability">—</strong></div></div><div id="country-rebels" class="war-status" hidden></div><div class="war-tools"><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">Choose this country as the attacker, then tap the target country on the map.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section><div class="target-prompt" id="target-prompt" hidden></div>
  <div class="controls">
   <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div><div class="control-group zoom-tools"><button id="zoom-out" aria-label="Zoom out">−</button><button id="zoom-in" aria-label="Zoom in">＋</button><button id="zoom-reset">RESET VIEW</button></div>
   <div class="control-group"><select id="mode" aria-label="Simulation mode"><option value="historical">HISTORICAL</option><option value="nonhistorical">NON-HISTORICAL</option></select><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
@@ -94,6 +94,21 @@ let day=1,paused=false,speed=1,casualties=0,territory=50,last=0,acc=0,dayAcc=0,s
 let blueTroops=2400000,redTroops=1500000,worldFeatures=[],baseCanvas=null,mapReady=false,loadMessage='Loading geographic map…',lastForceYear=-1;
 let viewScale=1,viewX=0,viewY=0,pointers=new Map(),dragState=null,pinchStart=null,suppressClick=false;
 const countries=new Map();let selectedCountry=null,pendingWarFrom=null,activeWars=[],countryHitData=[],populationLoading=false,populationLoaded=false;
+const alliances=new Set();
+function allianceKey(a,b){return [a,b].sort((x,y)=>x.localeCompare(y)).join('::')}
+function areAllied(a,b){return !!a&&!!b&&alliances.has(allianceKey(a,b))}
+function alliesOf(name){return [...alliances].map(k=>k.split('::')).filter(pair=>pair.includes(name)).map(pair=>pair[0]===name?pair[1]:pair[0]).filter(n=>countries.has(n)&&isSovereign(n))}
+function initialize1936Alliances(){
+ alliances.clear();
+ const add=(aNames,bNames)=>{const a=resolveCountryName(aNames),b=resolveCountryName(bNames);if(a&&b&&a!==b&&isSovereign(a)&&isSovereign(b))alliances.add(allianceKey(a,b))};
+ // Defensive diplomatic network in place at the January 1936 start.
+ add(['United Kingdom','United Kingdom of Great Britain and Northern Ireland'],['France']);
+ add(['France'],['Poland']);
+ add(['France'],['Czechoslovakia']);
+ add(['Czechoslovakia'],['Romania']);
+ add(['Czechoslovakia'],['Yugoslavia']);
+ add(['Romania'],['Yugoslavia']);
+}
 const historicalForces={
  // Annual total armed-forces personnel (thousands), major powers; pre-1939 values are explicitly approximate buildup estimates.
  1936:{allies:2400,axis:1500},1937:{allies:2600,axis:1750},1938:{allies:3100,axis:2200},
@@ -180,6 +195,7 @@ function registerCountries(){
    countryHitData.push({name,geometry:f.geometry});
   }
  });
+ initialize1936Alliances();
  if(countries.size&&!populationLoaded&&!populationLoading)load1936PopulationReference();
 }
 function atWar(name){return activeWars.some(w=>w.a===name||w.b===name)}
@@ -188,6 +204,7 @@ function showCountry(name){
  name=sovereignOwner(name);const c=countries.get(name);if(!c||c.annexedTo)return;selectedCountry=name;
  $('country-name').textContent=name.toUpperCase();
  $('country-hint').textContent=(atWar(name)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+(c.estimated?' · SOME FIGURES ESTIMATED':' · 1936 ESTIMATES');
+ const alliedNames=alliesOf(name);$('country-alliances').textContent=alliedNames.length?'1936 DEFENSIVE ALLIANCES: '+alliedNames.join(', '):'1936 DEFENSIVE ALLIANCES: NONE';
  $('country-pop').textContent=fmt(c.population);$('country-army').textContent=fmt(c.soldiers);$('country-reserve').textContent=fmt(c.reserve||0);
  $('country-stability').textContent=Math.round(Math.max(0,Math.min(100,c.stability??75)))+'%';
  const rebelBox=$('country-rebels');
@@ -200,19 +217,22 @@ function renderWars(){
  $('war-list').textContent=activeWars.length?'ACTIVE WARS: '+activeWars.map(w=>{
   const encA=w.encircledA||0,encB=w.encircledB||0,divA=w.encircledDivisionsA||0,divB=w.encircledDivisionsB||0;
   const pockets=encA||encB?' · ENCIRCLED: '+(encA? w.a+' '+fmt(encA)+' / '+divA+' DIV':'')+(encA&&encB?' | ':'')+(encB?w.b+' '+fmt(encB)+' / '+divB+' DIV':''):'';
-  return w.a+' vs '+w.b+pockets;
+  return w.a+' vs '+w.b+' · SUPPLY '+Math.round(w.supplyA??78)+'% / '+Math.round(w.supplyB??78)+'%'+pockets;
  }).join(' | '):'ACTIVE WARS: NONE';
  const civilWarEntries=[...countries.values()].filter(c=>c.civilWar&&!c.annexedTo).map(c=>c.name+' REBELS '+fmt(c.civilWar.troops)+' / '+c.civilWar.divisions+' DIV');
  if(civilWarEntries.length)$('war-list').textContent+=' · CIVIL WARS: '+civilWarEntries.join(' | ');
  if(selectedCountry)$('country-hint').textContent=(atWar(selectedCountry)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+' · ARMY ESTIMATED'+(countries.get(selectedCountry)?.estimated?' · POPULATION ESTIMATED':'');
 }
-function declareWar(a,b,natural){
+function declareWar(a,b,natural,allianceResponse=false){
  a=sovereignOwner(a);b=sovereignOwner(b);
  if(!a||!b||a===b||countries.get(a)?.annexedTo||countries.get(b)?.annexedTo){$('war-status').textContent='Choose two different countries.';return false}
  if(!countries.has(a)||!countries.has(b)){ $('war-status').textContent='Choose countries shown on the map.';return false}
+ if(areAllied(a,b)){$('war-status').textContent=a+' and '+b+' are bound by a defensive alliance.';return false}
  if(activeWars.some(w=>(w.a===a&&w.b===b)||(w.a===b&&w.b===a))){$('war-status').textContent='Those countries are already at war.';return false}
- const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0,progress:0,seed:Math.random()*6.28,settlementPending:false,encirclements:[],encircledA:0,encircledB:0,encircledDivisionsA:0,encircledDivisionsB:0};
+ const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0,progress:0,seed:Math.random()*6.28,settlementPending:false,encirclements:[],encircledA:0,encircledB:0,encircledDivisionsA:0,encircledDivisionsB:0,supplyA:78,supplyB:78};
  activeWars.push(war);updateWarDeployments();
+ // Defensive allies of the attacked country join automatically; response is one level deep.
+ if(!allianceResponse){alliesOf(b).forEach(ally=>{if(ally!==a&&!activeWars.some(x=>(x.a===ally&&x.b===a)||(x.a===a&&x.b===ally)))declareWar(ally,a,true,true)})}
  $('war-status').textContent=(natural?'A diplomatic crisis escalated: ':'War declared: ')+a+' vs '+b+'.'+(war.front?'':' No shared land border, so no land frontline is shown.');
  renderWars();return true;
 }
@@ -247,7 +267,7 @@ function isSovereign(name){return !name.includes('(')&&!dependentTerritories.has
 async function load1936PopulationReference(){
  if(populationLoaded||populationLoading||!countries.size)return;populationLoading=true;
  try{
-  const response=await fetch('https://ourworldindata.org/grapher/population.csv?time=1936',{mode:'cors',cache:'force-cache'});
+  const response=await fetch('https://ourworldindata.org/grapher/population.csv?time=1936',{mode:'cors',cache:'force-cache',signal:AbortSignal.timeout(9000)});
   if(!response.ok)throw new Error('Population reference unavailable');
   const lines=(await response.text()).trim().split(/\r?\n/),headers=lines[0].split(',');
   const entityIndex=headers.indexOf('Entity'),valueIndex=headers.findIndex(x=>x==='population'||x==='Population');
@@ -275,7 +295,7 @@ async function load1936PopulationReference(){
    }
   });
   if(selectedCountry)showCountry(selectedCountry);populationLoaded=true;
- }catch(error){console.warn('1936 population reference not loaded; using built-in historical estimates.',error)}finally{populationLoading=false}
+ }catch(error){console.warn('1936 population reference not loaded; using built-in historical estimates.',error)}finally{populationLoading=false; if(!populationLoaded&&countries.size)setTimeout(()=>{if(!populationLoaded&&!populationLoading)load1936PopulationReference()},15000)}
 }
 
 function naturalDiplomacy(){
@@ -285,7 +305,7 @@ function naturalDiplomacy(){
  const eligible=[...countries.keys()].filter(n=>isSovereign(n)&&warsForCountry(n).length<3);
  if(eligible.length<2)return;
  const a=eligible[Math.floor(Math.random()*eligible.length)];
- const neighbors=eligible.filter(n=>n!==a&&!activeWars.some(w=>(w.a===a&&w.b===n)||(w.a===n&&w.b===a))&&buildWarFront(a,n));
+ const neighbors=eligible.filter(n=>n!==a&&!areAllied(a,n)&&!activeWars.some(w=>(w.a===a&&w.b===n)||(w.a===n&&w.b===a))&&buildWarFront(a,n));
  if(!neighbors.length)return;
  declareWar(a,neighbors[Math.floor(Math.random()*neighbors.length)],true);
 }
@@ -587,7 +607,8 @@ function updateWarDeployments(){
 }
 function activeWarStrength(w){
  const support=overlord=>Array.from(countries.values()).filter(c=>c.puppetOf===overlord).reduce((sum,c)=>sum+Math.max(0,(c.soldiers||0)-(c.reserve||0))*.3,0);
- return {attackers:Math.max(0,Math.round((w.troopsA||0)+support(w.a))),defenders:Math.max(0,Math.round((w.troopsB||0)+support(w.b)))};
+ const supplyA=Math.max(0,Math.min(100,w.supplyA??78)),supplyB=Math.max(0,Math.min(100,w.supplyB??78));
+ return {attackers:Math.max(0,Math.round(((w.troopsA||0)+support(w.a))*(.55+supplyA*.0045))),defenders:Math.max(0,Math.round(((w.troopsB||0)+support(w.b))*(.55+supplyB*.0045))),supplyA,supplyB};
 }
 function recordEncirclement(war,side,available){
  if(!war.encirclements)war.encirclements=[];
@@ -814,6 +835,26 @@ function drawFrontline(points,now){
  pathFront(points);ctx.strokeStyle='rgba(255,224,202,.96)';ctx.lineWidth=1;ctx.setLineDash([4,5]);ctx.lineDashOffset=-(now/110)%9;ctx.stroke();ctx.setLineDash([]);
  ctx.restore();
 }
+function drawSupplyTrains(war,paths,now){
+ if(!paths?.length)return;
+ const path=paths.reduce((best,p)=>polyLength(p)>polyLength(best||[])?p:best,null);
+ if(!path||path.length<2)return;
+ const contact=pointAlong(path,.5);
+ [[war.a,'supplyA','#a9473f',0],[war.b,'supplyB','#347bb0',.5]].forEach(([name,key,color,offset])=>{
+  const origin=countryMapCenter(name);if(!origin)return;
+  const dx=contact.x-origin[0],dy=contact.y-origin[1],length=Math.hypot(dx,dy);if(length<8)return;
+  ctx.save();ctx.globalAlpha=.48;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.setLineDash([5,5]);ctx.beginPath();ctx.moveTo(origin[0],origin[1]);ctx.lineTo(contact.x,contact.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  for(let train=0;train<2;train++){
+   const t=(now*.000012+offset+train*.5)%1,x=origin[0]+dx*t,y=origin[1]+dy*t,angle=Math.atan2(dy,dx);
+   ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+   ctx.fillStyle='rgba(17,27,32,.92)';ctx.fillRect(-8,-5,16,8);ctx.fillStyle=color;ctx.fillRect(-5,-8,7,4);
+   ctx.fillStyle='#f3e7c5';ctx.fillRect(2,-4,4,3);
+   ctx.fillStyle='#172127';ctx.beginPath();ctx.arc(-4,4,2.2,0,Math.PI*2);ctx.arc(5,4,2.2,0,Math.PI*2);ctx.fill();
+   ctx.restore();
+  }
+  const label='RAIL SUPPLY '+Math.round(war[key]??78)+'%';ctx.save();ctx.font='900 9px Arial';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='rgba(245,242,225,.95)';ctx.strokeText(label,origin[0]+dx*.38,origin[1]+dy*.38-10);ctx.fillStyle=color;ctx.fillText(label,origin[0]+dx*.38,origin[1]+dy*.38-10);ctx.restore();
+ });
+}
 function draw(now){
  if(!mapReady){ctx.fillStyle='#b9c4c0';ctx.fillRect(0,0,W,H);ctx.fillStyle='#24353a';ctx.font='bold 28px Arial';ctx.textAlign='center';ctx.fillText(loadMessage,W/2,H/2);return}
  ctx.fillStyle='#b9c5c4';ctx.fillRect(0,0,W,H);
@@ -869,6 +910,7 @@ function draw(now){
     });
     drawDivisionFlags(war,movingPaths,strength,drawable);
     drawEncirclements(war,movingPaths);
+    drawSupplyTrains(war,movingPaths,now+index*1200);
     // Each disconnected border segment is a separate engagement. Allocate
     // the country's frontline strength by segment length so East Prussia,
     // separated from mainland Germany by the Polish Corridor, gets its own
@@ -948,6 +990,12 @@ $('puppet-country').addEventListener('click',()=>resolveSettlement('puppet'));
 function tick(dt){
  const intensity=Number($('intensity').value),simDt=dt*speed,lossRate=.00012*intensity,lossesByCountry=new Map();
  updateWarDeployments();
+ const elapsedSupplyDays=simDt/2;
+ activeWars.forEach(w=>{
+  const loadA=Math.max(0,(w.troopsA||0)/450000-1),loadB=Math.max(0,(w.troopsB||0)/450000-1);
+  w.supplyA=Math.max(5,Math.min(100,(w.supplyA??78)+(.012-loadA*.025)*elapsedSupplyDays));
+  w.supplyB=Math.max(5,Math.min(100,(w.supplyB??78)+(.012-loadB*.025)*elapsedSupplyDays));
+ });
  activeWars.forEach(w=>{
   const strength=activeWarStrength(w),al=strength.attackers*lossRate*simDt,bl=strength.defenders*lossRate*simDt;
   lossesByCountry.set(w.a,(lossesByCountry.get(w.a)||0)+al);lossesByCountry.set(w.b,(lossesByCountry.get(w.b)||0)+bl);
@@ -1093,6 +1141,7 @@ function tick(dt){
   $('country-army').textContent=fmt(c.soldiers);
   $('country-reserve').textContent=fmt(c.reserve||0);
   $('country-stability').textContent=Math.round(Math.max(0,Math.min(100,c.stability??75)))+'%';
+  const alliedNames=alliesOf(selectedCountry);$('country-alliances').textContent=alliedNames.length?'1936 DEFENSIVE ALLIANCES: '+alliedNames.join(', '):'1936 DEFENSIVE ALLIANCES: NONE';
   const rebelBox=$('country-rebels');
   if(c.civilWar){rebelBox.hidden=false;rebelBox.textContent='CIVIL WAR · REBELS: '+fmt(c.civilWar.troops)+' SOLDIERS · '+c.civilWar.divisions+' DIVISIONS';}
   else{rebelBox.hidden=true;rebelBox.textContent='';}
