@@ -400,10 +400,33 @@ function sharedBorderPieces(edgesA,edgesB){
  // Merge near-identical overlaps produced by different vertex subdivisions.
  return pieces;
 }
+function fallbackAdjacentFront(a,b){
+ const ea=countryBorderEdges(a),eb=countryBorderEdges(b);
+ let best=null,bestGap=Infinity;
+ // Find the closest pair of boundary vertices in screen coordinates. This is
+ // a last-resort recovery for GeoJSON borders that were simplified differently.
+ for(const x of ea)for(const y of eb){
+  const candidates=[[x.a,y.a],[x.a,y.b],[x.b,y.a],[x.b,y.b]];
+  for(const pair of candidates){
+   const p=project(pair[0]),q=project(pair[1]),gap=Math.hypot(p[0]-q[0],p[1]-q[1]);
+   if(gap<bestGap){bestGap=gap;best={p,q,x,y}}
+  }
+ }
+ if(!best||bestGap>Math.max(W,H)*.035)return null;
+ // Draw a short, continuous local front along the nearest border tangent,
+ // not a long line between country centres.
+ const px=project(best.x.a),qx=project(best.x.b),py=project(best.y.a),qy=project(best.y.b);
+ let tx=(qx[0]-px[0])+(qy[0]-py[0]),ty=(qx[1]-px[1])+(qy[1]-py[1]);
+ let len=Math.hypot(tx,ty);if(len<.01){tx=best.q[0]-best.p[0];ty=best.q[1]-best.p[1];len=Math.hypot(tx,ty)}
+ if(len<.01)return null;
+ tx/=len;ty/=len;
+ const cx=(best.p[0]+best.q[0])/2,cy=(best.p[1]+best.q[1])/2,half=Math.max(36,Math.min(95,Math.max(W,H)*.055));
+ return [[cx-tx*half,cy-ty*half],[cx+tx*half,cy+ty*half]];
+}
 function buildWarFront(a,b){
  if(!mapReady||!a||!b)return null;
  const shared=sharedBorderPieces(countryBorderEdges(a),countryBorderEdges(b));
- if(!shared.length)return null;
+ if(!shared.length)return fallbackAdjacentFront(a,b);
  // Merge only degree-two joins. At corners/junctions stop instead of arbitrarily
  // choosing an edge and accidentally drawing a line across unrelated borders.
  const nodes=new Map();
@@ -435,7 +458,7 @@ function buildWarFront(a,b){
   return true;
  });
  projected.sort((x,y)=>polyLength(y)-polyLength(x));
- return projected.length?projected:null;
+ return projected.length?projected:(fallbackAdjacentFront(a,b)?[fallbackAdjacentFront(a,b)]:null);
 }
 
 function updateWarDeployments(){
