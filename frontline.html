@@ -245,8 +245,8 @@ function isSeaPoint(x,y){
  return x>4&&x<W-4&&y>4&&y<H-4;
 }
 function findNavalSeaPoint(a,b){
- const ca=countryMapCenter(a),cb=countryMapCenter(b),centers=[[(ca?.x||W*.5)+(cb?.x||W*.5),((ca?.y||H*.5)+(cb?.y||H*.5))]];
- [ca,cb].filter(Boolean).forEach(c=>centers.push([c.x,c.y]));
+ const ca=countryMapCenter(a),cb=countryMapCenter(b),centers=[[((ca?.[0]??W*.5)+(cb?.[0]??W*.5))/2,((ca?.[1]??H*.5)+(cb?.[1]??H*.5))/2]];
+ [ca,cb].filter(Boolean).forEach(c=>centers.push([c[0],c[1]]));
  for(const [cx,cy] of centers){for(let radius=14;radius<=230;radius+=12){for(let k=0;k<20;k++){const angle=(k/20)*Math.PI*2+(radius*.013),x=cx+Math.cos(angle)*radius,y=cy+Math.sin(angle)*radius;if(isSeaPoint(x,y))return {x,y};}}}
  return {x:W*.5,y:H*.5};
 }
