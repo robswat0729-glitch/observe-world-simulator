@@ -1327,7 +1327,7 @@ function frame(now){
  const dt=Math.min(.08,(now-last)/1000);last=now;
  if(!paused){
   acc+=dt;dayAcc+=dt*speed;
-  // Run the troop-strength and casualty model in fixed 10 ms steps (100 updates/sec).
+  // Run the troop-strength and casualty model in 50 ms steps (20 updates/sec); update the HUD once per rendered frame.
   let stepped=false;while(acc>=.05){tick(.05);acc-=.05;stepped=true}if(stepped)renderHud()
   while(dayAcc>=2){dayAcc-=2;nextDay()}
  }
