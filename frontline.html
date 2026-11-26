@@ -285,7 +285,7 @@ function buildBase(){
  c.strokeStyle='rgba(69,91,99,.13)';c.lineWidth=1;
  for(let lon=-20;lon<=60;lon+=10){const p1=project([lon,LAT_MIN]),p2=project([lon,LAT_MAX]);c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke()}
  for(let lat=35;lat<=70;lat+=5){const p1=project([LON_MIN,lat]),p2=project([LON_MAX,lat]);c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke()}
- worldFeatures.forEach((f,i)=>{c.beginPath();traceGeometry(c,f.geometry);const name=countryName(f);const palette=['#c6c0a7','#c9b8a0','#b9c5ad','#c7c7b6','#c1b5aa','#b4c2c0','#d0c3a9','#b8bda9','#c9b5b0','#b7c6b2'];let hash=i;if(name){hash=0;for(let k=0;k<name.length;k++)hash=(hash*31+name.charCodeAt(k))>>>0}c.fillStyle=palette[hash%palette.length];c.fill();c.strokeStyle='rgba(246,242,224,.96)';c.lineWidth=1.5;c.stroke()});
+ worldFeatures.forEach(f=>{c.beginPath();traceGeometry(c,f.geometry);c.fillStyle='#d2d0bd';c.fill();c.strokeStyle='rgba(250,248,235,.96)';c.lineWidth=1.25;c.stroke()});
  c.save();c.globalAlpha=.13;
  for(let i=0;i<26;i++){const x=80+(i*137)%1440,y=70+(i*211)%760;c.beginPath();c.ellipse(x,y,80+(i%4)*27,22+(i%3)*13,(i%7)*.22,0,Math.PI*2);c.strokeStyle=i%2?'#566963':'#f8f4df';c.lineWidth=2;c.stroke()}
  c.restore();
@@ -528,33 +528,35 @@ function pointAlong(points,fraction){
  }
  return pointAtHalf(points);
 }
-function drawFrontCount(value,points,fraction,side,color){
- const mid=pointAlong(points,fraction);
+function drawFrontCounts(war,points,strength){
+ // One paired set of figures at the midpoint of each actual connected front.
+ const mid=pointAlong(points,.5);
  if(!Number.isFinite(mid.x)||!Number.isFinite(mid.y))return;
- // Position the count on the front itself and align it with the border.
  let angle=Math.atan2(mid.ty,mid.tx);
  if(angle>Math.PI/2||angle< -Math.PI/2)angle+=Math.PI;
+ const nx=-Math.sin(angle),ny=Math.cos(angle);
  const rect=canvas.getBoundingClientRect();
  const displayScale=Math.max(.18,Math.min(rect.width/W,rect.height/H)*viewScale);
- const fontSize=Math.max(18,Math.min(54,21/displayScale));
- ctx.save();
- ctx.translate(mid.x,mid.y);
- ctx.rotate(angle);
- ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
- ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
- ctx.lineWidth=Math.max(4,4/displayScale);
- ctx.strokeStyle='rgba(255,255,255,.98)';
- ctx.strokeText(value,0,0);
- ctx.fillStyle=color;
- ctx.fillText(value,0,0);
- ctx.restore();
+ const fontSize=Math.max(16,Math.min(40,20/displayScale));
+ const gap=Math.max(11,Math.min(19,13/displayScale));
+ [{value:fmt(strength.attackers),side:-1,color:'#a52f2a'},{value:fmt(strength.defenders),side:1,color:'#245d91'}].forEach(entry=>{
+  ctx.save();
+  ctx.translate(mid.x+nx*gap*entry.side,mid.y+ny*gap*entry.side);
+  ctx.rotate(angle);
+  ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
+  ctx.lineWidth=Math.max(3.5,4/displayScale);
+  ctx.strokeStyle='rgba(250,248,235,.98)';
+  ctx.strokeText(entry.value,0,0);
+  ctx.fillStyle=entry.color;ctx.fillText(entry.value,0,0);
+  ctx.restore();
+ });
 }
 function drawFrontline(points,now){
  ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
- pathFront(points);ctx.strokeStyle='rgba(28,42,47,.38)';ctx.lineWidth=12;ctx.shadowColor='rgba(20,30,35,.3)';ctx.shadowBlur=8;ctx.stroke();
- ctx.shadowBlur=0;pathFront(points);ctx.strokeStyle='#f1e6c6';ctx.lineWidth=4;ctx.stroke();
- pathFront(points);ctx.strokeStyle='#293b40';ctx.lineWidth=1.5;ctx.setLineDash([8,7]);ctx.lineDashOffset=-(now/90)%15;ctx.stroke();ctx.setLineDash([]);
- for(let i=0;i<4;i++){const p=points[Math.floor((i/4)*points.length+((now/850+i*13)%Math.max(1,points.length/4)))%points.length];ctx.beginPath();ctx.arc(p[0],p[1],2.8,0,Math.PI*2);ctx.fillStyle=i%2?'#ffb4a9':'#b8e1ff';ctx.fill()}
+ pathFront(points);ctx.strokeStyle='rgba(104,35,30,.22)';ctx.lineWidth=5;ctx.stroke();
+ pathFront(points);ctx.strokeStyle='#b64a40';ctx.lineWidth=2.4;ctx.stroke();
+ pathFront(points);ctx.strokeStyle='rgba(255,224,202,.9)';ctx.lineWidth=.8;ctx.setLineDash([3,5]);ctx.lineDashOffset=-(now/110)%8;ctx.stroke();ctx.setLineDash([]);
  ctx.restore();
 }
 function draw(now){
@@ -574,14 +576,13 @@ function draw(now){
     if(!front||!front.length)return;
     const paths=Array.isArray(front[0]?.[0])?front:[front];
     const drawable=paths.filter(path=>Array.isArray(path)&&path.length>1&&polyLength(path)>2);
-    drawable.forEach((path,pathIndex)=>drawFrontline(path,now+index*173+pathIndex*61));
-    const mainFront=drawable.slice().sort((a,b)=>polyLength(b)-polyLength(a))[0];
-    if(mainFront){
-     const strength=activeWarStrength(war);
-     // The two bare counts sit on the actual front stroke and rotate with it.
-     drawFrontCount(fmt(strength.attackers),mainFront,.32,'red','#8f171b');
-     drawFrontCount(fmt(strength.defenders),mainFront,.68,'blue','#07538b');
-    }
+    const totalFrontLength=drawable.reduce((sum,path)=>sum+polyLength(path),0)||1;
+    const strength=activeWarStrength(war);
+    drawable.forEach((path,pathIndex)=>{
+     drawFrontline(path,now+index*173+pathIndex*61);
+     const share=polyLength(path)/totalFrontLength;
+     drawFrontCounts(war,path,{attackers:Math.round(strength.attackers*share),defenders:Math.round(strength.defenders*share)});
+    });
    });
  }else{
   ctx.save();ctx.fillStyle='rgba(30,48,52,.62)';ctx.font='900 '+(portraitMap?20:17)+'px Arial';ctx.textAlign='center';ctx.fillText('NO ACTIVE FRONTLINE · EUROPE AT PEACE',W/2,H*.88);ctx.restore();
