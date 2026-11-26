@@ -1180,12 +1180,26 @@ function createCivilWarTerritory(name){
  }
  if(!center)return null;
  const rx=Math.max(2,(maxX-minX)*.20),ry=Math.max(2,(maxY-minY)*.20);
+ // Store a second interior point for the government side. Some countries'
+ // map-centre lookup can fail even though their polygon is available.
+ let govCenter=countryMapCenter(name);
+ if(!govCenter||!pointInRing(govCenter[0],govCenter[1],ring)||Math.hypot(govCenter[0]-center[0],govCenter[1]-center[1])<Math.max(rx,ry)*.65){
+  let best=null,bestDistance=-1;
+  for(let gy=1;gy<12;gy++)for(let gx=1;gx<12;gx++){
+   const candidate=[minX+(maxX-minX)*gx/12,minY+(maxY-minY)*gy/12];
+   if(!pointInRing(candidate[0],candidate[1],ring))continue;
+   const distance=Math.hypot(candidate[0]-center[0],candidate[1]-center[1]);
+   if(distance>bestDistance){best=candidate;bestDistance=distance;}
+  }
+  if(best)govCenter=best;
+ }
+ if(!govCenter||Math.hypot(govCenter[0]-center[0],govCenter[1]-center[1])<1)govCenter=[center[0]+Math.max(8,rx*2),center[1]];
  const points=[];for(let i=0;i<18;i++){const a=i*Math.PI*2/18,variation=.78+((i*7+chosen.index*3)%9)/30;points.push([center[0]+Math.cos(a)*rx*variation,center[1]+Math.sin(a)*ry*variation]);}
- return {featureIndex:chosen.index,center,rx,ry,points,progress:0};
+ return {featureIndex:chosen.index,center,govCenter,rx,ry,points,progress:0};
 }
 
 function civilWarFront(country,cw){
- const region=cw?.territory,center=countryMapCenter(country.name);if(!region||!center)return null;
+ const region=cw?.territory,center=region?.govCenter||countryMapCenter(country.name);if(!region||!center)return null;
  const dx=center[0]-region.center[0],dy=center[1]-region.center[1],len=Math.hypot(dx,dy)||1,nx=-dy/len,ny=dx/len;
  const fraction=Math.max(.10,Math.min(.82,.34-(cw.progress||0)*.34)),fx=region.center[0]+dx*fraction,fy=region.center[1]+dy*fraction,half=Math.max(5,Math.min(24,Math.max(region.rx,region.ry)*.42));
  return [[[fx-nx*half,fy-ny*half],[fx-nx*half*.34+dx/len*half*.16,fy-ny*half*.34+dy/len*half*.16],[fx+nx*half*.34+dx/len*half*.16,fy+ny*half*.34+dy/len*half*.16],[fx+nx*half,fy+ny*half]]];
@@ -1230,7 +1244,7 @@ function drawCivilWarDivisions(war,paths){
  const gov=countries.get(war.a),reb=countries.get(war.b);if(!gov||!reb)return;
  const sides=[{name:war.a,troops:war.troopsA||0,side:-1},{name:war.b,troops:war.troopsB||0,side:1}];
  sides.forEach(entry=>{
-  const count=Math.max(0,Math.min(32,Math.floor(entry.troops/13500)));if(!count)return;
+  const count=entry.troops>0?Math.max(1,Math.min(32,Math.ceil(entry.troops/13500))):0;if(!count)return;
   const total=paths.reduce((n,p)=>n+polyLength(p),0)||1;
   for(let i=0;i<count;i++){
    let d=(i+.5)/count*total,path=paths[paths.length-1];
