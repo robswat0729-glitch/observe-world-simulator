@@ -114,7 +114,7 @@ function buildBase(){
  // National borders.
  c.beginPath();worldFeatures.forEach(f=>path(f));c.strokeStyle='rgba(83,91,86,.58)';c.lineWidth=1.05;c.stroke();
  // Country labels.
- ctx.save();c.textAlign='center';c.textBaseline='middle';c.font='700 15px Arial, sans-serif';c.fillStyle='rgba(43,54,52,.73)';
+ c.save();c.textAlign='center';c.textBaseline='middle';c.font='700 15px Arial, sans-serif';c.fillStyle='rgba(43,54,52,.73)'
  countryLabels.forEach(([name,ll])=>{const p=projection(ll);if(p&&p[0]>15&&p[0]<W-15&&p[1]>20&&p[1]<H-15)c.fillText(name,p[0],p[1])});
  c.restore();
  // Major cities.
