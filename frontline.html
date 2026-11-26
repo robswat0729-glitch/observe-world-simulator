@@ -279,10 +279,10 @@ function loadMap(){
 }
 function loadGeography(){
  if(mode==='historical'){
-  // The public historical-basemaps collection has a 1938 snapshot, the closest available snapshot to the 1936 campaign start.
+  // The public historical-basemaps collection has a 1930 prewar snapshot, used as an approximate political-border reference for the 1936 start.
   const sources=[
-   'https://cdn.jsdelivr.net/gh/aourednik/historical-basemaps@master/geojson/world_1938.geojson',
-   'https://raw.githubusercontent.com/aourednik/historical-basemaps/master/geojson/world_1938.geojson'
+   'https://cdn.jsdelivr.net/gh/aourednik/historical-basemaps@master/geojson/world_1930.geojson',
+   'https://raw.githubusercontent.com/aourednik/historical-basemaps/master/geojson/world_1930.geojson'
   ];
   tryHistoricalSource(sources,0);
  }else{
