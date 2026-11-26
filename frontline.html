@@ -406,22 +406,6 @@ function buildWarFront(a,b){
  return projected[0];
 }
 
-function drawFrontCount(value,points,side,color){
- const mid=pointAtHalf(points),normalX=-mid.ty,normalY=mid.tx;
- const offset=side==='blue'?-13:13;
- const x=mid.x+normalX*offset,y=mid.y+normalY*offset;
- // Rotate with this particular border segment; no forced map-wide vertical orientation.
- let angle=Math.atan2(mid.ty,mid.tx);
- if(angle>Math.PI/2||angle< -Math.PI/2)angle+=Math.PI;
- const fontSize=Math.max(10,Math.min(24,(mid.length-8)/(value.length*.72)));
- ctx.save();ctx.translate(x,y);ctx.rotate(angle);
- ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
- ctx.textAlign='center';ctx.textBaseline='middle';
- // Plain text only: no box, pill, badge, or stretched lettering.
- ctx.shadowColor='rgba(255,255,255,.9)';ctx.shadowBlur=2;ctx.shadowOffsetX=0;ctx.shadowOffsetY=0;
- ctx.fillStyle=color;ctx.fillText(value,0,0);
- ctx.restore();
-}
 function activeWarStrength(w){
  return {attackers: countries.get(w.a)?.soldiers||0, defenders: countries.get(w.b)?.soldiers||0};
 }
@@ -443,13 +427,10 @@ function draw(now){
  if(selectedCountry){const f=worldFeatures.find(x=>countryName(x)===selectedCountry);if(f){ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.strokeStyle='#ffe59a';ctx.lineWidth=4;ctx.stroke()}}
  if(activeWars.length){
   activeWars.forEach((war,index)=>{
-   const front=war.front;
-   if(!front||front.length<2)return;
-   const strength=activeWarStrength(war);
-   drawFrontline(front,now+index*173);
-   drawFrontCount(fmt(strength.attackers),front,'red','#a51f25');
-   drawFrontCount(fmt(strength.defenders),front,'blue','#145f98');
-  });
+    const front=war.front;
+    if(!front||front.length<2)return;
+    drawFrontline(front,now+index*173);
+   });
  }else{
   ctx.save();ctx.fillStyle='rgba(30,48,52,.62)';ctx.font='900 '+(portraitMap?20:17)+'px Arial';ctx.textAlign='center';ctx.fillText('NO ACTIVE FRONTLINE · EUROPE AT PEACE',W/2,H*.88);ctx.restore();
  }
