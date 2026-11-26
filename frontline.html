@@ -886,7 +886,7 @@ function nearestCityToFront(name,path){
 function createFrontReinforcement(name,war,side){
  const paths=Array.isArray(war.front?.[0]?.[0])?war.front:(war.front?[war.front]:[]);const path=paths.reduce((best,p)=>polyLength(p)>polyLength(best||[])?p:best,null);
  const front=path&&path.length>1?pointAlong(path,.5):null,city=nearestCityToFront(name,path);
- return {progress:0,target:0,arrived:0,city:city?{x:city.x,y:city.y,name:city.name}:null,front:front?{x:front.x,y:front.y}:null,frontLine:path?path.map(p=>({x:p.x,y:p.y,tx:p.tx,ty:p.ty})):[],days:Math.max(8,Math.hypot((front?.x||0)-(city?.x||0),(front?.y||0)-(city?.y||0))/12),units:[]};
+ return {progress:0,target:0,arrived:0,city:city?{x:city.x,y:city.y,name:city.name}:null,front:front?{x:front.x,y:front.y}:null,frontLine:path?path.map(p=>[p[0],p[1]]):[],days:Math.max(8,Math.hypot((front?.x||0)-(city?.x||0),(front?.y||0)-(city?.y||0))/12),units:[]};
 }
 function drawFrontReinforcements(war){
  [['A',war.a,'reinforcementA'],['B',war.b,'reinforcementB']].forEach(([side,name,key])=>{
