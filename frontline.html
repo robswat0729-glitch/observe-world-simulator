@@ -189,7 +189,7 @@ function declareWar(a,b,natural){
  if(!countries.has(a)||!countries.has(b)){ $('war-status').textContent='Choose countries shown on the map.';return false}
  if(activeWars.some(w=>(w.a===a&&w.b===b)||(w.a===b&&w.b===a))){$('war-status').textContent='Those countries are already at war.';return false}
  activeWars.push({a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b)});
- $('war-status').textContent=(natural?'A diplomatic crisis escalated: ':'War declared: ')+a+' vs '+b+'.';
+ $('war-status').textContent=(natural?'A diplomatic crisis escalated: ':'War declared: ')+a+' vs '+b+'.'+(activeWars[activeWars.length-1].front?'':' No shared land border, so no land frontline is shown.');
  renderWars();return true;
 }
 function pointInRing(x,y,ring){
@@ -238,8 +238,11 @@ function naturalDiplomacy(){
  if(countries.size<2||activeWars.length>countries.size/5)return;
  if(Math.random()>.000025*countries.size)return;
  const eligible=[...countries.keys()].filter(n=>!atWar(n)&&isSovereign(n));if(eligible.length<2)return;
- const a=eligible[Math.floor(Math.random()*eligible.length)],others=eligible.filter(n=>n!==a);
- declareWar(a,others[Math.floor(Math.random()*others.length)],true);
+ const a=eligible[Math.floor(Math.random()*eligible.length)];
+ // Natural land wars start between neighboring countries so each new war has a real border front.
+ const neighbors=eligible.filter(n=>n!==a&&buildWarFront(a,n));
+ if(!neighbors.length)return;
+ declareWar(a,neighbors[Math.floor(Math.random()*neighbors.length)],true);
 }
 const historicalEventsTriggered=new Set();
 function resolveCountryName(candidates){
