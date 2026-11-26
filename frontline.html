@@ -194,7 +194,13 @@ function ideologyFor(name){
  return 'DEMOCRACY';
 }
 function ideologyProfile(ideology){
- return ({DEMOCRACY:{economy:1.14,military:0,spending:.035,label:'Economic output +14%, military doctrine neutral'},FASCIST:{economy:.94,military:.18,spending:.075,label:'Military combat +18%, economic output −6%'},COMMUNIST:{economy:1.02,military:.08,spending:.06,label:'Military combat +8%, economic output +2%'},AUTHORITARIAN:{economy:1,military:.04,spending:.045,label:'Military combat +4%, economic output neutral'}})[ideology]||{economy:1,military:0,spending:.04,label:'No ideological modifier'};
+ // Every ideology has a modest advantage and a meaningful trade-off.
+ return ({
+  DEMOCRACY:{economy:1.07,military:-.03,spending:.04,label:'Economic output +7%, combat efficiency −3%'},
+  FASCIST:{economy:.96,military:.08,spending:.065,label:'Combat efficiency +8%, economic output −4%'},
+  COMMUNIST:{economy:1.04,military:.03,spending:.05,label:'Economic output +4%, combat efficiency +3%'},
+  AUTHORITARIAN:{economy:.98,military:.05,spending:.05,label:'Combat efficiency +5%, economic output −2%'}
+ })[ideology]||{economy:1,military:0,spending:.045,label:'No ideological modifier'};
 }
 function countryEconomicProfile(name,population){
  const ideology=ideologyFor(name),profile=ideologyProfile(ideology);
