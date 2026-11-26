@@ -264,8 +264,11 @@ function drawNavalPatrols(now){
   if(country.annexedTo||atWar(name))return;
   let patrol=navalPatrols.get(name);
   if(!patrol){
-   const center=findNavalSeaPoint(name,name),units=createNavalFleet(name,center,32);
+   // Check the inventory before doing any geographic sea-point search.
+   const units=createNavalFleet(name,{x:0,y:0},12);
    if(!units.length)return;
+   const center=findNavalSeaPoint(name,name);
+   units.forEach((unit,i)=>{const angle=unit.phase,radius=7+Math.sqrt(i)*2.5;unit.x=center.x+Math.cos(angle)*radius;unit.y=center.y+Math.sin(angle)*radius*.68;});
    patrol={center,units};navalPatrols.set(name,patrol);
   }
   const {center,units}=patrol;
@@ -283,7 +286,9 @@ function drawNavalPatrols(now){
 function ensureNavalWar(war){
  if(war.naval)return;
  const center=findNavalSeaPoint(war.a,war.b);
- war.naval={center,unitsA:createNavalFleet(war.a,center),unitsB:createNavalFleet(war.b,center),lastBattleDay:day};
+ // Keep the visual fleet lightweight. Each flag represents a visible vessel
+ // marker; the country's full equipment inventory remains in its asset totals.
+ war.naval={center,unitsA:createNavalFleet(war.a,center,36),unitsB:createNavalFleet(war.b,center,36),lastBattleDay:day};
 }
 function drawNavalForces(war,now){
  ensureNavalWar(war);const naval=war.naval,center=naval.center;
@@ -1429,9 +1434,9 @@ function frame(now){
  const dt=Math.min(.08,(now-last)/1000);last=now;
  if(!paused){
   acc+=dt;dayAcc+=dt*speed;
-  // Keep the simulation model finely stepped at high speeds so manpower,
-  // reserves, equipment attrition, naval losses and front strength stay in sync.
-  const tickStep=speed>=16?.025:.05;
+  // A fixed 20 Hz model cadence avoids runaway CPU use at 16x/32x.
+  // Each tick still receives the selected speed multiplier inside tick().
+  const tickStep=.05;
   let stepped=false;while(acc>=tickStep){tick(tickStep);acc-=tickStep;stepped=true}if(stepped)renderHud()
   while(dayAcc>=2){dayAcc-=2;nextDay()}
  }
