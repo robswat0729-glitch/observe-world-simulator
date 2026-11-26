@@ -18,6 +18,15 @@ main{position:fixed;inset:0;max-width:none;margin:0;padding:0}
 .mapframe{position:fixed;inset:0;width:100vw;height:100dvh;margin:0;background:#c5ceca;border:0;box-shadow:none;overflow:hidden}
 canvas{display:block;width:100%;height:100%;object-fit:contain;aspect-ratio:11/10;background:#b9c5c4;touch-action:none}
 .hud{position:absolute;z-index:2;pointer-events:none;text-shadow:0 2px 4px #000}
+.territory-progress{position:absolute;z-index:3;top:50px;right:13px;width:min(290px,42vw);padding:9px 11px;background:rgba(12,20,25,.86);border:1px solid rgba(220,235,232,.22);pointer-events:none;text-shadow:0 1px 3px #000}
+.territory-heading,.territory-labels{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.territory-heading span{font-size:9px;letter-spacing:1.2px;color:#d0d9d6;font-weight:800}
+.territory-heading strong{font-size:12px;font-variant-numeric:tabular-nums}
+.territory-track{display:flex;width:100%;height:9px;margin:7px 0 5px;overflow:hidden;background:#35434a}
+.territory-blue{height:100%;width:50%;background:#5a9ed4;transition:width .35s}
+.territory-red{height:100%;width:50%;background:#c65e59;transition:width .35s}
+.territory-labels{font-size:9px;font-weight:800;letter-spacing:.5px}
+.territory-labels span:first-child{color:#a9d8f5}.territory-labels span:last-child{color:#ffb2aa}
 .hud-top{top:50px;left:14px;display:flex;align-items:flex-start;gap:16px}
 .datebox{background:rgba(12,20,25,.84);padding:9px 12px;border-left:3px solid #e7e1c8;min-width:135px}
 .datebox strong{display:block;font-size:21px;letter-spacing:1px;line-height:1.05}
@@ -37,6 +46,7 @@ button:active{transform:translateY(1px)}
  header{top:5px;left:5px;right:5px;height:30px;padding:0 7px}.brand{font-size:11px}.brand small{font-size:7px}
  .header-right{font-size:8px;gap:5px}
  .hud-top{top:43px;left:7px;gap:6px}.datebox{padding:6px 8px;min-width:98px}.datebox strong{font-size:15px}.datebox span{font-size:8px}
+ .territory-progress{top:82px;right:7px;width:min(220px,58vw);padding:6px 7px}.territory-heading span{font-size:7px}.territory-heading strong{font-size:10px}.territory-labels{font-size:7px}.territory-track{height:7px;margin:5px 0 4px}
  .front-tag{font-size:8px;margin-top:2px;padding:6px}.legend{left:7px;bottom:118px;font-size:8px;padding:5px 7px}
  .hud-bottom{right:7px;bottom:118px;padding:5px 7px}.hud-bottom strong{font-size:13px}.hud-bottom span{font-size:8px}
  .controls{left:5px;right:5px;bottom:max(5px,env(safe-area-inset-bottom));padding:7px;gap:6px}
@@ -55,7 +65,12 @@ button:active{transform:translateY(1px)}
  <div class="mapframe">
   <canvas id="map" width="1100" height="1000" aria-label="Animated war map showing one continuous frontline"></canvas>
   <div class="hud hud-top"><div class="datebox"><strong id="date">DAY 001</strong><span id="clock">06:00 · SIMULATION</span></div><div class="front-tag">ONE CONTINUOUS FRONTLINE</div></div>
-  <div class="legend"><i style="background:#5a9ed4"></i>BLUE CONTROL <i style="background:#c65e59;margin-left:10px"></i>RED CONTROL <span style="color:#f1dda0;margin-left:10px">━━</span> FRONTLINE</div>
+  <div class="territory-progress" aria-label="Territory control progress">
+   <div class="territory-heading"><span>EUROPEAN TERRITORY CONTROL</span><strong id="territory-value">50% — 50%</strong></div>
+   <div class="territory-track"><div id="blue-territory" class="territory-blue"></div><div id="red-territory" class="territory-red"></div></div>
+   <div class="territory-labels"><span id="blue-territory-label">ALLIES 50%</span><span id="red-territory-label">AXIS 50%</span></div>
+  </div>
+  <div class="legend"><i style="background:#5a9ed4"></i>ALLIED CONTROL <i style="background:#c65e59;margin-left:10px"></i>AXIS CONTROL <span style="color:#f1dda0;margin-left:10px">━━</span> FRONTLINE</div>
   <div class="hud hud-bottom"><span>TOTAL CASUALTIES</span><strong id="casualties">0</strong></div>
  </div>
  <div class="controls">
@@ -72,7 +87,33 @@ const canvas=document.getElementById('map'),ctx=canvas.getContext('2d');
 const $=id=>document.getElementById(id);
 const fmt=n=>Math.max(0,Math.round(n)).toLocaleString('en-US');
 let day=1,paused=false,speed=1,casualties=0,territory=50,last=0,acc=0,dayAcc=0,simDate=new Date(1936,0,1),mode='historical';
-let blueTroops=1250000,redTroops=1310000,worldFeatures=[],baseCanvas=null,mapReady=false,loadMessage='Loading geographic map…';
+let blueTroops=2400000,redTroops=1500000,worldFeatures=[],baseCanvas=null,mapReady=false,loadMessage='Loading geographic map…';
+const historicalForces={
+ // Annual total armed-forces personnel (thousands), major powers; pre-1939 values are explicitly approximate buildup estimates.
+ 1936:{allies:2400,axis:1500},1937:{allies:2600,axis:1750},1938:{allies:3100,axis:2200},
+ 1939:{uk:480,france:5000,ussr:0,usa:0,germany:4522,italy:1740},
+ 1940:{uk:2273,france:7000,ussr:0,usa:0,germany:5762,italy:2340},
+ 1941:{uk:3383,france:0,ussr:7100,usa:1620,germany:7309,italy:3227},
+ 1942:{uk:4091,france:0,ussr:11340,usa:3970,germany:8410,italy:3810},
+ 1943:{uk:4761,france:0,ussr:11858,usa:9020,germany:9480,italy:0},
+ 1944:{uk:4967,france:0,ussr:12225,usa:11410,germany:9420,italy:0},
+ 1945:{uk:5090,france:0,ussr:12100,usa:11430,germany:7830,italy:0}
+};
+function forcesForDate(date){
+ const y=date.getFullYear();
+ if(y<1939){const v=historicalForces[y]||historicalForces[1938];return {blue:v.allies*1000,red:v.axis*1000,estimated:true}}
+ const v=historicalForces[Math.max(1939,Math.min(1945,y))];
+ // USSR joins the European Allied war in June 1941; the US enters in December 1941.
+ const beforeBarbarossa=y===1941&&date<new Date(1941,5,22);
+ const beforeUS=y===1941&&date<new Date(1941,11,8);
+ const blue=(v.uk+v.france+(beforeBarbarossa?0:v.ussr)+(beforeUS?0:v.usa))*1000;
+ const red=(v.germany+v.italy)*1000;
+ return {blue,red,estimated:false};
+}
+function syncHistoricalForces(){
+ if(mode!=='historical')return;
+ const f=forcesForDate(simDate);blueTroops=f.blue;redTroops=f.red;
+}
 // Offline built-in geographic shapes: no remote map downloads are required.
 const GEO_SOURCES=[];
 const LON_MIN=-14,LON_MAX=53,LAT_MIN=36,LAT_MAX=72;
@@ -198,23 +239,33 @@ function draw(now){
 }
 function renderHud(){
  $('date').textContent=simDate.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
- $('clock').textContent='DAY '+String(day).padStart(3,'0')+' · '+(mode==='historical'?'HISTORICAL':'ALTERNATE HISTORY');
+ $('clock').textContent='DAY '+String(day).padStart(3,'0')+' · '+(mode==='historical'?(simDate<new Date(1939,8,1)?'PRE-WAR BUILDUP':'WWII HISTORICAL'):'ALTERNATE HISTORY');
  $('casualties').textContent=fmt(casualties);
+ const bluePct=Math.max(0,Math.min(100,territory)),redPct=100-bluePct;
+ $('territory-value').textContent=Math.round(bluePct)+'% — '+Math.round(redPct)+'%';
+ $('blue-territory').style.width=bluePct+'%';$('red-territory').style.width=redPct+'%';
+ $('blue-territory-label').textContent='ALLIES '+Math.round(bluePct)+'%';
+ $('red-territory-label').textContent='AXIS '+Math.round(redPct)+'%';
 }
 function tick(dt){
+ // Personnel figures are annual historical snapshots, not randomly generated reinforcements.
+ // Casualties are tracked separately and kept modest per simulated day.
  const intensity=Number($('intensity').value);
- const bLoss=Math.round(blueTroops*(.000018+Math.random()*.000025)*intensity*dt*30);
- const rLoss=Math.round(redTroops*(.000018+Math.random()*.000025)*intensity*dt*30);
- blueTroops=Math.max(0,blueTroops-bLoss)+Math.round((110+Math.random()*180)*dt*30);
- redTroops=Math.max(0,redTroops-rLoss)+Math.round((110+Math.random()*180)*dt*30);
+ const dailyRate=.00012*intensity;
+ const bLoss=Math.round(blueTroops*dailyRate*dt);
+ const rLoss=Math.round(redTroops*dailyRate*dt);
  casualties+=bLoss+rLoss;
 }
 function nextDay(){
  day++;simDate.setDate(simDate.getDate()+1);
+ if(mode==='historical'){
+  const previousYear=simDate.getFullYear()-1;
+  if(simDate.getFullYear()!==previousYear)syncHistoricalForces();
+ }
  const balance=(blueTroops-redTroops)/(blueTroops+redTroops||1);
- const drift=mode==='historical'?0.035:0.16;
- const change=balance*.22+(Math.random()-.5)*drift;
- territory=Math.max(8,Math.min(92,territory+change));
+ const drift=mode==='historical'?0.018:0.12;
+ const change=balance*.055+(Math.random()-.5)*drift;
+ territory=Math.max(2,Math.min(98,territory+change));
  renderHud();
 }
 function frame(now){
@@ -232,7 +283,7 @@ $('pause').addEventListener('click',()=>setPause(!paused));
 $('next').addEventListener('click',()=>{setPause(true);nextDay()});
 $('speed').addEventListener('click',()=>{speed=speed===1?2:speed===2?4:speed===4?8:1;$('speed').textContent=speed+'× SPEED'});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)last=0});
-renderHud();
+syncHistoricalForces();renderHud();
 function decodeTopoArc(topology,index){
  const reversed=index<0,arc=topology.arcs[reversed?~index:index],out=[];
  let x=0,y=0;
@@ -300,7 +351,7 @@ function tryHistoricalSource(sources,index){
   .catch(error=>{console.warn('Historical map source failed:',error);tryHistoricalSource(sources,index+1)});
 }
 $('mode').addEventListener('change',e=>{
- mode=e.target.value;simDate=new Date(1936,0,1);day=1;territory=50;renderHud();loadGeography();
+ mode=e.target.value;simDate=new Date(1936,0,1);day=1;territory=50;casualties=0;syncHistoricalForces();renderHud();loadGeography();
 });
 loadMap();
 })();
