@@ -1146,7 +1146,7 @@ function drawSupplyTrains(war,paths,now){
  if(!paths?.length)return;
  const path=paths.reduce((best,p)=>polyLength(p)>polyLength(best||[])?p:best,null);if(!path||path.length<2)return;
  const contact=pointAlong(path,.5);
- [[war.a,'supplyA','#a9473f',0],[war.b,'supplyB','#347bb0',.5]].forEach(([name,key,color,offset])=>{
+ [[war.a,'supplyA','#a9473f',0],[war.civilWar?war.a:war.b,'supplyB','#347bb0',.5]].forEach(([name,key,color,offset])=>{
   const city=nearestSupplyCity(name);if(!city)return;
   const dx=contact.x-city.x,dy=contact.y-city.y;if(Math.hypot(dx,dy)<2)return;
   ctx.save();ctx.globalAlpha=.58;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.setLineDash([5,5]);ctx.beginPath();ctx.moveTo(city.x,city.y);ctx.lineTo(contact.x,contact.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
@@ -1366,7 +1366,7 @@ function tick(dt){
   w.supplyB=Math.max(5,Math.min(100,(w.supplyB??70)+(targetB-(w.supplyB??70))*adjustment));
  });
  activeWars.forEach(w=>{
-  attemptNuclearStrike(w,simDt);
+  if(!w.civilWar)attemptNuclearStrike(w,simDt);
   tickNavalBattle(w,simDt,intensity);
   const strength=activeWarStrength(w),al=strength.attackers*lossRate*simDt*(.78+.42*strength.defenders/Math.max(1,strength.attackers)),bl=strength.defenders*lossRate*simDt*(.78+.42*strength.attackers/Math.max(1,strength.defenders));
   const totalA=Math.max(1,(w.troopsA||0)+(strength.alliesA||0)),totalB=Math.max(1,(w.troopsB||0)+(strength.alliesB||0));
