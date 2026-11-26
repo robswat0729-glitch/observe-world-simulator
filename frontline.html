@@ -1619,7 +1619,6 @@ $('annex-country').addEventListener('click',()=>resolveSettlement('annex'));
 $('puppet-country').addEventListener('click',()=>resolveSettlement('puppet'));
 function tick(dt){
  const intensity=Number($('intensity').value),simDt=dt*speed,lossRate=.00105*intensity,lossesByCountry=new Map();
- updateWarDeployments();
  researchTick(simDt);countries.forEach(c=>{ensureTech(c);c.nuclearCooldown=Math.max(0,c.nuclearCooldown-simDt/2)});
   const transferDays=simDt/2;
  const elapsedSupplyDays=simDt/2;
@@ -1794,6 +1793,7 @@ function nextDay(){
  if(!$('military-details').hidden)renderMilitaryDetails();
 }
 let simulationRuntimeError='';
+let lastDrawAt=0;
 function showRuntimeError(error){
  if(simulationRuntimeError)return;
  simulationRuntimeError=String(error?.stack||error?.message||error||'Unknown runtime error');
@@ -1814,7 +1814,9 @@ function frame(now){
    if(stepped)renderHud();
    while(dayAcc>=2){dayAcc-=2;nextDay()}
   }
-  draw(now);
+  // Cap expensive canvas redraws at 30 FPS. Simulation ticks remain independent,
+  // so combat timing and game speed are unchanged while mobile rendering has room to breathe.
+  if(now-lastDrawAt>=1000/30){draw(now);lastDrawAt=now}
  }catch(error){showRuntimeError(error)}
  finally{requestAnimationFrame(frame)}
 }
