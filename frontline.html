@@ -1624,7 +1624,7 @@ function tick(dt){
    if(country.isCivilWarFaction)return;
    const civilianPool=Math.max(0,country.citizens??(country.population-country.soldiers));
    if(!civilianPool)return;
-   const dailyRate=atWar(country.name)?.00002:.000003;
+   const dailyRate=atWar(country.name)?.000003:.0000008;
    const recruits=Math.min(civilianPool,Math.max(0,country.population*dailyRate*simDt/2));
    if(recruits>0){country.citizens=civilianPool-recruits;country.soldiers+=recruits;country.reserve=(country.reserve||0)+recruits;}
   });
