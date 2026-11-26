@@ -569,10 +569,11 @@ function drawFrontCounts(war,points,strength){
  const fontSize=Math.max(16,Math.min(40,20/displayScale));
  const gap=Math.max(13,Math.min(23,15/displayScale));
  const candidates=[.5,.32,.68,.18,.82].map(f=>pointAlong(points,f)).filter(p=>
-  Number.isFinite(p.x)&&Number.isFinite(p.y)&&p.x>8&&p.x<W-8&&p.y>8&&p.y<H-8
+  Number.isFinite(p.x)&&Number.isFinite(p.y)&&p.x>28&&p.x<W-28&&p.y>28&&p.y<H-28
  );
- const mid=candidates[0]||pointAlong(points,.5);
- if(!Number.isFinite(mid.x)||!Number.isFinite(mid.y))return;
+ const rawMid=candidates[0]||pointAlong(points,.5);
+ if(!Number.isFinite(rawMid.x)||!Number.isFinite(rawMid.y))return;
+ const mid={...rawMid,x:Math.max(20,Math.min(W-20,rawMid.x)),y:Math.max(20,Math.min(H-20,rawMid.y))};
  const tx=mid.tx,ty=mid.ty,nx=-ty,ny=tx;
  const sideOf=(center)=>{
   if(!center)return 0;
@@ -591,10 +592,14 @@ function drawFrontCounts(war,points,strength){
  ];
  entries.forEach(entry=>{
   ctx.save();
-  ctx.translate(mid.x+nx*gap*entry.side,mid.y+ny*gap*entry.side);
+  const labelX=Math.max(14,Math.min(W-14,mid.x+nx*gap*entry.side));
+  const labelY=Math.max(14,Math.min(H-14,mid.y+ny*gap*entry.side));
+  ctx.translate(labelX,labelY);
   let angle=Math.atan2(ty,tx);if(angle>Math.PI/2||angle< -Math.PI/2)angle+=Math.PI;
   ctx.rotate(angle);
-  ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
+  let fittedFont=fontSize;
+  ctx.font='900 '+fittedFont+'px Arial, Helvetica, sans-serif';
+  while(ctx.measureText(entry.value).width>W-36&&fittedFont>12){fittedFont-=1;ctx.font='900 '+fittedFont+'px Arial, Helvetica, sans-serif'}
   ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
   ctx.lineWidth=Math.max(3.5,4/displayScale);
   ctx.strokeStyle='rgba(250,248,235,.98)';ctx.strokeText(entry.value,0,0);
@@ -627,7 +632,7 @@ function draw(now){
     // has no exact shared-border match for that pair of countries.
     if(!front||!front.length)return;
     const paths=Array.isArray(front[0]?.[0])?front:[front];
-    const drawable=paths.filter(path=>Array.isArray(path)&&path.length>1&&polyLength(path)>2);
+    const drawable=paths.filter(path=>Array.isArray(path)&&path.length>1&&polyLength(path)>.5);
     const totalFrontLength=drawable.reduce((sum,path)=>sum+polyLength(path),0)||1;
     const strength=activeWarStrength(war);
     drawable.forEach((path,pathIndex)=>{
