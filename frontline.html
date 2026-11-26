@@ -76,7 +76,7 @@ button:active{transform:translateY(1px)}
  <div class="controls">
   <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div>
   <div class="control-group"><select id="mode" aria-label="Simulation mode"><option value="historical">HISTORICAL</option><option value="nonhistorical">NON-HISTORICAL</option></select><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
-  <div class="note">Geographic outlines: Natural Earth · troop counts update 30 times per second · map animation 60 FPS</div>
+  <div class="note">Geographic outlines: Natural Earth · troop model 100 updates/sec · map animation 60 FPS</div>
  </div>
 </main>
 <script>
@@ -252,8 +252,10 @@ function tick(dt){
  // The UI rounds only for display; the simulation updates this model at 100 Hz.
  const intensity=Number($('intensity').value);
  const lossRate=.00012*intensity;
- const bLoss=blueTroops*lossRate*dt;
- const rLoss=redTroops*lossRate*dt;
+ // Scale attrition by simulation speed, not wall-clock speed.
+ const simDt=dt*speed;
+ const bLoss=blueTroops*lossRate*simDt;
+ const rLoss=redTroops*lossRate*simDt;
  blueTroops=Math.max(0,blueTroops-bLoss);
  redTroops=Math.max(0,redTroops-rLoss);
  casualties+=bLoss+rLoss;
