@@ -248,6 +248,7 @@ function registerCountries(){
  if(countries.size&&!populationLoaded&&!populationLoading)load1936PopulationReference();
 }
 function atWar(name){return activeWars.some(w=>w.a===name||w.b===name)}
+function committedToWar(name){return atWar(name)||activeWars.some(w=>[...(w.supportA||[]),...(w.supportB||[])].some(x=>x.name===name))}
 function warsForCountry(name){return activeWars.filter(w=>w.a===name||w.b===name)}
 function showCountry(name){
  name=sovereignOwner(name);const c=countries.get(name);if(!c||c.annexedTo)return;selectedCountry=name;
@@ -439,7 +440,7 @@ function declareWar(a,b,natural,allianceResponse=false){
  ];
  allyCandidates.forEach(({name:ally,side,host,enemy})=>{
   const allyCountry=countries.get(ally),enemyCountry=countries.get(enemy);
-  if(!allyCountry||!enemyCountry||atWar(ally)||allyCountry.stability<25||!canAllyReachHost(ally,host))return;
+  if(!allyCountry||!enemyCountry||committedToWar(ally)||allyCountry.stability<25||!canAllyReachHost(ally,host))return;
   const relativePower=allyCountry.soldiers/Math.max(1,enemyCountry.soldiers);
   const chance=Math.max(.08,Math.min(.68,.22+relativePower*.22+(allyCountry.stability-50)*.002));
   if(Math.random()<chance)(side==='A'?war.supportA:war.supportB).push(createSupportTransfer(ally,host,war,.30));
@@ -449,7 +450,7 @@ function declareWar(a,b,natural,allianceResponse=false){
  [...countries.values()].forEach(puppet=>{
   const host=puppet.puppetOf;
   if(host!==a&&host!==b)return;
-  if(atWar(puppet.name)||puppet.stability<25)return;
+  if(committedToWar(puppet.name)||puppet.stability<25)return;
   const side=host===a?'A':'B',enemy=host===a?b:a;
   if(!canAllyReachHost(puppet.name,host))return;
   const enemyCountry=countries.get(enemy);
