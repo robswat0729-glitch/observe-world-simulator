@@ -261,13 +261,15 @@ async function load1936PopulationReference(){
    if(rec.annexedTo)return;
    const key=name.toLowerCase(),match=values.get(aliases[key]||key);
    if(match){
-    rec.population=match;
+    rec.population=match+(rec.pendingAnnexPopulation||0);
     if(rec.estimated&&!rec.armyReferenceLoaded){
      const baseSoldiers=Math.round(match*.005);
      rec.soldiers=baseSoldiers+(rec.pendingAnnexSoldiers||0);
      rec.reserve=baseSoldiers*.35+(rec.pendingAnnexReserve||0);
      rec.armyReferenceLoaded=true;
-     rec.pendingAnnexSoldiers=0;rec.pendingAnnexReserve=0;
+     rec.pendingAnnexSoldiers=0;rec.pendingAnnexReserve=0;rec.pendingAnnexPopulation=0;
+    }else if(rec.pendingAnnexPopulation){
+     rec.pendingAnnexPopulation=0;
     }
     rec.citizens=Math.max(0,rec.population-rec.soldiers);
    }
@@ -919,14 +921,17 @@ function resolveSettlement(choice){
   if(populationLoaded){
    winner.soldiers+=absorbedSoldiers;
    winner.reserve+=absorbedReserve;
+   winner.armyReferenceLoaded=true;
   }else{
+   // Keep the visible values updated immediately, and retain separate
+   // transfer bonuses for the still-loading 1936 baseline data.
+   winner.pendingAnnexPopulation=(winner.pendingAnnexPopulation||0)+absorbedPopulation;
    winner.pendingAnnexSoldiers=(winner.pendingAnnexSoldiers||0)+absorbedSoldiers;
    winner.pendingAnnexReserve=(winner.pendingAnnexReserve||0)+absorbedReserve;
    winner.soldiers+=absorbedSoldiers;
    winner.reserve+=absorbedReserve;
   }
   winner.stability=Math.max(0,Math.min(100,(winner.stability??75)-8));
-  winner.armyReferenceLoaded=true;
   loser.population=0;loser.citizens=0;loser.soldiers=0;loser.reserve=0;loser.pendingAnnexSoldiers=0;loser.pendingAnnexReserve=0;loser.annexedTo=war.a;loser.puppetOf=null;
   // Remove the defeated state as a selectable sovereign and redraw its
   // former territory as part of the annexing country's map color.
