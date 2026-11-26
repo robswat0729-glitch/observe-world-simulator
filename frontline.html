@@ -457,8 +457,13 @@ function knownHistoricalFront(a,b){
 }
 function buildWarFront(a,b){
  if(!mapReady||!a||!b)return null;
+ // Germany–France is a known continuous land border. The 1938 GeoJSON can
+ // produce false-positive overlapping segments here, so do not let a bad
+ // polygon match replace the stable full-length border trace.
+ const knownFront=knownHistoricalFront(a,b);
+ if(knownFront)return knownFront;
  const shared=sharedBorderPieces(countryBorderEdges(a),countryBorderEdges(b));
- if(!shared.length){const known=knownHistoricalFront(a,b);return known||(()=>{const fallback=fallbackAdjacentFront(a,b);return fallback?[fallback]:null})()}
+ if(!shared.length){const fallback=fallbackAdjacentFront(a,b);return fallback?[fallback]:null}
  // Merge only degree-two joins. At corners/junctions stop instead of arbitrarily
  // choosing an edge and accidentally drawing a line across unrelated borders.
  const nodes=new Map();
