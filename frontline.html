@@ -863,7 +863,17 @@ function updateWarDeployments(){
     item.war['reinforcementClock'+item.side]=0;
   }
    const ready=divisions.filter(d=>d.status==='garrison'||d.status==='front');
-   const deployed=ready.reduce((sum,d)=>sum+d.troops,0);
+   let deployed=ready.reduce((sum,d)=>sum+d.troops,0);
+   // Losses reduce the actual field formations; a division cannot survive on paper
+   // after its country's remaining deployable manpower has been exhausted.
+   const fieldLimit=Math.max(0,available-(item.support?0:0));
+   let excess=deployed-fieldLimit;
+   for(let i=divisions.length-1;i>=0&&excess>0;i--){
+    const d=divisions[i];if(d.status!=='garrison'&&d.status!=='front')continue;
+    const cut=Math.min(d.troops,excess);d.troops-=cut;excess-=cut;
+    if(d.troops<1)divisions.splice(i,1);
+   }
+   deployed=divisions.filter(d=>d.status==='garrison'||d.status==='front').reduce((sum,d)=>sum+d.troops,0);
    if(item.support){item.support.targetTroops=deployed;item.support.troops=deployed;}
    else item.war['troops'+item.side]=deployed;
   });
@@ -1199,7 +1209,7 @@ function drawDivisionFlags(war,paths,strength,borderPaths=paths){
  ];
  sides.forEach(entry=>{
   if(entry.troops<1)return;
-  const count=Math.max(1,Math.min(28,Math.floor(entry.troops/13500)));
+  const roster=divisionList(war,entry.frontSide);const readyCount=roster.filter(d=>d.status==='garrison'||d.status==='front').length;const count=Math.max(0,Math.min(28,readyCount||Math.floor(entry.troops/13500)));
   for(let i=0;i<count;i++){
    const along=(i+.5)/count*totalLength;let remaining=along,pathIndex=paths.length-1;
    for(let j=0;j<paths.length;j++){const len=polyLength(paths[j]);if(remaining<=len){pathIndex=j;break}remaining-=len}
@@ -1217,6 +1227,20 @@ function drawDivisionFlags(war,paths,strength,borderPaths=paths){
    ctx.strokeText(countryFlag(entry.name),x,y);ctx.fillStyle='white';ctx.fillText(countryFlag(entry.name),x,y);
    ctx.restore();
   }
+ });
+}
+function drawReinforcementDivisions(war,paths){
+ if(!paths?.length)return;
+ const front=paths.reduce((best,p)=>polyLength(p)>polyLength(best||[])?p:best,null);
+ if(!front||front.length<2)return;
+ [['A',war.a,'#a9473f'],['B',war.b,'#347bb0']].forEach(([side,name,color])=>{
+  const city=nearestSupplyCity(name);if(!city)return;
+  const contact=pointAlong(front,.5),dx=contact.x-city.x,dy=contact.y-city.y;
+  divisionList(war,side).filter(d=>d.status==='training'||d.status==='marching').forEach((d,i)=>{
+   const progress=d.status==='training'?.08:Math.max(.12,Math.min(.92,1-(d.travel/Math.max(.5,d.travelDays||1))));
+   const x=city.x+dx*progress,y=city.y+dy*progress+(i%3-1)*3;
+   ctx.save();ctx.translate(x,y);ctx.fillStyle='rgba(20,29,33,.88)';ctx.fillRect(-5,-4,10,8);ctx.strokeStyle=color;ctx.lineWidth=1.6;ctx.strokeRect(-5,-4,10,8);ctx.fillStyle='#f4ead0';ctx.font='7px Arial';ctx.textAlign='center';ctx.fillText(d.status==='training'?'T':'→',0,2.5);ctx.restore();
+  });
  });
 }
 function drawFrontline(points,now){
@@ -1410,6 +1434,7 @@ function drawCivilWarTerritory(country){
      drawBorderDefenseMarkers(war,movingPaths,drawable,strength);
     if(war.civilWar)drawCivilWarDivisions(war,movingPaths);
     else drawDivisionFlags(war,movingPaths,strength,drawable);
+    if(!war.civilWar)drawReinforcementDivisions(war,movingPaths);
     drawEncirclements(war,movingPaths);
     drawSupplyTrains(war,movingPaths,now+index*1200);
     // Each disconnected border segment is a separate engagement. Allocate
