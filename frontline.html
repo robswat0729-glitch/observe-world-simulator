@@ -74,11 +74,11 @@ button:active{transform:translateY(1px)}
   <div class="legend"><i style="background:#c65e59"></i>WAR DECLARER <i style="background:#5a9ed4;margin-left:10px"></i>DEFENDER</div>
   <div class="hud hud-bottom"><span>TOTAL CASUALTIES</span><strong id="casualties">0</strong></div>
  </div>
- <section class="country-panel" id="country-panel"><button class="panel-close" id="panel-close">CLOSE</button><h3 id="country-name">SELECT A COUNTRY</h3><div id="country-hint">Tap any country on the world map to inspect its 1936 statistics.</div><div class="country-stats"><div class="country-stat"><span>POPULATION · 1936</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>ARMED FORCES · 1936</span><strong id="country-army">—</strong></div></div><div class="war-tools"><select id="war-attacker" aria-label="Country declaring war"><option value="">Attacker</option></select><select id="war-defender" aria-label="Country being attacked"><option value="">Target</option></select><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">All countries begin at peace. Select two countries to start a war.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section>
+ <section class="country-panel" id="country-panel"><button class="panel-close" id="panel-close">CLOSE</button><h3 id="country-name">SELECT A COUNTRY</h3><div id="country-hint">Tap any country on the world map to inspect its 1936 statistics.</div><div class="country-stats"><div class="country-stat"><span>POPULATION · 1936</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>ARMED FORCES · 1936</span><strong id="country-army">—</strong></div></div><div class="war-tools"><select id="war-attacker" aria-label="Country declaring war"><option value="">Attacker</option></select><select id="war-defender" aria-label="Country being attacked"><option value="">Target</option></select><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">Countries begin at peace. Select two countries to start a war. Population figures are historical estimates; some territories use model estimates.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section>
  <div class="controls">
   <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div>
   <div class="control-group"><select id="mode" aria-label="Simulation mode"><option value="historical">HISTORICAL</option><option value="nonhistorical">NON-HISTORICAL</option></select><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
-  <div class="note">1938 pre-war borders · 1936 country statistics · map animation 60 FPS</div>
+  <div class="note">1938 pre-war borders · 1936 population estimates · armed forces estimates</div>
  </div>
 </main>
 <script>
@@ -210,10 +210,31 @@ function hitCountry(x,y){
  }
  return null;
 }
+
+const dependentTerritories=new Set(['Algeria (France)','Angola (Portugal)','Belgian Congo','British Raj','British Somaliland','Dutch East Indies','Ceylon','French Cameroons','French Equatorial Africa','French Guiana','French Indo-China','French Somaliland','French West Africa','Gold Coast','Hong Kong','Italian Somaliland','Kenya','Libya (Italy)','Madagascar (France)','Mandatory Palestine (GB)','Mesopotamia (GB)','Morocco (France)','Mozambique (Portugal)','Nigeria','Northern Rhodesia','Southern Rhodesia','Eritrea (Italy)','Ethiopia (Italy)','Jamaica','Kuwait','Laos','Malaya','Martinique','New Caledonia','Puerto Rico','Sudan','Togo','Tunisia','Uganda']);
+function isSovereign(name){return !name.includes('(')&&!dependentTerritories.has(name)}
+async function load1936PopulationReference(){
+ try{
+  const response=await fetch('https://ourworldindata.org/grapher/population.csv?time=1936',{mode:'cors',cache:'force-cache'});
+  if(!response.ok)throw new Error('Population reference unavailable');
+  const lines=(await response.text()).trim().split(/\r?\n/),headers=lines[0].split(',');
+  const entityIndex=headers.indexOf('Entity'),valueIndex=headers.findIndex(x=>x==='population'||x==='Population');
+  if(entityIndex<0||valueIndex<0)throw new Error('Unexpected population data format');
+  const values=new Map();
+  for(let i=1;i<lines.length;i++){const cells=lines[i].split(','),n=(cells[entityIndex]||'').replace(/^"|"$/g,'').trim(),v=Number(cells[valueIndex]);if(n&&Number.isFinite(v)&&v>0)values.set(n.toLowerCase(),v)}
+  const aliases={'empire of japan':'japan','united kingdom':'united kingdom','soviet union':'ussr','persia':'iran','siam':'thailand','union of south africa':'south africa'};
+  countries.forEach((rec,name)=>{
+   const key=name.toLowerCase(),match=values.get(aliases[key]||key);
+   if(match){rec.population=match;if(rec.estimated)rec.soldiers=Math.round(match*.005)}
+  });
+  if(selectedCountry)showCountry(selectedCountry);
+ }catch(error){console.warn('1936 population reference not loaded; using built-in historical estimates.',error)}
+}
+
 function naturalDiplomacy(){
  if(countries.size<2||activeWars.length>countries.size/5)return;
  if(Math.random()>.000025*countries.size)return;
- const eligible=[...countries.keys()].filter(n=>!atWar(n));if(eligible.length<2)return;
+ const eligible=[...countries.keys()].filter(n=>!atWar(n)&&isSovereign(n));if(eligible.length<2)return;
  const a=eligible[Math.floor(Math.random()*eligible.length)],others=eligible.filter(n=>n!==a);
  declareWar(a,others[Math.floor(Math.random()*others.length)],true);
 }
@@ -351,7 +372,7 @@ $('next').addEventListener('click',()=>{setPause(true);nextDay()});
 $('speed').addEventListener('click',()=>{speed=speed===1?2:speed===2?4:speed===4?8:1;$('speed').textContent=speed+'× SPEED'});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)last=0});
 syncHistoricalForces();renderHud();
-canvas.addEventListener('click',e=>{const r=canvas.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*W,y=(e.clientY-r.top)/r.height*H;const name=hitCountry(x,y);if(name)showCountry(name)});
+canvas.addEventListener('click',e=>{const r=canvas.getBoundingClientRect(),scale=Math.min(r.width/W,r.height/H),drawW=W*scale,drawH=H*scale,ox=(r.width-drawW)/2,oy=(r.height-drawH)/2;const x=(e.clientX-r.left-ox)/scale,y=(e.clientY-r.top-oy)/scale;if(x<0||x>W||y<0||y>H)return;const name=hitCountry(x,y);if(name)showCountry(name)});
 $('panel-close').addEventListener('click',()=>{$('country-panel').style.display='none'});
 $('declare-war').addEventListener('click',()=>declareWar($('war-attacker').value,$('war-defender').value,false));
 $('war-attacker').addEventListener('change',()=>{const n=$('war-attacker').value;if(n)showCountry(n)});
