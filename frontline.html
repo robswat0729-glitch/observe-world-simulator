@@ -8,7 +8,7 @@
 <div class="stats"><div class="stat"><label>WAR DAY</label><b id="day">001</b></div><div class="stat"><label>BLUE TERRITORY</label><b id="blueTerr">52%</b></div><div class="stat"><label>RED TERRITORY</label><b id="redTerr">48%</b></div><div class="stat"><label>BLUE COMMITTED</label><b id="blueTotal">1,250,000</b></div><div class="stat"><label>RED COMMITTED</label><b id="redTotal">1,310,000</b></div><div class="stat"><label>CASUALTIES</label><b id="casualties">0</b></div></div>
 <main><div class="mapbox"><canvas id="map" width="1200" height="700"></canvas><div class="maptag">LIVE WAR MAP · FRONTLINE ARMY COUNTERS · FICTIONAL THEATER</div><div class="legend"><i class="dot" style="background:#4c9de6"></i>BLUE ALLIANCE <i class="dot" style="background:#df5c5c"></i>RED COALITION<br><span style="color:#e8d08d">━━</span> Contested frontline</div></div>
 <div class="grid"><section class="panel"><h2>ARMY GROUPS DEPLOYED ALONG THE FRONT</h2><div id="fronts"></div><small>Each map counter is the exact number of troops committed to that sector. The totals above are the sum of all active front sectors.</small></section>
-<section class="panel"><h2>SIMULATION SPEED</h2><div class="controls"><button id="resume" class="primary">▶ RESUME</button><button id="speed">1× SPEED</button><select id="intensity"><option value="1">Normal combat</option><option value="1.6">Heavy combat</option><option value=".55">Low combat</option></select></div><p class="muted">The map animates continuously. Army counters refresh several times per second; the war calendar advances automatically. At higher speeds, days pass faster.</p><div class="row"><span>Map refresh</span><b>60 FPS</b></div><div class="row"><span>Army strength updates</span><b>5 times / second</b></div><div class="row"><span>Day progression</span><b id="dayRate">1 day / 2 sec</b></div></section>
+<section class="panel"><h2>SIMULATION SPEED</h2><div class="controls"><button id="resume" class="primary">▶ RESUME</button><button id="speed">1× SPEED</button><select id="intensity"><option value="1">Normal combat</option><option value="1.6">Heavy combat</option><option value=".55">Low combat</option></select></div><p class="muted">The map animates continuously. Army counters refresh 30 times per second; the war calendar advances automatically. At higher speeds, days pass faster.</p><div class="row"><span>Map refresh</span><b>60 FPS</b></div><div class="row"><span>Army strength updates</span><b>30 times / second</b></div><div class="row"><span>Day progression</span><b id="dayRate">1 day / 2 sec</b></div></section>
 <section class="panel" style="grid-column:1/-1"><h2>WAR CHRONICLE</h2><div class="log" id="log"></div></section></div></main>
 <script>
 (function(){
@@ -47,16 +47,16 @@ $('fronts').innerHTML=sectors.map(s=>'<div class="front"><div class="fronttitle"
 function combatTick(dt){
 let intensity=Number($('intensity').value),t=totals(),net=0;
 sectors.forEach(s=>{
-let bl=Math.max(1,Math.round(s.blue*(.000025+Math.random()*.000035)*intensity*dt*5));
-let rl=Math.max(1,Math.round(s.red*(.000025+Math.random()*.000035)*intensity*dt*5));
+let bl=Math.max(1,Math.round(s.blue*(.000025+Math.random()*.000035)*intensity*dt*30));
+let rl=Math.max(1,Math.round(s.red*(.000025+Math.random()*.000035)*intensity*dt*30));
 s.blue=Math.max(0,s.blue-bl);s.red=Math.max(0,s.red-rl);cas+=bl+rl;
-s.blue+=Math.round((250+Math.random()*650)*dt*5);s.red+=Math.round((250+Math.random()*650)*dt*5);
+s.blue+=Math.round((250+Math.random()*650)*dt*30);s.red+=Math.round((250+Math.random()*650)*dt*30);
 net+=(s.blue-s.red)/(s.blue+s.red||1);
 });
-territory=Math.max(7,Math.min(93,territory+net*.00008*dt*5));
+territory=Math.max(7,Math.min(93,territory+net*.00008*dt*30));
 }
 function nextDay(){day++;let t=totals(),b=t.b,r=t.r;let side=territory>50?'Blue':territory<50?'Red':'Neither';if(day%3===0||Math.random()<.2)note('Day '+String(day).padStart(3,'0')+' — '+side+' forces hold the initiative. Frontline strength: '+fmt(b)+' vs '+fmt(r)+'.');if(day%10===0)note('Day '+String(day).padStart(3,'0')+' — Reinforcements and replacement drafts arrive across the theater.');}
-function frame(now){if(!last)last=now;let dt=Math.min(.1,(now-last)/1000);last=now;if(!paused){acc+=dt;dayAcc+=dt*speed;if(acc>=.2){combatTick(acc);acc=0;render()}while(dayAcc>=2){dayAcc-=2;nextDay();render()}}draw();requestAnimationFrame(frame)}
+function frame(now){if(!last)last=now;let dt=Math.min(.1,(now-last)/1000);last=now;if(!paused){acc+=dt;dayAcc+=dt*speed;if(acc>=1/30){combatTick(acc);acc=0;render()}while(dayAcc>=2){dayAcc-=2;nextDay();render()}}draw();requestAnimationFrame(frame)}
 function setPause(v){paused=v;$('pause').textContent=v?'▶ RESUME':'Ⅱ PAUSE';$('resume').textContent=v?'▶ RESUME':'Ⅱ PAUSE'}
 $('pause').onclick=()=>setPause(!paused);$('resume').onclick=()=>setPause(!paused);$('next').onclick=()=>{setPause(true);nextDay();render()};$('speed').onclick=()=>{speed=speed===1?2:speed===2?4:speed===4?8:1;$('speed').textContent=speed+'× SPEED';$('dayRate').textContent='1 day / '+(2/speed).toFixed(2)+' sec'};
 note('Day 001 — War begins. Four army groups deploy across the Varenn front.');render();requestAnimationFrame(frame);
