@@ -1226,6 +1226,21 @@ function draw(now){
   }
  });
  worldFeatures.forEach(f=>{const name=sovereignOwner(countryName(f)),side=belligerents.get(name);if(!side)return;ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle=side==='attacker'?'rgba(190,71,67,.48)':'rgba(55,139,202,.48)';ctx.fill()});
+function drawCivilWarDivisions(war,paths){
+ const gov=countries.get(war.a),reb=countries.get(war.b);if(!gov||!reb)return;
+ const sides=[{name:war.a,troops:war.troopsA||0,side:-1},{name:war.b,troops:war.troopsB||0,side:1}];
+ sides.forEach(entry=>{
+  const count=Math.max(0,Math.min(32,Math.floor(entry.troops/13500)));if(!count)return;
+  const total=paths.reduce((n,p)=>n+polyLength(p),0)||1;
+  for(let i=0;i<count;i++){
+   let d=(i+.5)/count*total,path=paths[paths.length-1];
+   for(const p of paths){const len=polyLength(p);if(d<=len){path=p;break}d-=len}
+   const p=pointAlong(path,Math.max(0,Math.min(1,d/(polyLength(path)||1))));
+   const x=p.x-p.ty*entry.side*5,y=p.y+p.tx*entry.side*5;
+   ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='10px "Noto Color Emoji", "Apple Color Emoji", Arial';ctx.lineWidth=1.7;ctx.strokeStyle='rgba(15,22,24,.95)';ctx.strokeText(countryFlag(entry.name),x,y);ctx.fillStyle='#fff';ctx.fillText(countryFlag(entry.name),x,y);ctx.restore();
+  }
+ });
+}
 function drawCivilWarTerritory(country){
  const cw=country.civilWar,region=cw?.territory;if(!cw||!region)return;
  const feature=worldFeatures[region.featureIndex];if(!feature)return;
