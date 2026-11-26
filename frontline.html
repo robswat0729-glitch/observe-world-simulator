@@ -74,7 +74,7 @@ button:active{transform:translateY(1px)}
   <div class="legend"><i style="background:#c65e59"></i>WAR DECLARER <i style="background:#5a9ed4;margin-left:10px"></i>DEFENDER</div>
   <div class="hud hud-bottom"><span>TOTAL CASUALTIES</span><strong id="casualties">0</strong></div>
  </div>
- <section class="country-panel" id="country-panel"><button class="panel-close" id="panel-close">CLOSE</button><h3 id="country-name">SELECT A COUNTRY</h3><div id="country-hint">Tap any country on the world map to inspect its 1936 statistics.</div><div class="country-stats"><div class="country-stat"><span>POPULATION · 1936</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>ARMED FORCES · ESTIMATE</span><strong id="country-army">—</strong></div></div><div class="war-tools"><select id="war-attacker" aria-label="Country declaring war"><option value="">Attacker</option></select><select id="war-defender" aria-label="Country being attacked"><option value="">Target</option></select><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">Countries begin at peace. Select two countries to start a war. Population figures are historical estimates; some territories use model estimates.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section>
+ <section class="country-panel" id="country-panel"><button class="panel-close" id="panel-close">CLOSE</button><h3 id="country-name">SELECT A COUNTRY</h3><div id="country-hint">Tap any European country to inspect its 1936 population and armed forces.</div><div class="country-stats"><div class="country-stat"><span>POPULATION · 1936</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>ARMED FORCES · ESTIMATE</span><strong id="country-army">—</strong></div></div><div class="war-tools"><select id="war-attacker" aria-label="Country declaring war"><option value="">Attacker</option></select><select id="war-defender" aria-label="Country being attacked"><option value="">Target</option></select><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">Countries begin at peace. Select two countries to start a war. Population figures are historical estimates; some territories use model estimates.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section>
  <div class="controls">
   <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div>
   <div class="control-group"><select id="mode" aria-label="Simulation mode"><option value="historical">HISTORICAL</option><option value="nonhistorical">NON-HISTORICAL</option></select><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
@@ -334,12 +334,33 @@ function drawFrontCount(value,points,side,color){
  ctx.fillStyle=color;ctx.fillText(value,0,0);
  ctx.restore();
 }
+function activeWarStrength(){
+ let attackers=0,defenders=0;
+ activeWars.forEach(w=>{attackers+=countries.get(w.a)?.soldiers||0;defenders+=countries.get(w.b)?.soldiers||0});
+ return {attackers,defenders};
+}
+function drawFrontline(points,now){
+ ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
+ pathFront(points);ctx.strokeStyle='rgba(28,42,47,.38)';ctx.lineWidth=15;ctx.shadowColor='rgba(20,30,35,.35)';ctx.shadowBlur=12;ctx.stroke();
+ ctx.shadowBlur=0;pathFront(points);ctx.strokeStyle='#f1e6c6';ctx.lineWidth=5;ctx.stroke();
+ pathFront(points);ctx.strokeStyle='#293b40';ctx.lineWidth=1.5;ctx.setLineDash([8,7]);ctx.lineDashOffset=-(now/90)%15;ctx.stroke();ctx.setLineDash([]);
+ for(let i=0;i<5;i++){const p=points[Math.floor((i/5)*points.length+((now/700+i*17)%Math.max(1,points.length/5)))%points.length];ctx.beginPath();ctx.arc(p[0],p[1],3.2,0,Math.PI*2);ctx.fillStyle=i%2?'#ffb4a9':'#b8e1ff';ctx.fill()}
+ ctx.restore();
+}
 function draw(now){
  if(!mapReady){ctx.fillStyle='#b9c4c0';ctx.fillRect(0,0,W,H);ctx.fillStyle='#24353a';ctx.font='bold 28px Arial';ctx.textAlign='center';ctx.fillText(loadMessage,W/2,H/2);return}
  ctx.drawImage(baseCanvas,0,0);
  const belligerents=new Map();activeWars.forEach(w=>{belligerents.set(w.a,'attacker');belligerents.set(w.b,'defender')});
- worldFeatures.forEach(f=>{const name=countryName(f),side=belligerents.get(name);if(!side)return;ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle=side==='attacker'?'rgba(190,71,67,.54)':'rgba(55,139,202,.54)';ctx.fill()});
+ worldFeatures.forEach(f=>{const name=countryName(f),side=belligerents.get(name);if(!side)return;ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle=side==='attacker'?'rgba(190,71,67,.48)':'rgba(55,139,202,.48)';ctx.fill()});
  if(selectedCountry){const f=worldFeatures.find(x=>countryName(x)===selectedCountry);if(f){ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.strokeStyle='#ffe59a';ctx.lineWidth=4;ctx.stroke()}}
+ if(activeWars.length){
+  const front=getFront(),strength=activeWarStrength();
+  drawFrontline(front,now);
+  drawFrontCount(fmt(strength.attackers),front,'red','#a51f25');
+  drawFrontCount(fmt(strength.defenders),front,'blue','#145f98');
+ }else{
+  ctx.save();ctx.fillStyle='rgba(30,48,52,.62)';ctx.font='900 '+(portraitMap?20:17)+'px Arial';ctx.textAlign='center';ctx.fillText('NO ACTIVE FRONTLINE · EUROPE AT PEACE',W/2,H*.88);ctx.restore();
+ }
 }
 function renderHud(){
  $('date').textContent=simDate.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
@@ -355,6 +376,7 @@ function tick(dt){
  const intensity=Number($('intensity').value),simDt=dt*speed,lossRate=.00012*intensity;let losses=0;
  activeWars.forEach(w=>{const a=countries.get(w.a),b=countries.get(w.b);if(!a||!b)return;const al=a.soldiers*lossRate*simDt,bl=b.soldiers*lossRate*simDt;a.soldiers=Math.max(0,a.soldiers-al);b.soldiers=Math.max(0,b.soldiers-bl);losses+=al+bl});
  casualties+=losses;
+ if(activeWars.length){const strength=activeWarStrength(),total=strength.attackers+strength.defenders;if(total>0){const pressure=(strength.attackers-strength.defenders)/total;territory=Math.max(5,Math.min(95,territory+pressure*.0008*simDt))}}
  if(selectedCountry&&countries.has(selectedCountry))$('country-army').textContent=fmt(countries.get(selectedCountry).soldiers);
 }
 function nextDay(){
