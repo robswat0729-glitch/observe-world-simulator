@@ -1693,17 +1693,8 @@ function tick(dt){
  }
  // Civil wars are regular activeWars entries; the shared casualty and campaign systems process them.
  syncCivilWarFactions();
- // Reserves are kept out of the frontline until needed. Each simulated day,
- // a small share is committed as reinforcements; this raises front counts
- // while reducing the country's reserve count without creating new soldiers.
- if(activeWars.length){
-  const reinforcementRate=.0075;
-  countries.forEach((country,name)=>{
-   if(!atWar(name)||!country.reserve)return;
-   const committed=Math.min(country.reserve,Math.max(0,country.reserve*reinforcementRate*simDt));
-   country.reserve=Math.max(0,country.reserve-committed);
-  });
- }
+ // Reinforcements are transferred only when actual training formations are
+ // created in tickDivisionReinforcements(); never silently drain reserves.
  updateWarDeployments();
  if(activeWars.length){
   let pressureSum=0;
