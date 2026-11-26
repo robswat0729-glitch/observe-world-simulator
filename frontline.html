@@ -84,10 +84,10 @@ button:active{transform:translateY(1px)}
 <script>
 (function(){
 'use strict';
+const canvas=document.getElementById('map'),ctx=canvas.getContext('2d');
 const portraitMap=window.innerWidth<700;
 const W=portraitMap?900:1400,H=portraitMap?1200:800;
 canvas.width=W;canvas.height=H;canvas.style.aspectRatio=portraitMap?'3 / 4':'7 / 4';
-const canvas=document.getElementById('map'),ctx=canvas.getContext('2d');
 const $=id=>document.getElementById(id);
 const fmt=n=>Math.max(0,Math.round(n)).toLocaleString('en-US');
 let day=1,paused=false,speed=1,casualties=0,territory=50,last=0,acc=0,dayAcc=0,simDate=new Date(1936,0,1),mode='historical';
@@ -121,8 +121,8 @@ function syncHistoricalForces(){
 }
 // Offline built-in geographic shapes: no remote map downloads are required.
 const GEO_SOURCES=[];
-const LON_MIN=-180,LON_MAX=180,LAT_MIN=-60,LAT_MAX=85;
-function project(ll){const lon=Math.max(-180,Math.min(180,ll[0])),lat=Math.max(LAT_MIN,Math.min(LAT_MAX,ll[1]));const merc=y=>Math.log(Math.tan(Math.PI/4+y*Math.PI/360));const top=merc(LAT_MAX),bottom=merc(LAT_MIN);return [(lon-LON_MIN)/(LON_MAX-LON_MIN)*W,(top-merc(lat))/(top-bottom)*H]}
+const LON_MIN=-25,LON_MAX=62,LAT_MIN=33,LAT_MAX=73;
+function project(ll){const lon=ll[0],lat=Math.max(-85,Math.min(85,ll[1]));const merc=y=>Math.log(Math.tan(Math.PI/4+y*Math.PI/360));const top=merc(LAT_MAX),bottom=merc(LAT_MIN);return [(lon-LON_MIN)/(LON_MAX-LON_MIN)*W,(top-merc(lat))/(top-bottom)*H]}
 function traceGeometry(target,geometry){if(!geometry)return;const polygons=geometry.type==='Polygon'?[geometry.coordinates]:geometry.type==='MultiPolygon'?geometry.coordinates:[];polygons.forEach(poly=>poly.forEach(ring=>{if(!ring.length)return;let p=project(ring[0]);target.moveTo(p[0],p[1]);for(let i=1;i<ring.length;i++){p=project(ring[i]);target.lineTo(p[0],p[1])}target.closePath()}))}
 function traceCountries(target){target.beginPath();worldFeatures.forEach(f=>traceGeometry(target,f.geometry))}
 const baseFront=[[18,70],[19.5,66.5],[20.5,63],[20.8,59.5],[22.4,56],[22.8,52.5],[25,49],[27.5,45.5],[29.5,42],[31,39]];
