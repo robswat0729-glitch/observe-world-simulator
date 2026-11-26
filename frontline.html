@@ -133,6 +133,91 @@ const countryLabels=[
 ];
 const cities=[['LONDON',[-.12,51.5]],['PARIS',[2.35,48.86]],['BERLIN',[13.4,52.52]],['WARSAW',[21.01,52.23]],['VIENNA',[16.37,48.2]],['KYIV',[30.52,50.45]],['MINSK',[27.56,53.9]],['MOSCOW',[37.62,55.75]],['BUCHAREST',[26.1,44.43]]];
 
+
+const country1936={
+'Germany':[67000000,550000],'France':[41400000,650000],'United Kingdom':[47800000,190000],
+'Italy':[42400000,430000],'Soviet Union':[170000000,1300000],'USSR':[170000000,1300000],
+'Japan':[69000000,250000],'United States':[128000000,350000],'Poland':[34000000,300000],
+'Spain':[25000000,180000],'Portugal':[7000000,45000],'Belgium':[8400000,65000],
+'Netherlands':[8500000,50000],'Switzerland':[4100000,150000],'Austria':[6800000,30000],
+'Czechoslovakia':[15000000,180000],'Hungary':[9000000,65000],'Romania':[19000000,180000],
+'Bulgaria':[6100000,50000],'Greece':[7200000,80000],'Turkey':[16000000,160000],
+'Yugoslavia':[15000000,150000],'Albania':[1000000,15000],'Ireland':[2900000,10000],
+'Denmark':[3700000,14000],'Norway':[2900000,15000],'Sweden':[6200000,30000],
+'Finland':[3700000,30000],'Estonia':[1100000,15000],'Latvia':[1900000,20000],
+'Lithuania':[2500000,25000],'Luxembourg':[300000,1000],'Iceland':[120000,0],
+'China':[520000000,1800000],'Mongolia':[700000,10000],'Afghanistan':[12000000,40000],
+'Iran':[15000000,40000],'Iraq':[3500000,20000],'Egypt':[15000000,30000],
+'Ethiopia':[18000000,50000],'South Africa':[9500000,18000],'Brazil':[40000000,80000],
+'Argentina':[13000000,40000],'Chile':[4500000,25000],'Peru':[6500000,25000],
+'Bolivia':[3000000,10000],'Paraguay':[900000,5000],'Uruguay':[1900000,7000],
+'Mexico':[18000000,50000],'Canada':[11000000,10000],'Australia':[6900000,35000],
+'New Zealand':[1600000,10000],'Thailand':[14000000,50000],'Siam':[14000000,50000],
+'Persia':[15000000,40000],'Manchukuo':[30000000,150000],'Dutch East Indies':[65000000,70000],
+'Philippines':[15000000,10000],'Cuba':[4000000,12000],'Haiti':[2500000,3000],
+'Venezuela':[3500000,10000],'Colombia':[9000000,15000]
+};
+function countryName(f){const p=f.properties||{};return String(p.NAME||p.ADMIN||p.name||p.NAME_EN||p.SOVEREIGNT||'').trim()}
+function countryRecord(name){
+ const k=Object.keys(country1936).find(x=>x.toLowerCase()===name.toLowerCase());
+ if(k)return {name,population:country1936[k][0],soldiers:country1936[k][1],estimated:false};
+ return {name,population:1000000,soldiers:5000,estimated:true};
+}
+function registerCountries(){
+ countries.clear();countryHitData=[];
+ worldFeatures.forEach(f=>{const name=countryName(f);if(name){if(!countries.has(name))countries.set(name,countryRecord(name));countryHitData.push({name,geometry:f.geometry})}});
+ const names=[...countries.keys()].sort((a,b)=>a.localeCompare(b));
+ ['war-attacker','war-defender'].forEach((id,i)=>{const el=$(id),old=el.value;el.innerHTML='<option value="">'+(i?'Target country':'Attacker')+'</option>';names.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;el.appendChild(o)});if(names.includes(old))el.value=old});
+}
+function atWar(name){return activeWars.some(w=>w.a===name||w.b===name)}
+function showCountry(name){
+ const c=countries.get(name);if(!c)return;selectedCountry=name;
+ $('country-name').textContent=name.toUpperCase();
+ $('country-hint').textContent=(atWar(name)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+(c.estimated?' · POPULATION / ARMY ESTIMATED':'');
+ $('country-pop').textContent=fmt(c.population);$('country-army').textContent=fmt(c.soldiers);
+ if(!$('war-attacker').value)$('war-attacker').value=name;
+ else if(!$('war-defender').value&&$('war-attacker').value!==name)$('war-defender').value=name;
+}
+function renderWars(){
+ $('war-list').textContent=activeWars.length?'ACTIVE WARS: '+activeWars.map(w=>w.a+' vs '+w.b).join(' | '):'ACTIVE WARS: NONE';
+ if(selectedCountry)$('country-hint').textContent=(atWar(selectedCountry)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+(countries.get(selectedCountry)?.estimated?' · ESTIMATED DATA':'');
+}
+function declareWar(a,b,natural){
+ if(!a||!b||a===b){$('war-status').textContent='Choose two different countries.';return false}
+ if(!countries.has(a)||!countries.has(b)){ $('war-status').textContent='Choose countries shown on the map.';return false}
+ if(activeWars.some(w=>(w.a===a&&w.b===b)||(w.a===b&&w.b===a))){$('war-status').textContent='Those countries are already at war.';return false}
+ activeWars.push({a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural});
+ $('war-status').textContent=(natural?'A diplomatic crisis escalated: ':'War declared: ')+a+' vs '+b+'.';
+ renderWars();return true;
+}
+function pointInRing(x,y,ring){
+ let inside=false;
+ for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+  const a=project(ring[i]),b=project(ring[j]);
+  if(((a[1]>y)!==(b[1]>y))&&(x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0]))inside=!inside;
+ }
+ return inside;
+}
+function hitCountry(x,y){
+ for(let i=countryHitData.length-1;i>=0;i--){
+  const g=countryHitData[i].geometry;if(!g)continue;
+  const polys=g.type==='Polygon'?[g.coordinates]:g.type==='MultiPolygon'?g.coordinates:[];
+  for(const poly of polys){
+   if(!poly.length||!pointInRing(x,y,poly[0]))continue;
+   let hole=false;for(let h=1;h<poly.length;h++)if(pointInRing(x,y,poly[h]))hole=!hole;
+   if(!hole)return countryHitData[i].name;
+  }
+ }
+ return null;
+}
+function naturalDiplomacy(){
+ if(countries.size<2||activeWars.length>countries.size/5)return;
+ if(Math.random()>.000025*countries.size)return;
+ const eligible=[...countries.keys()].filter(n=>!atWar(n));if(eligible.length<2)return;
+ const a=eligible[Math.floor(Math.random()*eligible.length)],others=eligible.filter(n=>n!==a);
+ declareWar(a,others[Math.floor(Math.random()*others.length)],true);
+}
+
 function buildBase(){
  baseCanvas=document.createElement('canvas');baseCanvas.width=W;baseCanvas.height=H;
  const c=baseCanvas.getContext('2d');
@@ -158,7 +243,7 @@ function buildBase(){
  const cities=[['LONDON',[-.12,51.5]],['PARIS',[2.35,48.86]],['BERLIN',[13.4,52.52]],['WARSAW',[21.01,52.23]],['VIENNA',[16.37,48.2]],['KYIV',[30.52,50.45]],['MINSK',[27.56,53.9]],['MOSCOW',[37.62,55.75]],['BUCHAREST',[26.1,44.43]]];
  cities.forEach(([name,ll])=>{const p=project(ll);c.beginPath();c.arc(p[0],p[1],4.5,0,Math.PI*2);c.fillStyle='#f5edcf';c.fill();c.strokeStyle='#334348';c.lineWidth=1.6;c.stroke();c.font='700 12px Arial';c.textAlign='left';c.textBaseline='middle';c.fillStyle='#283438';c.fillText(name,p[0]+8,p[1]+1)});
  c.font='700 11px Arial';c.fillStyle='rgba(38,53,58,.55)';c.textAlign='left';c.fillText('NORTH SEA',80,300);c.fillText('BLACK SEA',1190,780);c.textAlign='right';c.fillText('BALTIC SEA',1240,150);
- c.restore();mapReady=true;
+ c.restore();mapReady=true;registerCountries();
 }
 function catmullRom(pts,steps){
  const out=[];
