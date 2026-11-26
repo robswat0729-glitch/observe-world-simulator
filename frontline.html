@@ -174,7 +174,7 @@ function registerCountries(){
 function atWar(name){return activeWars.some(w=>w.a===name||w.b===name)}
 function warsForCountry(name){return activeWars.filter(w=>w.a===name||w.b===name)}
 function showCountry(name){
- const c=countries.get(name);if(!c)return;selectedCountry=name;
+ name=sovereignOwner(name);const c=countries.get(name);if(!c||c.annexedTo)return;selectedCountry=name;
  $('country-name').textContent=name.toUpperCase();
  $('country-hint').textContent=(atWar(name)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+(c.estimated?' · SOME FIGURES ESTIMATED':' · 1936 ESTIMATES');
  $('country-pop').textContent=fmt(c.population);$('country-army').textContent=fmt(c.soldiers);$('country-reserve').textContent=fmt(c.reserve||0);
@@ -186,7 +186,8 @@ function renderWars(){
  if(selectedCountry)$('country-hint').textContent=(atWar(selectedCountry)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+' · ARMY ESTIMATED'+(countries.get(selectedCountry)?.estimated?' · POPULATION ESTIMATED':'');
 }
 function declareWar(a,b,natural){
- if(!a||!b||a===b){$('war-status').textContent='Choose two different countries.';return false}
+ a=sovereignOwner(a);b=sovereignOwner(b);
+ if(!a||!b||a===b||countries.get(a)?.annexedTo||countries.get(b)?.annexedTo){$('war-status').textContent='Choose two different countries.';return false}
  if(!countries.has(a)||!countries.has(b)){ $('war-status').textContent='Choose countries shown on the map.';return false}
  if(activeWars.some(w=>(w.a===a&&w.b===b)||(w.a===b&&w.b===a))){$('war-status').textContent='Those countries are already at war.';return false}
  const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0,progress:0,seed:Math.random()*6.28,settlementPending:false};
@@ -202,6 +203,11 @@ function pointInRing(x,y,ring){
  }
  return inside;
 }
+function sovereignOwner(name){
+ let current=name,guard=0;
+ while(countries.get(current)?.annexedTo&&guard++<20)current=countries.get(current).annexedTo;
+ return current;
+}
 function hitCountry(x,y){
  for(let i=countryHitData.length-1;i>=0;i--){
   const g=countryHitData[i].geometry;if(!g)continue;
@@ -209,7 +215,7 @@ function hitCountry(x,y){
   for(const poly of polys){
    if(!poly.length||!pointInRing(x,y,poly[0]))continue;
    let hole=false;for(let h=1;h<poly.length;h++)if(pointInRing(x,y,poly[h]))hole=!hole;
-   if(!hole)return countryHitData[i].name;
+   if(!hole)return sovereignOwner(countryHitData[i].name);
   }
  }
  return null;
@@ -293,7 +299,7 @@ function buildBase(){
  c.save();c.textAlign='center';c.textBaseline='middle';c.fillStyle='rgba(37,49,49,.88)';
  const hasHistoricalNames=worldFeatures.some(f=>countryName(f));
  if(hasHistoricalNames){
-  worldFeatures.forEach(f=>{const name=countryName(f);if(!name||!f.geometry)return;let ring=null;const g=f.geometry;if(g.type==='Polygon')ring=g.coordinates[0];else if(g.type==='MultiPolygon'&&g.coordinates.length)ring=g.coordinates.reduce((best,p)=>p[0].length>(best?best.length:0)?p[0]:best,null);if(!ring||ring.length<4)return;let sx=0,sy=0,n=0;for(let j=0;j<ring.length;j+=Math.max(1,Math.floor(ring.length/45))){sx+=ring[j][0];sy+=ring[j][1];n++}const p=project([sx/n,sy/n]);if(p[0]<35||p[0]>W-35||p[1]<25||p[1]>H-25)return;const size=(portraitMap?1.35:1)*Math.max(9,Math.min(14,13-(name.length>15?2:0)));c.font='800 '+size+'px Arial, sans-serif';c.fillText(String(name).toUpperCase(),p[0],p[1])});
+  worldFeatures.forEach(f=>{const name=countryName(f);if(!name||!f.geometry||countries.get(name)?.annexedTo)return;let ring=null;const g=f.geometry;if(g.type==='Polygon')ring=g.coordinates[0];else if(g.type==='MultiPolygon'&&g.coordinates.length)ring=g.coordinates.reduce((best,p)=>p[0].length>(best?best.length:0)?p[0]:best,null);if(!ring||ring.length<4)return;let sx=0,sy=0,n=0;for(let j=0;j<ring.length;j+=Math.max(1,Math.floor(ring.length/45))){sx+=ring[j][0];sy+=ring[j][1];n++}const p=project([sx/n,sy/n]);if(p[0]<35||p[0]>W-35||p[1]<25||p[1]>H-25)return;const size=(portraitMap?1.35:1)*Math.max(9,Math.min(14,13-(name.length>15?2:0)));c.font='800 '+size+'px Arial, sans-serif';c.fillText(String(name).toUpperCase(),p[0],p[1])});
  }else{
   countryLabels.forEach(([name,ll])=>{const p=project(ll);if(p[0]>15&&p[0]<W-15&&p[1]>20&&p[1]<H-15){c.font='800 13px Arial, sans-serif';c.fillText(name,p[0],p[1])}});
  }
@@ -602,12 +608,16 @@ function advancedFrontPath(war,points){
  const progress=Math.max(0,Math.min(1,war.progress));
  // Localized pressure bends the front into salients rather than translating
  // the original border as one rigid, unchanged shape.
+ const visualProgress=Math.pow(progress,.62);
  return points.map((p,i)=>{
   const t=i/Math.max(1,points.length-1);
-  const wave=Math.sin(t*Math.PI*2.35+(war.seed||0))*.22+Math.sin(t*Math.PI*5.1+1.3)*.10;
-  const bulge=.72+.22*Math.sin(t*Math.PI)+wave;
-  const push=Math.max(0,maxPush*progress*bulge);
-  const lateral=Math.sin(t*Math.PI*3.1+(war.seed||0))*progress*11*(.72+.28*Math.sin(Math.PI*t));
+  // Uneven advances: a central breakthrough, two smaller shoulders and
+  // alternating local bends. This visibly reshapes rather than shifts the line.
+  const wave=Math.sin(t*Math.PI*2.2+(war.seed||0))*.20+Math.sin(t*Math.PI*5.4+1.1)*.12;
+  const breakthrough=Math.pow(Math.max(0,Math.sin(t*Math.PI)),.72);
+  const bulge=.22+.78*breakthrough+wave;
+  const push=Math.max(0,maxPush*visualProgress*bulge);
+  const lateral=(Math.sin(t*Math.PI*2.7+(war.seed||0))*.72+Math.sin(t*Math.PI*6.1)*.28)*visualProgress*48;
   return [p[0]+fx*push-fy*lateral,p[1]+fy*push+fx*lateral];
  });
 }
@@ -694,7 +704,13 @@ function draw(now){
  ctx.save();ctx.translate(viewX,viewY);ctx.scale(viewScale,viewScale);
  ctx.drawImage(baseCanvas,0,0);
  const belligerents=new Map();activeWars.forEach(w=>{belligerents.set(w.a,'attacker');belligerents.set(w.b,'defender')});
- worldFeatures.forEach(f=>{const name=countryName(f),side=belligerents.get(name);if(!side)return;ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle=side==='attacker'?'rgba(190,71,67,.48)':'rgba(55,139,202,.48)';ctx.fill()});
+ // Former country polygons now belong to their annexing sovereign. Paint
+ // over the old internal border so the annexed state no longer appears independent.
+ worldFeatures.forEach(f=>{
+  const original=countryName(f),owner=sovereignOwner(original);
+  if(owner!==original){ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle='#d2d0bd';ctx.fill();ctx.strokeStyle='#d2d0bd';ctx.lineWidth=2.2;ctx.stroke()}
+ });
+ worldFeatures.forEach(f=>{const name=sovereignOwner(countryName(f)),side=belligerents.get(name);if(!side)return;ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle=side==='attacker'?'rgba(190,71,67,.48)':'rgba(55,139,202,.48)';ctx.fill()});
  if(selectedCountry){const f=worldFeatures.find(x=>countryName(x)===selectedCountry);if(f){ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.strokeStyle='#ffe59a';ctx.lineWidth=4;ctx.stroke()}}
  if(activeWars.length){
   activeWars.forEach((war,index)=>{
@@ -746,6 +762,10 @@ function resolveSettlement(choice){
  if(choice==='annex'){
   winner.population+=loser.population;winner.citizens+=loser.citizens||0;winner.soldiers+=loser.soldiers||0;winner.reserve+=loser.reserve||0;
   loser.population=0;loser.citizens=0;loser.soldiers=0;loser.reserve=0;loser.annexedTo=war.a;loser.puppetOf=null;
+  // Remove the defeated state as a selectable sovereign and redraw its
+  // former territory as part of the annexing country's map color.
+  if(selectedCountry===war.b)selectedCountry=war.a;
+  buildBase();
  }else{loser.puppetOf=war.a;loser.annexedTo=null;}
  activeWars=activeWars.filter(w=>w!==war&&w.a!==war.b&&w.b!==war.b);
  pendingSettlement=null;$('peace-settlement').style.display='none';
