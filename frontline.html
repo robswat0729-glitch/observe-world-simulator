@@ -102,6 +102,7 @@ let viewScale=1,viewX=0,viewY=0,pointers=new Map(),dragState=null,pinchStart=nul
 let peaceDivisionMarkers=[],frontCountBoxes=[];
 let newsItems=[],lastNewsCasualties=0;
 const countries=new Map();let selectedCountry=null,pendingWarFrom=null,activeWars=[],countryHitData=[],populationLoading=false,populationLoaded=false;
+const navalPatrols=new Map();
 const alliances=new Set();
 function allianceKey(a,b){return [a,b].sort((x,y)=>x.localeCompare(y)).join('::')}
 function areAllied(a,b){return !!a&&!!b&&alliances.has(allianceKey(a,b))}
@@ -250,13 +251,34 @@ function findNavalSeaPoint(a,b){
  for(const [cx,cy] of centers){for(let radius=14;radius<=230;radius+=12){for(let k=0;k<20;k++){const angle=(k/20)*Math.PI*2+(radius*.013),x=cx+Math.cos(angle)*radius,y=cy+Math.sin(angle)*radius;if(isSeaPoint(x,y))return {x,y};}}}
  return {x:W*.5,y:H*.5};
 }
-function createNavalFleet(name,center){
+function createNavalFleet(name,center,limit=Infinity){
  const c=countries.get(name);if(!c)return [];
  if(!c.equipment)c.equipment=assetProfile(name,c.soldiers||0);
  const specs=[['WARSHIPS & ESCORTS','WARSHIP'],['SUBMARINES','SUBMARINE'],['AMPHIBIOUS / LANDING CRAFT','LANDING CRAFT'],['TRANSPORT SHIPS','TRANSPORT']];
  const fleet=[];
- specs.forEach(([key,type])=>{const count=Math.max(0,Math.floor(c.equipment[key]||0));for(let i=0;i<count;i++){const angle=(i*2.399+name.length*.7),radius=9+Math.sqrt(i)*2.5;fleet.push({type,key,x:center.x+Math.cos(angle)*radius,y:center.y+Math.sin(angle)*radius,health:100,phase:angle});}});
+ specs.forEach(([key,type])=>{const count=Math.max(0,Math.floor(c.equipment[key]||0));for(let i=0;i<count&&fleet.length<limit;i++){const angle=(fleet.length*2.399+name.length*.7),radius=9+Math.sqrt(fleet.length)*2.5;fleet.push({type,key,x:center.x+Math.cos(angle)*radius,y:center.y+Math.sin(angle)*radius,health:100,phase:angle});}});
  return fleet;
+}
+function drawNavalPatrols(now){
+ countries.forEach((country,name)=>{
+  if(country.annexedTo||atWar(name))return;
+  let patrol=navalPatrols.get(name);
+  if(!patrol){
+   const center=findNavalSeaPoint(name,name),units=createNavalFleet(name,center,32);
+   if(!units.length)return;
+   patrol={center,units};navalPatrols.set(name,patrol);
+  }
+  const {center,units}=patrol;
+  units.forEach((unit,i)=>{
+   const phase=unit.phase+now*.000012,radius=7+Math.sqrt(i)*2.5;
+   const x=center.x+Math.cos(phase)*radius,y=center.y+Math.sin(phase)*radius*.68;
+   unit.x=x;unit.y=y;
+   ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='8px "Noto Color Emoji","Apple Color Emoji",Arial';ctx.lineWidth=1.4;ctx.strokeStyle='rgba(7,17,23,.95)';ctx.fillStyle='#fff';const flag=countryFlag(name);ctx.strokeText(flag,x,y);ctx.fillText(flag,x,y);ctx.restore();
+  });
+  if(units.length){
+   ctx.save();ctx.textAlign='center';ctx.font='900 7px Arial';ctx.lineWidth=2;ctx.strokeStyle='rgba(7,17,23,.9)';ctx.fillStyle='#e6f0e9';ctx.strokeText('NAVAL PATROL',center.x,center.y-15);ctx.fillText('NAVAL PATROL',center.x,center.y-15);ctx.restore();
+  }
+ });
 }
 function ensureNavalWar(war){
  if(war.naval)return;
@@ -1107,6 +1129,7 @@ function draw(now){
   });
  });
  drawPeaceDivisionMarkers();
+ drawNavalPatrols(now);
  if(selectedCountry){
   // Highlight every polygon belonging to the selected sovereign, including
   // annexed territory, rather than outlining only its original home polygon.
