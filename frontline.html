@@ -59,8 +59,8 @@ button:active{transform:translateY(1px)}
 </head>
 <body>
 <header>
- <div class="brand">WORLD WAR SIMULATOR<small>1936 START · COUNTRY DIPLOMACY</small></div>
- <div class="header-right"><span>BLUE ALLIANCE</span><span>VS</span><span>RED COALITION</span></div>
+ <div class="brand">EUROPE WAR SIMULATOR<small>EUROPEAN THEATRE · COUNTRY DIPLOMACY</small></div>
+ <div class="header-right"><span>EUROPE</span><span>·</span><span>1936</span></div>
 </header>
 <main>
  <div class="mapframe">
@@ -78,13 +78,15 @@ button:active{transform:translateY(1px)}
  <div class="controls">
   <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div>
   <div class="control-group"><select id="mode" aria-label="Simulation mode"><option value="historical">HISTORICAL</option><option value="nonhistorical">NON-HISTORICAL</option></select><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
-  <div class="note">1938 pre-war borders · 1936 population estimates · armed forces estimates</div>
+  <div class="note">EUROPE MAP · 1936 START · POPULATION & ARMED FORCES ESTIMATES</div>
  </div>
 </main>
 <script>
 (function(){
 'use strict';
-const W=1400,H=800;
+const portraitMap=window.innerWidth<700;
+const W=portraitMap?900:1400,H=portraitMap?1200:800;
+canvas.width=W;canvas.height=H;canvas.style.aspectRatio=portraitMap?'3 / 4':'7 / 4';
 const canvas=document.getElementById('map'),ctx=canvas.getContext('2d');
 const $=id=>document.getElementById(id);
 const fmt=n=>Math.max(0,Math.round(n)).toLocaleString('en-US');
@@ -248,24 +250,24 @@ function buildBase(){
  c.fillStyle=sea;c.fillRect(0,0,W,H);
  c.save();c.beginPath();c.rect(0,0,W,H);c.clip();
  c.strokeStyle='rgba(69,91,99,.13)';c.lineWidth=1;
- for(let lon=-180;lon<=180;lon+=30){const p1=project([lon,LAT_MIN]),p2=project([lon,LAT_MAX]);c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke()}
- for(let lat=-60;lat<=80;lat+=20){const p1=project([LON_MIN,lat]),p2=project([LON_MAX,lat]);c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke()}
- worldFeatures.forEach((f,i)=>{c.beginPath();traceGeometry(c,f.geometry);const name=f.properties&&f.properties.NAME;const palette=['#c6c0a7','#c9b8a0','#b9c5ad','#c7c7b6','#c1b5aa','#b4c2c0','#d0c3a9','#b8bda9','#c9b5b0','#b7c6b2'];let hash=i;if(name){hash=0;for(let k=0;k<name.length;k++)hash=(hash*31+name.charCodeAt(k))>>>0}c.fillStyle=palette[hash%palette.length];c.fill();c.strokeStyle='rgba(246,242,224,.96)';c.lineWidth=1.5;c.stroke()});
+ for(let lon=-20;lon<=60;lon+=10){const p1=project([lon,LAT_MIN]),p2=project([lon,LAT_MAX]);c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke()}
+ for(let lat=35;lat<=70;lat+=5){const p1=project([LON_MIN,lat]),p2=project([LON_MAX,lat]);c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke()}
+ worldFeatures.forEach((f,i)=>{c.beginPath();traceGeometry(c,f.geometry);const name=countryName(f);const palette=['#c6c0a7','#c9b8a0','#b9c5ad','#c7c7b6','#c1b5aa','#b4c2c0','#d0c3a9','#b8bda9','#c9b5b0','#b7c6b2'];let hash=i;if(name){hash=0;for(let k=0;k<name.length;k++)hash=(hash*31+name.charCodeAt(k))>>>0}c.fillStyle=palette[hash%palette.length];c.fill();c.strokeStyle='rgba(246,242,224,.96)';c.lineWidth=1.5;c.stroke()});
  c.save();c.globalAlpha=.13;
  for(let i=0;i<26;i++){const x=80+(i*137)%1440,y=70+(i*211)%760;c.beginPath();c.ellipse(x,y,80+(i%4)*27,22+(i%3)*13,(i%7)*.22,0,Math.PI*2);c.strokeStyle=i%2?'#566963':'#f8f4df';c.lineWidth=2;c.stroke()}
  c.restore();
  traceCountries(c);c.strokeStyle='rgba(83,91,86,.58)';c.lineWidth=1.05;c.stroke();
  c.save();c.textAlign='center';c.textBaseline='middle';c.fillStyle='rgba(37,49,49,.88)';
- const hasHistoricalNames=worldFeatures.some(f=>f.properties&&f.properties.NAME);
+ const hasHistoricalNames=worldFeatures.some(f=>countryName(f));
  if(hasHistoricalNames){
-  worldFeatures.forEach(f=>{const name=f.properties&&f.properties.NAME;if(!name||!f.geometry)return;let ring=null;const g=f.geometry;if(g.type==='Polygon')ring=g.coordinates[0];else if(g.type==='MultiPolygon'&&g.coordinates.length)ring=g.coordinates.reduce((best,p)=>p[0].length>(best?best.length:0)?p[0]:best,null);if(!ring||ring.length<4)return;let sx=0,sy=0,n=0;for(let j=0;j<ring.length;j+=Math.max(1,Math.floor(ring.length/45))){sx+=ring[j][0];sy+=ring[j][1];n++}const p=project([sx/n,sy/n]);if(p[0]<35||p[0]>W-35||p[1]<25||p[1]>H-25)return;const size=Math.max(9,Math.min(14,13-(name.length>15?2:0)));c.font='800 '+size+'px Arial, sans-serif';c.fillText(String(name).toUpperCase(),p[0],p[1])});
+  worldFeatures.forEach(f=>{const name=countryName(f);if(!name||!f.geometry)return;let ring=null;const g=f.geometry;if(g.type==='Polygon')ring=g.coordinates[0];else if(g.type==='MultiPolygon'&&g.coordinates.length)ring=g.coordinates.reduce((best,p)=>p[0].length>(best?best.length:0)?p[0]:best,null);if(!ring||ring.length<4)return;let sx=0,sy=0,n=0;for(let j=0;j<ring.length;j+=Math.max(1,Math.floor(ring.length/45))){sx+=ring[j][0];sy+=ring[j][1];n++}const p=project([sx/n,sy/n]);if(p[0]<35||p[0]>W-35||p[1]<25||p[1]>H-25)return;const size=(portraitMap?1.35:1)*Math.max(9,Math.min(14,13-(name.length>15?2:0)));c.font='800 '+size+'px Arial, sans-serif';c.fillText(String(name).toUpperCase(),p[0],p[1])});
  }else{
   countryLabels.forEach(([name,ll])=>{const p=project(ll);if(p[0]>15&&p[0]<W-15&&p[1]>20&&p[1]<H-15){c.font='800 13px Arial, sans-serif';c.fillText(name,p[0],p[1])}});
  }
  c.restore();
  const cities=[['LONDON',[-.12,51.5]],['PARIS',[2.35,48.86]],['BERLIN',[13.4,52.52]],['WARSAW',[21.01,52.23]],['VIENNA',[16.37,48.2]],['KYIV',[30.52,50.45]],['MINSK',[27.56,53.9]],['MOSCOW',[37.62,55.75]],['BUCHAREST',[26.1,44.43]]];
- cities.forEach(([name,ll])=>{const p=project(ll);c.beginPath();c.arc(p[0],p[1],4.5,0,Math.PI*2);c.fillStyle='#f5edcf';c.fill();c.strokeStyle='#334348';c.lineWidth=1.6;c.stroke();c.font='700 12px Arial';c.textAlign='left';c.textBaseline='middle';c.fillStyle='#283438';c.fillText(name,p[0]+8,p[1]+1)});
- c.font='700 11px Arial';c.fillStyle='rgba(38,53,58,.55)';c.textAlign='left';c.fillText('NORTH SEA',80,300);c.fillText('BLACK SEA',1190,780);c.textAlign='right';c.fillText('BALTIC SEA',1240,150);
+ cities.forEach(([name,ll])=>{const p=project(ll);c.beginPath();c.arc(p[0],p[1],portraitMap?6:4.5,0,Math.PI*2);c.fillStyle='#f5edcf';c.fill();c.strokeStyle='#334348';c.lineWidth=1.6;c.stroke();c.font='700 '+(portraitMap?16:12)+'px Arial';c.textAlign='left';c.textBaseline='middle';c.fillStyle='#283438';c.fillText(name,p[0]+8,p[1]+1)});
+ c.font='700 '+(portraitMap?15:11)+'px Arial';c.fillStyle='rgba(38,53,58,.55)';c.textAlign='center';let seaPoint=project([-2,57]);c.fillText('NORTH SEA',seaPoint[0],seaPoint[1]);seaPoint=project([32,40]);c.fillText('BLACK SEA',seaPoint[0],seaPoint[1]);seaPoint=project([20,58]);c.fillText('BALTIC SEA',seaPoint[0],seaPoint[1]);
  c.restore();mapReady=true;registerCountries();
 }
 function catmullRom(pts,steps){
@@ -426,7 +428,7 @@ function loadMap(){
 }
 function loadGeography(){
  if(mode==='historical'){
-  // The public historical-basemaps collection's 1938 snapshot is used as the closest available pre-war world reference; the collection does not provide a 1936 snapshot. It is not a year-by-year border animation.
+  // The map is focused on Europe. The available historical layer is the 1938 pre-war snapshot, used as the closest available reference for the January 1936 start; exact 1936 borders are not available in this map source.
   const sources=[
    'https://cdn.jsdelivr.net/gh/aourednik/historical-basemaps@master/geojson/world_1938.geojson',
    'https://raw.githubusercontent.com/aourednik/historical-basemaps/master/geojson/world_1938.geojson'
@@ -435,15 +437,33 @@ function loadGeography(){
  }else{
   fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json',{mode:'cors',cache:'force-cache'})
    .then(response=>{if(!response.ok)throw new Error('Modern map HTTP '+response.status);return response.json()})
-   .then(topology=>{const detailed=topoToFeatures(topology);if(detailed.length<100)throw new Error('Incomplete modern map');worldFeatures=detailed;buildBase()})
+   .then(topology=>{const detailed=topoToFeatures(topology);if(detailed.length<100)throw new Error('Incomplete modern map');worldFeatures=europeOnly(detailed);buildBase()})
    .catch(error=>console.warn('Modern borders unavailable; retaining last map:',error));
  }
+}
+
+function europeOnly(features){
+ const intersects=ring=>{
+  if(!ring||!ring.length)return false;
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  for(const p of ring){minX=Math.min(minX,p[0]);maxX=Math.max(maxX,p[0]);minY=Math.min(minY,p[1]);maxY=Math.max(maxY,p[1])}
+  return maxX>=LON_MIN&&minX<=LON_MAX&&maxY>=LAT_MIN&&minY<=LAT_MAX;
+ };
+ return features.map(f=>{
+  const g=f.geometry;if(!g)return null;
+  if(g.type==='Polygon')return intersects(g.coordinates[0])?f:null;
+  if(g.type==='MultiPolygon'){
+   const polygons=g.coordinates.filter(p=>intersects(p[0]));
+   return polygons.length?{...f,geometry:{...g,coordinates:polygons}}:null;
+  }
+  return null;
+ }).filter(Boolean);
 }
 function tryHistoricalSource(sources,index){
  if(index>=sources.length){console.warn('Historical map data unavailable; retaining fallback map.');return}
  fetch(sources[index],{mode:'cors',cache:'force-cache'})
   .then(response=>{if(!response.ok)throw new Error('Historical map HTTP '+response.status);return response.json()})
-  .then(data=>{if(!data.features||data.features.length<100)throw new Error('Incomplete historical map');worldFeatures=data.features.filter(f=>f.geometry);buildBase()})
+  .then(data=>{if(!data.features||data.features.length<100)throw new Error('Incomplete historical map');worldFeatures=europeOnly(data.features.filter(f=>f.geometry));buildBase()})
   .catch(error=>{console.warn('Historical map source failed:',error);tryHistoricalSource(sources,index+1)});
 }
 $('mode').addEventListener('change',e=>{
