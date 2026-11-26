@@ -1159,12 +1159,12 @@ function draw(now){
   }
  });
  worldFeatures.forEach(f=>{const name=sovereignOwner(countryName(f)),side=belligerents.get(name);if(!side)return;ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle=side==='attacker'?'rgba(190,71,67,.48)':'rgba(55,139,202,.48)';ctx.fill()});
- // Civil-war states receive a distinct red overlay on their territory.
+ // Civil-war states receive a distinct green overlay across their territory.
  countries.forEach((country,name)=>{
   if(!country.civilWar||country.annexedTo)return;
   worldFeatures.filter(f=>sovereignOwner(countryName(f))===name).forEach(f=>{
-   ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle='rgba(171,35,43,.28)';ctx.fill();
-   ctx.strokeStyle='rgba(245,93,83,.9)';ctx.lineWidth=2;ctx.setLineDash([5,4]);ctx.stroke();ctx.setLineDash([]);
+   ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle='rgba(46,160,82,.34)';ctx.fill();
+   ctx.strokeStyle='rgba(90,220,125,.95)';ctx.lineWidth=2;ctx.setLineDash([5,4]);ctx.stroke();ctx.setLineDash([]);
   });
  });
  drawPeaceDivisionMarkers();
