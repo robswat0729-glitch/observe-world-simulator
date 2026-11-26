@@ -78,7 +78,7 @@ button:active{transform:translateY(1px)}
  <div class="controls">
   <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div><div class="control-group zoom-tools"><button id="zoom-out" aria-label="Zoom out">−</button><button id="zoom-in" aria-label="Zoom in">＋</button><button id="zoom-reset">RESET VIEW</button></div>
   <div class="control-group"><select id="mode" aria-label="Simulation mode"><option value="historical">HISTORICAL</option><option value="nonhistorical">NON-HISTORICAL</option></select><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
-  <div class="note">EUROPE MAP · 1936 START · POPULATION & ARMED FORCES ESTIMATES</div>
+  <button id="sound-toggle" type="button" aria-pressed="false">🔊 SOUND: OFF</button><div class="note">EUROPE MAP · 1936 START · POPULATION & ARMED FORCES ESTIMATES</div>
  </div>
 </main>
 <script>
@@ -228,6 +228,45 @@ function renderWars(){
  if(civilWarEntries.length)$('war-list').textContent+=' · CIVIL WARS: '+civilWarEntries.join(' | ');
  if(selectedCountry)$('country-hint').textContent=(atWar(selectedCountry)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+' · ARMY ESTIMATED'+(countries.get(selectedCountry)?.estimated?' · POPULATION ESTIMATED':'');
 }
+
+// Procedural audio: no external files or network requests. Browsers start audio only after a user gesture.
+let audioCtx=null,audioEnabled=false,musicTimer=null,battleTimer=null,alarmTimer=null,musicStep=0;
+function ensureAudio(){
+ const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
+ if(!audioCtx)audioCtx=new AC();if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx;
+}
+function tone(freq,duration,volume,wave='sine',when=0,filterFreq=1800){
+ const ac=ensureAudio();if(!ac||!audioEnabled)return;
+ const osc=ac.createOscillator(),gain=ac.createGain(),filter=ac.createBiquadFilter();
+ osc.type=wave;osc.frequency.setValueAtTime(freq,ac.currentTime+when);filter.type='lowpass';filter.frequency.value=filterFreq;
+ gain.gain.setValueAtTime(.0001,ac.currentTime+when);gain.gain.exponentialRampToValueAtTime(Math.max(.0002,volume),ac.currentTime+when+.04);gain.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+when+duration);
+ osc.connect(filter);filter.connect(gain);gain.connect(ac.destination);osc.start(ac.currentTime+when);osc.stop(ac.currentTime+when+duration+.03);
+}
+function playWarAlarm(){
+ if(!audioEnabled)return;const ac=ensureAudio();if(!ac)return;
+ if(alarmTimer)clearInterval(alarmTimer);const started=ac.currentTime;
+ alarmTimer=setInterval(()=>{if(!audioEnabled){clearInterval(alarmTimer);return}const elapsed=ac.currentTime-started;if(elapsed>=5){clearInterval(alarmTimer);alarmTimer=null;return}
+ const t=ac.currentTime;tone(880,.42,.085,'sawtooth',0,1250);tone(660,.42,.075,'sawtooth',.48,1100);},950);
+}
+function startMusic(){
+ if(musicTimer)clearInterval(musicTimer);musicStep=0;
+ const notes=[146.83,174.61,196,220,196,174.61,164.81,146.83];
+ musicTimer=setInterval(()=>{if(!audioEnabled)return;const n=notes[musicStep++%notes.length];tone(n,1.7,.018,'sawtooth',0,650);tone(n*1.5,1.35,.012,'triangle',.08,900);if(musicStep%4===1){tone(73.42,1.9,.025,'triangle',0,240);tone(293.66,.8,.009,'sine',.22,1100)}},1550);
+}
+function startBattleAmbience(){
+ if(battleTimer)clearInterval(battleTimer);
+ battleTimer=setInterval(()=>{if(!audioEnabled||!activeWars.length)return;
+ // Distant, low-pass artillery/gunfire-like rumbles and short dry bursts.
+ const ac=ensureAudio();if(!ac)return;const now=ac.currentTime;
+ tone(48+Math.random()*24,.48,.025,'sawtooth',0,180);
+ if(Math.random()<.72){tone(95+Math.random()*65,.10,.018,'square',.12,520);tone(58,.65,.018,'triangle',.2,130)}
+ },1450);
+}
+function setSoundEnabled(on){
+ audioEnabled=!!on;const button=$('sound-toggle');button.textContent=audioEnabled?'🔊 SOUND: ON':'🔇 SOUND: OFF';button.setAttribute('aria-pressed',String(audioEnabled));
+ if(audioEnabled){ensureAudio();startMusic();startBattleAmbience()}else{[musicTimer,battleTimer,alarmTimer].forEach(t=>{if(t)clearInterval(t)});musicTimer=battleTimer=alarmTimer=null}
+}
+$('sound-toggle').addEventListener('click',()=>setSoundEnabled(!audioEnabled));
 function declareWar(a,b,natural,allianceResponse=false){
  a=sovereignOwner(a);b=sovereignOwner(b);
  if(!a||!b||a===b||countries.get(a)?.annexedTo||countries.get(b)?.annexedTo){$('war-status').textContent='Choose two different countries.';return false}
@@ -235,7 +274,7 @@ function declareWar(a,b,natural,allianceResponse=false){
  if(areAllied(a,b)){$('war-status').textContent=a+' and '+b+' are bound by a defensive alliance.';return false}
  if(activeWars.some(w=>(w.a===a&&w.b===b)||(w.a===b&&w.b===a))){$('war-status').textContent='Those countries are already at war.';return false}
  const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0,reinforcementA:null,reinforcementB:null,progress:0,seed:Math.random()*6.28,settlementPending:false,encirclements:[],encircledA:0,encircledB:0,encircledDivisionsA:0,encircledDivisionsB:0,supplyA:70,supplyB:70,supportA:[],supportB:[]};
- activeWars.push(war);updateWarDeployments();
+ activeWars.push(war);playWarAlarm();updateWarDeployments();
  // Allies independently weigh intervention; no alliance member is guaranteed to enter.
  [...new Set([...alliesOf(a),...alliesOf(b)])].forEach(ally=>{
   const side=alliesOf(a).includes(ally)?'A':'B';
@@ -839,20 +878,21 @@ function nearestCityToFront(name,path){
 function createFrontReinforcement(name,war,side){
  const paths=Array.isArray(war.front?.[0]?.[0])?war.front:(war.front?[war.front]:[]);const path=paths.reduce((best,p)=>polyLength(p)>polyLength(best||[])?p:best,null);
  const front=path&&path.length>1?pointAlong(path,.5):null,city=nearestCityToFront(name,path);
- return {progress:0,target:0,arrived:0,city:city?{x:city.x,y:city.y,name:city.name}:null,front:front?{x:front.x,y:front.y}:null,days:Math.max(3,Math.hypot((front?.x||0)-(city?.x||0),(front?.y||0)-(city?.y||0))/24),units:[]};
+ return {progress:0,target:0,arrived:0,city:city?{x:city.x,y:city.y,name:city.name}:null,front:front?{x:front.x,y:front.y}:null,frontLine:path?path.map(p=>({x:p.x,y:p.y,tx:p.tx,ty:p.ty})):[],days:Math.max(8,Math.hypot((front?.x||0)-(city?.x||0),(front?.y||0)-(city?.y||0))/12),units:[]};
 }
 function drawFrontReinforcements(war){
  [['A',war.a,'reinforcementA'],['B',war.b,'reinforcementB']].forEach(([side,name,key])=>{
   const state=war[key];if(!state?.city||!state.front||!state.units?.length)return;
-  const a=state.city,b=state.front,progress=Math.max(0,Math.min(1,state.progress||0));
-  ctx.save();ctx.globalAlpha=.38;ctx.strokeStyle=side==='A'?'#a9473f':'#347bb0';ctx.lineWidth=1.4;ctx.setLineDash([4,5]);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.setLineDash([]);
+  const a=state.city,progress=Math.max(0,Math.min(1,state.progress||0)),path=state.frontLine||[];
+  ctx.save();ctx.globalAlpha=.32;ctx.strokeStyle=side==='A'?'#a9473f':'#347bb0';ctx.lineWidth=1.2;ctx.setLineDash([4,5]);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(state.front.x,state.front.y);ctx.stroke();ctx.setLineDash([]);
   state.units.forEach((unit,i)=>{
-   const p=Math.min(1,Math.max(0,unit.progress??progress));
-   // Each division starts at the nearest city and travels separately; staggered
-   // departures prevent an instant wall of flags appearing on the border.
-   const stagger=Math.max(0,(i%5)*.025),travel=Math.max(0,Math.min(1,(progress-stagger)/(1-stagger||1)));
-   const spread=travel<.12?1-travel/.12:0,angle=i*2.3999632297,radius=3+(i%4)*2;const x=a.x+(b.x-a.x)*travel+Math.cos(angle)*radius*spread,y=a.y+(b.y-a.y)*travel+Math.sin(angle)*radius*spread;
+   const stagger=Math.max(0,(i%5)*.055),travel=Math.max(0,Math.min(1,((unit.progress??progress)-stagger)/(1-stagger||1)));
+   const angle=i*2.3999632297,radius=4+(i%4)*2,spread=travel<.14?1-travel/.14:0;
+   const origin={x:a.x+Math.cos(angle)*radius,y:a.y+Math.sin(angle)*radius};
+   const destination=path.length>1?pointAlong(path,(i+.5)/state.units.length):state.front;
+   const x=origin.x+(destination.x-origin.x)*travel,y=origin.y+(destination.y-origin.y)*travel;
    ctx.font='9px "Noto Color Emoji","Apple Color Emoji",Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=1.5;ctx.strokeStyle='rgba(250,248,235,.96)';ctx.strokeText(countryFlag(name),x,y-5);ctx.fillStyle='#26343a';ctx.fillRect(x-4,y+1,8,4);
+   if(travel>=1){ctx.globalAlpha=1;ctx.strokeText(countryFlag(name),destination.x,destination.y-5);ctx.fillRect(destination.x-4,destination.y+1,8,4);ctx.globalAlpha=.32}
   });
   ctx.restore();
  });
@@ -887,9 +927,9 @@ function drawDivisionFlags(war,paths,strength,borderPaths=paths){
  const totalLength=paths.reduce((sum,p)=>sum+polyLength(p),0);
  if(totalLength<1)return;
  const sides=[
-  {name:war.a,troops:Math.max(0,war.troopsA||0),frontSide:'A'},
+  {name:war.a,troops:0,frontSide:'A'},
   ...(war.supportA||[]).map(x=>({name:x.name,troops:Math.max(0,x.troops||0),frontSide:'A'})),
-  {name:war.b,troops:Math.max(0,war.troopsB||0),frontSide:'B'},
+  {name:war.b,troops:0,frontSide:'B'},
   ...(war.supportB||[]).map(x=>({name:x.name,troops:Math.max(0,x.troops||0),frontSide:'B'}))
  ];
  sides.forEach(entry=>{
