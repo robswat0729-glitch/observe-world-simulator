@@ -1036,7 +1036,7 @@ function draw(now){
      .sort((a,b)=>b.length-a.length).slice(0,2);
     countSegments.forEach(segment=>{
      const share=segment.length/totalFrontLength;
-     drawFrontCounts(war,segment.path,{attackers:Math.round(((war.reinforcementA?.target??war.troopsA)+(strength.alliesA||0))*share),defenders:Math.round(((war.reinforcementB?.target??war.troopsB)+(strength.alliesB||0))*share)},segment.border);
+     drawFrontCounts(war,segment.path,{attackers:Math.round(((war.troopsA||0)+(strength.alliesA||0))*share),defenders:Math.round(((war.troopsB||0)+(strength.alliesB||0))*share)},segment.border);
     });
    });
  }else{
