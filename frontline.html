@@ -503,7 +503,7 @@ function buildWarFront(a,b){
  for(const [key,edges] of nodes)if(edges.length!==2)for(const edge of edges)if(!used.has(edge))paths.push(walk(key,edge));
  for(let i=0;i<shared.length;i++)if(!used.has(i))paths.push(walk(borderPointKey(shared[i].a),i));
  const projected=[];
- const maxJoinGap=Math.max(W,H)*.16;
+ const maxJoinGap=Math.max(W,H)*.065;
  // Split malformed chains at accidental long jumps instead of discarding the
  // entire country's border. This preserves every valid shared-border section.
  paths.forEach(path=>{
@@ -692,28 +692,29 @@ function countryFlag(name){
  return String.fromCodePoint(...code.split('').map(c=>0x1f1e6+c.charCodeAt(0)-65));
 }
 function drawDivisionFlags(war,paths,strength,borderPaths=paths){
- // Small flag-only division markers. Army totals remain on the frontline labels;
- // individual divisions intentionally have no soldier-count text.
+ // Put both sides' flags immediately beside the actual frontline. Distribute
+ // markers across all disconnected border sections, checking each section's
+ // country side independently (the border direction can reverse at islands/
+ // separated territories such as East Prussia).
  const totalLength=paths.reduce((sum,p)=>sum+polyLength(p),0);
  if(totalLength<1)return;
  const sides=[
-  {name:war.a,troops:Math.max(0,strength.attackers),side:1},
-  {name:war.b,troops:Math.max(0,strength.defenders),side:-1}
+  {name:war.a,troops:Math.max(0,strength.attackers)},
+  {name:war.b,troops:Math.max(0,strength.defenders)}
  ];
  sides.forEach(entry=>{
   if(entry.troops<1)return;
   const count=Math.max(1,Math.min(28,Math.round(entry.troops/13500)));
-  let normalSide=entry.side;
-  const mid=pointAlong(borderPaths[0]||paths[0],.5),nx=-mid.ty,ny=mid.tx;
-  const plus=countryContainsProjectedPoint(entry.name,mid.x+nx*8,mid.y+ny*8);
-  const minus=countryContainsProjectedPoint(entry.name,mid.x-nx*8,mid.y-ny*8);
-  if(plus&&!minus)normalSide=1;else if(minus&&!plus)normalSide=-1;
   for(let i=0;i<count;i++){
-   const along=(i+.5)/count*totalLength;let remaining=along,path=paths[paths.length-1];
-   for(const candidate of paths){const len=polyLength(candidate);if(remaining<=len){path=candidate;break}remaining-=len}
-   const p=pointAlong(path,Math.max(0,Math.min(1,remaining/(polyLength(path)||1))));
+   const along=(i+.5)/count*totalLength;let remaining=along,pathIndex=paths.length-1;
+   for(let j=0;j<paths.length;j++){const len=polyLength(paths[j]);if(remaining<=len){pathIndex=j;break}remaining-=len}
+   const path=paths[pathIndex],p=pointAlong(path,Math.max(0,Math.min(1,remaining/(polyLength(path)||1))));
    let px=-p.ty,py=p.tx,plen=Math.hypot(px,py)||1;px/=plen;py/=plen;
-   const offset=normalSide*12,x=p.x+px*offset,y=p.y+py*offset;
+   const testDistance=5;
+   const plus=countryContainsProjectedPoint(entry.name,p.x+px*testDistance,p.y+py*testDistance);
+   const minus=countryContainsProjectedPoint(entry.name,p.x-px*testDistance,p.y-py*testDistance);
+   let side=plus&&!minus?1:minus&&!plus?-1:(entry.name===war.a?1:-1);
+   const offset=side*3.5,x=p.x+px*offset,y=p.y+py*offset;
    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
    ctx.font='9px "Noto Color Emoji", "Apple Color Emoji", Arial';
    ctx.lineWidth=1.5;ctx.strokeStyle='rgba(248,246,232,.92)';
