@@ -655,10 +655,13 @@ function drawFrontCounts(war,points,strength,borderPoints=points){
  });
 }
 function drawFrontline(points,now){
+ if(!Array.isArray(points)||points.length<2)return;
  ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
- pathFront(points);ctx.strokeStyle='rgba(104,35,30,.22)';ctx.lineWidth=5;ctx.stroke();
- pathFront(points);ctx.strokeStyle='#b64a40';ctx.lineWidth=2.4;ctx.stroke();
- pathFront(points);ctx.strokeStyle='rgba(255,224,202,.9)';ctx.lineWidth=.8;ctx.setLineDash([3,5]);ctx.lineDashOffset=-(now/110)%8;ctx.stroke();ctx.setLineDash([]);
+ // Draw the complete border trace first, then its animated highlight. The
+ // thicker under-stroke keeps long, thin border sections visible when zoomed out.
+ pathFront(points);ctx.strokeStyle='rgba(104,35,30,.30)';ctx.lineWidth=7;ctx.stroke();
+ pathFront(points);ctx.strokeStyle='#b52f2b';ctx.lineWidth=3.2;ctx.stroke();
+ pathFront(points);ctx.strokeStyle='rgba(255,224,202,.96)';ctx.lineWidth=1;ctx.setLineDash([4,5]);ctx.lineDashOffset=-(now/110)%9;ctx.stroke();ctx.setLineDash([]);
  ctx.restore();
 }
 function draw(now){
@@ -715,6 +718,15 @@ function tick(dt){
  let losses=0;
  lossesByCountry.forEach((amount,name)=>{const c=countries.get(name);if(c){const actual=Math.min(c.soldiers,amount);c.soldiers=Math.max(0,c.soldiers-actual);losses+=actual}});
  casualties+=losses;
+ // Civilians also suffer wartime deaths. This is a small daily population
+ // loss, separate from military casualties and recruitment.
+ if(activeWars.length&&simDt>0){
+  countries.forEach((country,name)=>{
+   if(!atWar(name))return;
+   const civilianDeaths=Math.min(Math.max(0,country.citizens||0),Math.max(0,country.population*.0000008*simDt/2));
+   if(civilianDeaths>0){country.citizens=Math.max(0,country.citizens-civilianDeaths);country.population=Math.max(0,country.population-civilianDeaths);}
+  });
+ }
  // Recruit civilians into the reserve pool. Total population stays stable;
  // citizens become soldiers, and reserves remain included in TOTAL SOLDIERS.
  if(simDt>0){
@@ -755,6 +767,7 @@ function tick(dt){
  }
  if(selectedCountry&&countries.has(selectedCountry)){
   const c=countries.get(selectedCountry);
+  $('country-pop').textContent=fmt(c.population);
   $('country-army').textContent=fmt(c.soldiers);
   $('country-reserve').textContent=fmt(c.reserve||0);
  }
