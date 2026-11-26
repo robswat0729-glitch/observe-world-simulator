@@ -66,12 +66,12 @@ button:active{transform:translateY(1px)}
  <div class="mapframe">
   <canvas id="map" width="1100" height="1000" aria-label="Animated war map showing one continuous frontline"></canvas>
   <div class="hud hud-top"><div class="datebox"><strong id="date">DAY 001</strong><span id="clock">06:00 · SIMULATION</span></div><div class="front-tag">ONE CONTINUOUS FRONTLINE</div></div>
-  <div class="territory-progress" aria-label="Territory control progress">
+  <div class="territory-progress" aria-label="Territory control progress" style="display:none">
    <div class="territory-heading"><span>EUROPEAN TERRITORY CONTROL</span><strong id="territory-value">50% — 50%</strong></div>
    <div class="territory-track"><div id="blue-territory" class="territory-blue"></div><div id="red-territory" class="territory-red"></div></div>
    <div class="territory-labels"><span id="blue-territory-label">ALLIES 50%</span><span id="red-territory-label">AXIS 50%</span></div>
   </div>
-  <div class="legend"><i style="background:#5a9ed4"></i>ALLIED CONTROL <i style="background:#c65e59;margin-left:10px"></i>AXIS CONTROL <span style="color:#f1dda0;margin-left:10px">━━</span> FRONTLINE</div>
+  <div class="legend"><i style="background:#c65e59"></i>WAR DECLARER <i style="background:#5a9ed4;margin-left:10px"></i>DEFENDER</div>
   <div class="hud hud-bottom"><span>TOTAL CASUALTIES</span><strong id="casualties">0</strong></div>
  </div>
  <section class="country-panel" id="country-panel"><button class="panel-close" id="panel-close">CLOSE</button><h3 id="country-name">SELECT A COUNTRY</h3><div id="country-hint">Tap any country on the map to inspect its 1936 statistics.</div><div class="country-stats"><div class="country-stat"><span>POPULATION · 1936</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>ARMED FORCES · 1936</span><strong id="country-army">—</strong></div></div><div class="war-tools"><select id="war-attacker" aria-label="Country declaring war"><option value="">Attacker</option></select><select id="war-defender" aria-label="Country being attacked"><option value="">Target</option></select><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">All countries begin at peace. Select two countries to start a war.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section>
@@ -310,20 +310,11 @@ function drawFrontCount(value,points,side,color){
  ctx.restore();
 }
 function draw(now){
- if(!mapReady){
-  ctx.fillStyle='#b9c4c0';ctx.fillRect(0,0,W,H);ctx.fillStyle='#24353a';ctx.font='bold 28px Arial';ctx.textAlign='center';ctx.fillText(loadMessage,W/2,H/2);return;
- }
+ if(!mapReady){ctx.fillStyle='#b9c4c0';ctx.fillRect(0,0,W,H);ctx.fillStyle='#24353a';ctx.font='bold 28px Arial';ctx.textAlign='center';ctx.fillText(loadMessage,W/2,H/2);return}
  ctx.drawImage(baseCanvas,0,0);
- const front=getFront();
- clipTerritory(front);
- // The same single continuous line is drawn from the top of the map to the bottom of the theatre.
- pathFront(front);ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='rgba(25,31,29,.75)';ctx.lineWidth=12;ctx.stroke();
- pathFront(front);ctx.strokeStyle='#f0d99b';ctx.lineWidth=5;ctx.setLineDash([13,7]);ctx.stroke();ctx.setLineDash([]);
- const pulse=.5+.5*Math.sin(now/420);
- pathFront(front);ctx.strokeStyle='rgba(255,246,205,'+(.2+pulse*.35)+')';ctx.lineWidth=2.5;ctx.stroke();
- // One count for Blue and one for Red. No boxes, pills, sectors, groups, or regional counters.
- drawFrontCount(fmt(blueTroops),front,'blue','#d3edff');
- drawFrontCount(fmt(redTroops),front,'red','#ffd5cf');
+ const belligerents=new Map();activeWars.forEach(w=>{belligerents.set(w.a,'attacker');belligerents.set(w.b,'defender')});
+ worldFeatures.forEach(f=>{const name=countryName(f),side=belligerents.get(name);if(!side)return;ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle=side==='attacker'?'rgba(190,71,67,.54)':'rgba(55,139,202,.54)';ctx.fill()});
+ if(selectedCountry){const f=worldFeatures.find(x=>countryName(x)===selectedCountry);if(f){ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.strokeStyle='#ffe59a';ctx.lineWidth=4;ctx.stroke()}}
 }
 function renderHud(){
  $('date').textContent=simDate.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
@@ -336,28 +327,12 @@ function renderHud(){
  $('red-territory-label').textContent='AXIS '+Math.round(redPct)+'%';
 }
 function tick(dt){
- // Keep troop strength fractional internally so small losses accumulate smoothly.
- // The UI rounds only for display; the simulation updates this model at 100 Hz.
- const intensity=Number($('intensity').value);
- const lossRate=.00012*intensity;
- // Scale attrition by simulation speed, not wall-clock speed.
- const simDt=dt*speed;
- const bLoss=blueTroops*lossRate*simDt;
- const rLoss=redTroops*lossRate*simDt;
- blueTroops=Math.max(0,blueTroops-bLoss);
- redTroops=Math.max(0,redTroops-rLoss);
- casualties+=bLoss+rLoss;
+ const intensity=Number($('intensity').value),simDt=dt*speed,lossRate=.00012*intensity;let losses=0;
+ activeWars.forEach(w=>{const a=countries.get(w.a),b=countries.get(w.b);if(!a||!b)return;const al=a.soldiers*lossRate*simDt,bl=b.soldiers*lossRate*simDt;a.soldiers=Math.max(0,a.soldiers-al);b.soldiers=Math.max(0,b.soldiers-bl);losses+=al+bl});
+ casualties+=losses;
 }
 function nextDay(){
- day++;simDate.setDate(simDate.getDate()+1);
- if(mode==='historical'){
-  if(simDate.getFullYear()!==lastForceYear)syncHistoricalForces();
- }
- const balance=(blueTroops-redTroops)/(blueTroops+redTroops||1);
- const drift=mode==='historical'?0.018:0.12;
- const change=balance*.055+(Math.random()-.5)*drift;
- territory=Math.max(2,Math.min(98,territory+change));
- renderHud();
+ day++;simDate.setDate(simDate.getDate()+1);naturalDiplomacy();renderHud();renderWars();
 }
 function frame(now){
  if(!last)last=now;
@@ -376,6 +351,11 @@ $('next').addEventListener('click',()=>{setPause(true);nextDay()});
 $('speed').addEventListener('click',()=>{speed=speed===1?2:speed===2?4:speed===4?8:1;$('speed').textContent=speed+'× SPEED'});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)last=0});
 syncHistoricalForces();renderHud();
+canvas.addEventListener('click',e=>{const r=canvas.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*W,y=(e.clientY-r.top)/r.height*H;const name=hitCountry(x,y);if(name)showCountry(name)});
+$('panel-close').addEventListener('click',()=>{$('country-panel').style.display='none'});
+$('declare-war').addEventListener('click',()=>declareWar($('war-attacker').value,$('war-defender').value,false));
+$('war-attacker').addEventListener('change',()=>{const n=$('war-attacker').value;if(n)showCountry(n)});
+$('war-defender').addEventListener('change',()=>{const n=$('war-defender').value;if(n)showCountry(n)});
 function decodeTopoArc(topology,index){
  const reversed=index<0,arc=topology.arcs[reversed?~index:index],out=[];
  let x=0,y=0;
@@ -443,7 +423,7 @@ function tryHistoricalSource(sources,index){
   .catch(error=>{console.warn('Historical map source failed:',error);tryHistoricalSource(sources,index+1)});
 }
 $('mode').addEventListener('change',e=>{
- mode=e.target.value;simDate=new Date(1936,0,1);day=1;territory=50;casualties=0;syncHistoricalForces();renderHud();loadGeography();
+ mode=e.target.value;simDate=new Date(1936,0,1);day=1;territory=50;casualties=0;activeWars=[];selectedCountry=null;syncHistoricalForces();renderHud();renderWars();loadGeography();
 });
 loadMap();
 })();
