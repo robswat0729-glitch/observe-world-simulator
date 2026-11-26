@@ -238,8 +238,8 @@ function registerCountries(){
  worldFeatures.forEach(f=>{
   const name=countryName(f);
   if(name){
-   ensureBorderDefenses(countries.get(name));
    if(!countries.has(name))countries.set(name,previousRecords.get(name)||countryRecord(name));
+   ensureBorderDefenses(countries.get(name));
    countryHitData.push({name,geometry:f.geometry});
   }
  });
@@ -550,8 +550,8 @@ function historicalEvents(){
  });
 }
 
- borderNeighborCache.clear();countryCenterCache.clear();
 function buildBase(){
+ borderNeighborCache.clear();countryCenterCache.clear();
  baseCanvas=document.createElement('canvas');baseCanvas.width=W;baseCanvas.height=H;
  const c=baseCanvas.getContext('2d');
  const sea=c.createLinearGradient(0,0,W,H);sea.addColorStop(0,'#c5ceca');sea.addColorStop(.55,'#b9c5c4');sea.addColorStop(1,'#aebdc0');
@@ -1272,11 +1272,11 @@ function tick(dt){
  updateWarDeployments();
  researchTick(simDt);countries.forEach(c=>{ensureTech(c);c.nuclearCooldown=Math.max(0,c.nuclearCooldown-simDt/2)});
   const transferDays=simDt/2;
+ const elapsedSupplyDays=simDt/2;
  activeWars.forEach(w=>{
   [...(w.supportA||[]),...(w.supportB||[])].forEach(x=>{x.troops=Math.max(0,x.targetTroops||0)});
  });
  updateBorderDefenseConstruction(elapsedSupplyDays);
- const elapsedSupplyDays=simDt/2;
  activeWars.forEach(w=>{
   const longest=w.front?.reduce((best,p)=>polyLength(p)>polyLength(best||[])?p:best,null);
   const targetA=supplyTargetFor(w,'A',longest),targetB=supplyTargetFor(w,'B',longest);
