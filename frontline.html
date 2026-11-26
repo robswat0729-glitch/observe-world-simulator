@@ -1183,6 +1183,30 @@ function createCivilWarTerritory(name){
  const points=[];for(let i=0;i<18;i++){const a=i*Math.PI*2/18,variation=.78+((i*7+chosen.index*3)%9)/30;points.push([center[0]+Math.cos(a)*rx*variation,center[1]+Math.sin(a)*ry*variation]);}
  return {featureIndex:chosen.index,center,rx,ry,points,progress:0};
 }
+
+function civilWarFront(country,cw){
+ const region=cw?.territory,center=countryMapCenter(country.name);if(!region||!center)return null;
+ const dx=center[0]-region.center[0],dy=center[1]-region.center[1],len=Math.hypot(dx,dy)||1,nx=-dy/len,ny=dx/len;
+ const fraction=Math.max(.10,Math.min(.82,.34-(cw.progress||0)*.34)),fx=region.center[0]+dx*fraction,fy=region.center[1]+dy*fraction,half=Math.max(5,Math.min(24,Math.max(region.rx,region.ry)*.42));
+ return [[[fx-nx*half,fy-ny*half],[fx-nx*half*.34+dx/len*half*.16,fy-ny*half*.34+dy/len*half*.16],[fx+nx*half*.34+dx/len*half*.16,fy+ny*half*.34+dy/len*half*.16],[fx+nx*half,fy+ny*half]]];
+}
+function startCivilWar(country,rebelTroops,rebelReserve,territory){
+ const rebelName=country.name+' Rebel Forces';if(countries.has(rebelName))return false;
+ const rebel={name:rebelName,population:0,citizens:0,soldiers:rebelTroops,reserve:rebelReserve,gdp:1,militarySpending:0,stability:100,warExhaustion:0,ideology:country.ideology||'AUTHORITARIAN',techLevel:country.techLevel||1,scientificRate:0,scientificPoints:0,equipment:assetProfile(rebelName,rebelTroops),borderDefenses:{},defenseProgress:{},isCivilWarFaction:true};
+ countries.set(rebelName,rebel);
+ country.civilWar={troops:rebelTroops,reserve:rebelReserve,divisions:Math.max(1,Math.round(rebelTroops/12000)),progress:0,territory,rebelName,govDeployed:0,rebelDeployed:0,supplyGov:72,supplyRebel:68};
+ const war={a:country.name,b:rebelName,civilWar:true,front:civilWarFront(country,country.civilWar),troopsA:0,troopsB:0,supplyA:72,supplyB:68,progress:0,day,started:day,natural:true,seed:Math.random()*10,supportA:[],supportB:[],encirclements:[],naval:{center:{x:0,y:0},unitsA:[],unitsB:[],lastBattleDay:day}};
+ activeWars.push(war);updateWarDeployments();renderWars();return true;
+}
+function syncCivilWarFactions(){
+ activeWars.filter(w=>w.civilWar).forEach(w=>{const gov=countries.get(w.a),reb=countries.get(w.b);if(!gov?.civilWar||!reb)return;gov.civilWar.troops=Math.max(0,reb.soldiers||0);gov.civilWar.reserve=Math.max(0,reb.reserve||0);gov.civilWar.divisions=Math.max(0,Math.round(gov.civilWar.troops/12000));w.front=civilWarFront(gov,gov.civilWar);});
+}
+function finishCivilWar(war,winnerSide){
+ const gov=countries.get(war.a),reb=countries.get(war.b);if(!gov||!reb)return;
+ if(winnerSide==='B'){gov.soldiers=Math.max(0,gov.soldiers||0)+Math.max(0,reb.soldiers||0);gov.reserve=Math.max(0,gov.reserve||0)+Math.max(0,reb.reserve||0);gov.stability=45;publishNews(gov.name.toUpperCase()+' REBELS WIN','The rebel army defeated government forces in a full internal war and took control of the country.','CIVIL WAR ENDS');}
+ else{gov.stability=Math.max(35,gov.stability||35);publishNews(gov.name.toUpperCase()+' GOVERNMENT WINS','Government forces defeated the rebel army in a full internal war and restored control.','CIVIL WAR ENDS');}
+ gov.civilWar=null;activeWars=activeWars.filter(w=>w!==war);countries.delete(war.b);if(selectedCountry===gov.name)showCountry(gov.name);updateWarDeployments();renderWars();
+}
 function draw(now){
  if(!mapReady){ctx.fillStyle='#b9c4c0';ctx.fillRect(0,0,W,H);ctx.fillStyle='#24353a';ctx.font='bold 28px Arial';ctx.textAlign='center';ctx.fillText(loadMessage,W/2,H/2);return}
  ctx.fillStyle='#b9c5c4';ctx.fillRect(0,0,W,H);
@@ -1260,7 +1284,7 @@ function drawCivilWarTerritory(country){
      const share=polyLength(path)/totalFrontLength;
     });
      drawBorderDefenseMarkers(war,movingPaths,drawable,strength);
-    drawDivisionFlags(war,movingPaths,strength,drawable);
+    if(!war.civilWar)drawDivisionFlags(war,movingPaths,strength,drawable);
     drawEncirclements(war,movingPaths);
     drawSupplyTrains(war,movingPaths,now+index*1200);
     // Each disconnected border segment is a separate engagement. Allocate
@@ -1294,6 +1318,7 @@ function renderHud(){
 }
 let pendingSettlement=null;
 function offerSettlement(war,winnerSide='A'){
+ if(war.civilWar){finishCivilWar(war,winnerSide);return;}
  if(war.settlementPending||!activeWars.includes(war))return;
  war.winnerSide=winnerSide;war.settlementPending=true;pendingSettlement=war;
  const winnerName=winnerSide==='A'?war.a:war.b,loserName=winnerSide==='A'?war.b:war.a;
@@ -1399,9 +1424,9 @@ function tick(dt){
     if(rebelTroops>=1000){
      country.soldiers-=rebelTroops;
      country.reserve=Math.max(0,(country.reserve||0)-rebelReserve);
-     country.civilWar={troops:rebelTroops,reserve:rebelReserve,divisions:Math.max(1,Math.round(rebelTroops/12000)),progress:0,territory:createCivilWarTerritory(country.name)};
-     if(!country.civilWar.territory){country.civilWar=null;country.soldiers+=rebelTroops;country.reserve+=rebelReserve;}
-     else publishNews(country.name.toUpperCase()+' CIVIL WAR','Rebel forces have seized a pocket of territory inside '+country.name+'. Green territory marks rebel control; government forces are mobilising to retake it.','CIVIL WAR');
+     const territory=createCivilWarTerritory(country.name);
+     if(!territory||!startCivilWar(country,rebelTroops,rebelReserve,territory)){country.soldiers+=rebelTroops;country.reserve+=rebelReserve;}
+     else publishNews(country.name.toUpperCase()+' CIVIL WAR','A rebel army has declared war on the government. Both sides are now fighting a full internal campaign.','CIVIL WAR');
     }
    }
   });
@@ -1419,6 +1444,7 @@ function tick(dt){
  // citizens become soldiers, and reserves remain included in TOTAL SOLDIERS.
  if(simDt>0){
   countries.forEach(country=>{
+   if(country.isCivilWarFaction)return;
    const civilianPool=Math.max(0,country.citizens??(country.population-country.soldiers));
    if(!civilianPool)return;
    const dailyRate=atWar(country.name)?.00002:.000003;
@@ -1426,64 +1452,8 @@ function tick(dt){
    if(recruits>0){country.citizens=civilianPool-recruits;country.soldiers+=recruits;country.reserve=(country.reserve||0)+recruits;}
   });
  }
- // Civil wars run as internal wars with their own armies, supply, deployed
- // manpower, battle losses, campaign momentum, and a shifting frontline.
- if(simDt>0){
-  const elapsedDays=simDt/2;
-  countries.forEach(country=>{
-   const cw=country.civilWar;if(!cw)return;
-   if(country.annexedTo){
-    const occupier=countries.get(country.annexedTo),garrison=Math.max(5000,(occupier?.soldiers||0)*.012);
-    const rebelLoss=Math.min(cw.troops,Math.max(0,cw.troops*.00032*intensity*elapsedDays));
-    cw.troops=Math.max(0,cw.troops-rebelLoss);casualties+=rebelLoss;
-    const recruits=Math.min(Math.max(0,country.citizens||0),Math.max(0,country.population*.000002*elapsedDays));
-    if(recruits>0){country.citizens-=recruits;cw.troops+=recruits;}
-    cw.divisions=Math.max(1,Math.round(cw.troops/12000));
-    const pressure=cw.troops/Math.max(1,garrison);
-    if(pressure>.8)cw.progress=Math.min(100,(cw.progress||0)+Math.max(0,pressure-.8)*.025*elapsedDays);
-    else cw.progress=Math.max(0,(cw.progress||0)-.02*elapsedDays);
-    if(cw.troops<500){country.civilWar=null;country.stability=Math.max(20,country.stability||20);}
-    else if(cw.progress>=100&&Math.random()<.00002*elapsedDays){
-     const overlord=countries.get(country.annexedTo);
-     if(overlord){overlord.population=Math.max(0,overlord.population-(country.population||0));overlord.citizens=Math.max(0,overlord.citizens-(country.citizens||0));country.annexedTo=null;country.soldiers=Math.max(1000,cw.troops);country.reserve=Math.max(0,cw.reserve||0);country.civilWar=null;country.stability=35;publishNews(country.name.toUpperCase()+' REGAINS INDEPENDENCE','A resistance army has defeated the occupying garrison and restored sovereignty.','UPRISING VICTORY');buildBase();}
-    }
-    return;
-   }
-   const govPool=Math.max(0,country.soldiers),rebelPool=Math.max(0,cw.troops);
-   cw.govDeployed=Math.min(govPool,Math.max(0,cw.govDeployed??govPool*.72));
-   cw.rebelDeployed=Math.min(rebelPool,Math.max(0,cw.rebelDeployed??rebelPool*.72));
-   const govReserve=Math.min(Math.max(0,country.reserve||0),Math.max(0,(country.reserve||0)*.0075*simDt));
-   country.reserve=Math.max(0,(country.reserve||0)-govReserve);
-   cw.govDeployed=Math.min(govPool,cw.govDeployed+govReserve);
-   const rebelReserve=Math.min(Math.max(0,cw.reserve||0),Math.max(0,(cw.reserve||0)*.0075*simDt));
-   cw.reserve=Math.max(0,(cw.reserve||0)-rebelReserve);
-   cw.rebelDeployed=Math.min(rebelPool,cw.rebelDeployed+rebelReserve);
-   const targetGov=Math.max(12,Math.min(100,72-(cw.progress||0)*.30));
-   const targetRebel=Math.max(12,Math.min(100,68+(cw.progress||0)*.30));
-   cw.supplyGov=Math.max(5,Math.min(100,(cw.supplyGov??72)+(targetGov-(cw.supplyGov??72))*Math.min(1,elapsedDays*.16)));
-   cw.supplyRebel=Math.max(5,Math.min(100,(cw.supplyRebel??68)+(targetRebel-(cw.supplyRebel??68))*Math.min(1,elapsedDays*.16)));
-   const national=nationalCombatMultiplier(country),equipment=equipmentCombatMultiplier(country),tech=1+Math.pow(Math.max(0,Math.min(39,(country.techLevel||1)-1))/39,.78)*.18;
-   const govPower=cw.govDeployed*national*equipment*tech*(.48+cw.supplyGov*.0052)*(1.04+(country.borderDefenses?.[country.name]||0)*.015);
-   const rebelPower=cw.rebelDeployed*(.96+Math.min(.08,(cw.rebelTech||1)*.002))*(.48+cw.supplyRebel*.0052);
-   const totalPower=Math.max(1,govPower+rebelPower),advantage=(rebelPower-govPower)/totalPower;
-   const govLoss=Math.min(govPool,Math.max(0,govPower*lossRate*simDt*(.78+.42*rebelPower/Math.max(1,govPower))));
-   const rebelLoss=Math.min(rebelPool,Math.max(0,rebelPower*lossRate*simDt*(.78+.42*govPower/Math.max(1,rebelPower))));
-   country.soldiers=Math.max(0,govPool-govLoss);country.reserve=Math.min(Math.max(0,country.reserve||0),country.soldiers);
-   cw.troops=Math.max(0,rebelPool-rebelLoss);casualties+=govLoss+rebelLoss;
-   cw.govDeployed=Math.max(0,cw.govDeployed-govLoss);cw.rebelDeployed=Math.max(0,cw.rebelDeployed-rebelLoss);
-   const rebelRecruit=Math.min(Math.max(0,country.citizens||0),country.population*.000003*elapsedDays);
-   if(rebelRecruit>0){country.citizens-=rebelRecruit;cw.troops+=rebelRecruit;cw.rebelDeployed+=rebelRecruit*.72;}
-   const govRecruit=Math.min(Math.max(0,country.citizens||0),country.population*.0000015*elapsedDays);
-   if(govRecruit>0){country.citizens-=govRecruit;country.soldiers+=govRecruit;country.reserve=(country.reserve||0)+govRecruit;}
-   const momentum=Math.sign(advantage)*Math.pow(Math.abs(advantage),.82);
-   cw.progress=Math.max(-.68,Math.min(.68,(cw.progress||0)+momentum*.0032*simDt));
-   cw.divisions=Math.max(0,Math.round(cw.troops/12000));cw.govDivisions=Math.max(0,Math.round(country.soldiers/12000));
-   cw.frontSupplyGov=Math.round(cw.supplyGov);cw.frontSupplyRebel=Math.round(cw.supplyRebel);
-   if(cw.troops<1000){country.civilWar=null;country.stability=Math.max(25,country.stability);publishNews(country.name.toUpperCase()+' REBELLION DEFEATED','Government forces defeated the rebel army after sustained battles along the internal frontline.','CIVIL WAR ENDS');}
-   else if(country.soldiers<1000||cw.progress>=.68||cw.troops>country.soldiers*1.15){country.soldiers+=cw.troops;country.reserve=(country.reserve||0)+(cw.reserve||0);country.civilWar=null;country.stability=45;publishNews(country.name.toUpperCase()+' REBELS WIN','The rebel army defeated government forces and took control of the country.','CIVIL WAR ENDS');}
-   else if(cw.progress<=-.68){country.civilWar=null;country.stability=Math.max(35,country.stability);publishNews(country.name.toUpperCase()+' GOVERNMENT WINS','Government forces defeated the rebel army and restored control of the country.','CIVIL WAR ENDS');}
-  });
- }
+ // Civil wars are regular activeWars entries; the shared casualty and campaign systems process them.
+ syncCivilWarFactions();
  // Reserves are kept out of the frontline until needed. Each simulated day,
  // a small share is committed as reinforcements; this raises front counts
  // while reducing the country's reserve count without creating new soldiers.
@@ -1635,8 +1605,8 @@ $('force-civil-war').addEventListener('click',()=>{
  if(!territory){$('war-status').textContent='Could not establish rebel territory on this country map.';return;}
  country.soldiers-=rebelTroops;country.reserve=Math.max(0,(country.reserve||0)-rebelReserve);
  country.stability=Math.max(0,(country.stability??70)-15);
- country.civilWar={troops:rebelTroops,reserve:rebelReserve,divisions:Math.max(1,Math.round(rebelTroops/12000)),progress:0,territory};
- publishNews(country.name.toUpperCase()+' CIVIL WAR FORCED','A rebel faction has seized territory inside '+country.name+'. The government and rebels are now fighting for control.','CIVIL WAR');
+ if(!startCivilWar(country,rebelTroops,rebelReserve,territory)){country.soldiers+=rebelTroops;country.reserve+=rebelReserve;$('war-status').textContent='Could not create the internal war.';return;}
+ publishNews(country.name.toUpperCase()+' CIVIL WAR FORCED','A rebel army has declared war on the government. Both factions are fighting on an internal frontline.','CIVIL WAR');
  $('war-status').textContent='Civil war started. Rebel-held territory is marked green.';
  showCountry(country.name);draw(performance.now());
 });
