@@ -16,7 +16,7 @@ header{position:fixed;z-index:5;top:8px;left:10px;right:10px;height:34px;padding
 .header-right{display:flex;align-items:center;gap:14px;font-size:11px;font-weight:800;letter-spacing:1px;color:#e2e8e5}
 main{position:fixed;inset:0;max-width:none;margin:0;padding:0}
 .mapframe{position:fixed;inset:0;width:100vw;height:100dvh;margin:0;background:#c5ceca;border:0;box-shadow:none;overflow:hidden}
-canvas{display:block;width:100%;height:100%;object-fit:contain;aspect-ratio:11/10;background:#b9c5c4;touch-action:none}
+canvas{display:block;width:100%;height:100%;object-fit:contain;aspect-ratio:7/4;background:#b9c5c4;touch-action:none}
 .hud{position:absolute;z-index:2;pointer-events:none;text-shadow:0 2px 4px #000}
 .territory-progress{position:absolute;z-index:3;top:50px;right:13px;width:min(290px,42vw);padding:9px 11px;background:rgba(12,20,25,.86);border:1px solid rgba(220,235,232,.22);pointer-events:none;text-shadow:0 1px 3px #000}
 .territory-heading,.territory-labels{display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -59,12 +59,12 @@ button:active{transform:translateY(1px)}
 </head>
 <body>
 <header>
- <div class="brand">FRONTLINE<small>CONTINUOUS WAR MAP · LIVE SIMULATION</small></div>
+ <div class="brand">WORLD WAR SIMULATOR<small>1936 START · COUNTRY DIPLOMACY</small></div>
  <div class="header-right"><span>BLUE ALLIANCE</span><span>VS</span><span>RED COALITION</span></div>
 </header>
 <main>
  <div class="mapframe">
-  <canvas id="map" width="1100" height="1000" aria-label="Animated war map showing one continuous frontline"></canvas>
+  <canvas id="map" width="1400" height="800" aria-label="Animated war map showing one continuous frontline"></canvas>
   <div class="hud hud-top"><div class="datebox"><strong id="date">DAY 001</strong><span id="clock">06:00 · SIMULATION</span></div><div class="front-tag">ONE CONTINUOUS FRONTLINE</div></div>
   <div class="territory-progress" aria-label="Territory control progress" style="display:none">
    <div class="territory-heading"><span>EUROPEAN TERRITORY CONTROL</span><strong id="territory-value">50% — 50%</strong></div>
@@ -74,17 +74,17 @@ button:active{transform:translateY(1px)}
   <div class="legend"><i style="background:#c65e59"></i>WAR DECLARER <i style="background:#5a9ed4;margin-left:10px"></i>DEFENDER</div>
   <div class="hud hud-bottom"><span>TOTAL CASUALTIES</span><strong id="casualties">0</strong></div>
  </div>
- <section class="country-panel" id="country-panel"><button class="panel-close" id="panel-close">CLOSE</button><h3 id="country-name">SELECT A COUNTRY</h3><div id="country-hint">Tap any country on the map to inspect its 1936 statistics.</div><div class="country-stats"><div class="country-stat"><span>POPULATION · 1936</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>ARMED FORCES · 1936</span><strong id="country-army">—</strong></div></div><div class="war-tools"><select id="war-attacker" aria-label="Country declaring war"><option value="">Attacker</option></select><select id="war-defender" aria-label="Country being attacked"><option value="">Target</option></select><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">All countries begin at peace. Select two countries to start a war.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section>
+ <section class="country-panel" id="country-panel"><button class="panel-close" id="panel-close">CLOSE</button><h3 id="country-name">SELECT A COUNTRY</h3><div id="country-hint">Tap any country on the world map to inspect its 1936 statistics.</div><div class="country-stats"><div class="country-stat"><span>POPULATION · 1936</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>ARMED FORCES · 1936</span><strong id="country-army">—</strong></div></div><div class="war-tools"><select id="war-attacker" aria-label="Country declaring war"><option value="">Attacker</option></select><select id="war-defender" aria-label="Country being attacked"><option value="">Target</option></select><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">All countries begin at peace. Select two countries to start a war.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section>
  <div class="controls">
   <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div>
   <div class="control-group"><select id="mode" aria-label="Simulation mode"><option value="historical">HISTORICAL</option><option value="nonhistorical">NON-HISTORICAL</option></select><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
-  <div class="note">Geographic outlines: Natural Earth · troop model 100 updates/sec · map animation 60 FPS</div>
+  <div class="note">1938 pre-war borders · 1936 country statistics · map animation 60 FPS</div>
  </div>
 </main>
 <script>
 (function(){
 'use strict';
-const W=1100,H=1000;
+const W=1400,H=800;
 const canvas=document.getElementById('map'),ctx=canvas.getContext('2d');
 const $=id=>document.getElementById(id);
 const fmt=n=>Math.max(0,Math.round(n)).toLocaleString('en-US');
@@ -119,8 +119,8 @@ function syncHistoricalForces(){
 }
 // Offline built-in geographic shapes: no remote map downloads are required.
 const GEO_SOURCES=[];
-const LON_MIN=-14,LON_MAX=53,LAT_MIN=36,LAT_MAX=72;
-function project(ll){const lon=ll[0],lat=Math.max(-85,Math.min(85,ll[1]));const merc=y=>Math.log(Math.tan(Math.PI/4+y*Math.PI/360));const top=merc(LAT_MAX),bottom=merc(LAT_MIN);const mid=(LAT_MAX+LAT_MIN)/2;const xSpan=(LON_MAX-LON_MIN)*Math.cos(mid*Math.PI/180);const x=(lon-LON_MIN)*Math.cos(mid*Math.PI/180);return [x/xSpan*W,(top-merc(lat))/(top-bottom)*H]}
+const LON_MIN=-180,LON_MAX=180,LAT_MIN=-60,LAT_MAX=85;
+function project(ll){const lon=Math.max(-180,Math.min(180,ll[0])),lat=Math.max(LAT_MIN,Math.min(LAT_MAX,ll[1]));const merc=y=>Math.log(Math.tan(Math.PI/4+y*Math.PI/360));const top=merc(LAT_MAX),bottom=merc(LAT_MIN);return [(lon-LON_MIN)/(LON_MAX-LON_MIN)*W,(top-merc(lat))/(top-bottom)*H]}
 function traceGeometry(target,geometry){if(!geometry)return;const polygons=geometry.type==='Polygon'?[geometry.coordinates]:geometry.type==='MultiPolygon'?geometry.coordinates:[];polygons.forEach(poly=>poly.forEach(ring=>{if(!ring.length)return;let p=project(ring[0]);target.moveTo(p[0],p[1]);for(let i=1;i<ring.length;i++){p=project(ring[i]);target.lineTo(p[0],p[1])}target.closePath()}))}
 function traceCountries(target){target.beginPath();worldFeatures.forEach(f=>traceGeometry(target,f.geometry))}
 const baseFront=[[18,70],[19.5,66.5],[20.5,63],[20.8,59.5],[22.4,56],[22.8,52.5],[25,49],[27.5,45.5],[29.5,42],[31,39]];
@@ -135,7 +135,7 @@ const cities=[['LONDON',[-.12,51.5]],['PARIS',[2.35,48.86]],['BERLIN',[13.4,52.5
 
 
 const country1936={
-'Germany':[67000000,550000],'France':[41400000,650000],'United Kingdom':[47800000,190000],
+'Germany':[67000000,550000],'Empire of Japan':[69000000,250000],'United Kingdom of Great Britain and Northern Ireland':[47800000,190000],'Union of South Africa':[9500000,18000],'British Raj':[350000000,1800000],'India':[350000000,1800000],'Dutch East Indies':[65000000,70000],'Netherlands Indies':[65000000,70000],'France':[41400000,650000],'United Kingdom':[47800000,190000],
 'Italy':[42400000,430000],'Soviet Union':[170000000,1300000],'USSR':[170000000,1300000],
 'Japan':[69000000,250000],'United States':[128000000,350000],'Poland':[34000000,300000],
 'Spain':[25000000,180000],'Portugal':[7000000,45000],'Belgium':[8400000,65000],
@@ -225,8 +225,8 @@ function buildBase(){
  c.fillStyle=sea;c.fillRect(0,0,W,H);
  c.save();c.beginPath();c.rect(0,0,W,H);c.clip();
  c.strokeStyle='rgba(69,91,99,.13)';c.lineWidth=1;
- for(let lon=-10;lon<=50;lon+=5){const p1=project([lon,LAT_MIN]),p2=project([lon,LAT_MAX]);c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke()}
- for(let lat=40;lat<=70;lat+=5){const p1=project([LON_MIN,lat]),p2=project([LON_MAX,lat]);c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke()}
+ for(let lon=-180;lon<=180;lon+=30){const p1=project([lon,LAT_MIN]),p2=project([lon,LAT_MAX]);c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke()}
+ for(let lat=-60;lat<=80;lat+=20){const p1=project([LON_MIN,lat]),p2=project([LON_MAX,lat]);c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke()}
  worldFeatures.forEach((f,i)=>{c.beginPath();traceGeometry(c,f.geometry);const name=f.properties&&f.properties.NAME;const palette=['#c6c0a7','#c9b8a0','#b9c5ad','#c7c7b6','#c1b5aa','#b4c2c0','#d0c3a9','#b8bda9','#c9b5b0','#b7c6b2'];let hash=i;if(name){hash=0;for(let k=0;k<name.length;k++)hash=(hash*31+name.charCodeAt(k))>>>0}c.fillStyle=palette[hash%palette.length];c.fill();c.strokeStyle='rgba(246,242,224,.96)';c.lineWidth=1.5;c.stroke()});
  c.save();c.globalAlpha=.13;
  for(let i=0;i<26;i++){const x=80+(i*137)%1440,y=70+(i*211)%760;c.beginPath();c.ellipse(x,y,80+(i%4)*27,22+(i%3)*13,(i%7)*.22,0,Math.PI*2);c.strokeStyle=i%2?'#566963':'#f8f4df';c.lineWidth=2;c.stroke()}
@@ -402,7 +402,7 @@ function loadMap(){
 }
 function loadGeography(){
  if(mode==='historical'){
-  // The public historical-basemaps collection's 1938 snapshot is used as the closest available pre-war Europe reference; it is not a year-by-year border animation.
+  // The public historical-basemaps collection's 1938 snapshot is used as the closest available pre-war world reference; the collection does not provide a 1936 snapshot. It is not a year-by-year border animation.
   const sources=[
    'https://cdn.jsdelivr.net/gh/aourednik/historical-basemaps@master/geojson/world_1938.geojson',
    'https://raw.githubusercontent.com/aourednik/historical-basemaps/master/geojson/world_1938.geojson'
