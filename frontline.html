@@ -242,6 +242,34 @@ function naturalDiplomacy(){
  const a=eligible[Math.floor(Math.random()*eligible.length)],others=eligible.filter(n=>n!==a);
  declareWar(a,others[Math.floor(Math.random()*others.length)],true);
 }
+const historicalEventsTriggered=new Set();
+function resolveCountryName(candidates){
+ for(const candidate of candidates){for(const name of countries.keys())if(name.toLowerCase()===candidate.toLowerCase())return name}
+ return null;
+}
+function historicalEvents(){
+ const date=simDate.toISOString().slice(0,10);
+ const events=[
+  ['1939-09-01',['Germany'],['Poland']],
+  ['1939-09-03',['United Kingdom','United Kingdom of Great Britain and Northern Ireland'],['Germany']],
+  ['1939-09-03',['France'],['Germany']],
+  ['1940-04-09',['Germany'],['Denmark']],
+  ['1940-04-09',['Germany'],['Norway']],
+  ['1940-05-10',['Germany'],['Netherlands']],
+  ['1940-05-10',['Germany'],['Belgium']],
+  ['1940-05-10',['Germany'],['Luxembourg']],
+  ['1940-06-10',['Italy'],['France']],
+  ['1940-06-10',['Italy'],['United Kingdom','United Kingdom of Great Britain and Northern Ireland']],
+  ['1941-06-22',['Germany'],['Soviet Union','USSR']],
+  ['1941-06-22',['Italy'],['Soviet Union','USSR']]
+ ];
+ events.forEach((event,index)=>{
+  if(event[0]!==date||historicalEventsTriggered.has(index))return;
+  historicalEventsTriggered.add(index);
+  const attacker=resolveCountryName(event[1]),defender=resolveCountryName(event[2]);
+  if(attacker&&defender)declareWar(attacker,defender,true);
+ });
+}
 
 function buildBase(){
  baseCanvas=document.createElement('canvas');baseCanvas.width=W;baseCanvas.height=H;
@@ -376,11 +404,11 @@ function tick(dt){
  const intensity=Number($('intensity').value),simDt=dt*speed,lossRate=.00012*intensity;let losses=0;
  activeWars.forEach(w=>{const a=countries.get(w.a),b=countries.get(w.b);if(!a||!b)return;const al=a.soldiers*lossRate*simDt,bl=b.soldiers*lossRate*simDt;a.soldiers=Math.max(0,a.soldiers-al);b.soldiers=Math.max(0,b.soldiers-bl);losses+=al+bl});
  casualties+=losses;
- if(activeWars.length){const strength=activeWarStrength(),total=strength.attackers+strength.defenders;if(total>0){const pressure=(strength.attackers-strength.defenders)/total;territory=Math.max(5,Math.min(95,territory+pressure*.0008*simDt))}}
+ if(activeWars.length){const strength=activeWarStrength(),total=strength.attackers+strength.defenders;if(total>0){const pressure=(strength.attackers-strength.defenders)/total;territory=Math.max(5,Math.min(95,territory+pressure*.12*simDt))}}
  if(selectedCountry&&countries.has(selectedCountry))$('country-army').textContent=fmt(countries.get(selectedCountry).soldiers);
 }
 function nextDay(){
- day++;simDate.setDate(simDate.getDate()+1);naturalDiplomacy();renderHud();renderWars();
+ day++;simDate.setDate(simDate.getDate()+1);if(mode==='historical')historicalEvents();else naturalDiplomacy();renderHud();renderWars();
 }
 function frame(now){
  if(!last)last=now;
@@ -489,7 +517,7 @@ function tryHistoricalSource(sources,index){
   .catch(error=>{console.warn('Historical map source failed:',error);tryHistoricalSource(sources,index+1)});
 }
 $('mode').addEventListener('change',e=>{
- mode=e.target.value;simDate=new Date(1936,0,1);day=1;territory=50;casualties=0;activeWars=[];selectedCountry=null;syncHistoricalForces();renderHud();renderWars();loadGeography();
+ mode=e.target.value;simDate=new Date(1936,0,1);day=1;territory=50;casualties=0;activeWars=[];historicalEventsTriggered.clear();selectedCountry=null;syncHistoricalForces();renderHud();renderWars();loadGeography();
 });
 loadMap();
 })();
