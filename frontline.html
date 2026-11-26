@@ -193,7 +193,11 @@ function showCountry(name){
  $('country-panel').hidden=false;
 }
 function renderWars(){
- $('war-list').textContent=activeWars.length?'ACTIVE WARS: '+activeWars.map(w=>w.a+' vs '+w.b).join(' | '):'ACTIVE WARS: NONE';
+ $('war-list').textContent=activeWars.length?'ACTIVE WARS: '+activeWars.map(w=>{
+  const encA=w.encircledA||0,encB=w.encircledB||0,divA=w.encircledDivisionsA||0,divB=w.encircledDivisionsB||0;
+  const pockets=encA||encB?' · ENCIRCLED: '+(encA? w.a+' '+fmt(encA)+' / '+divA+' DIV':'')+(encA&&encB?' | ':'')+(encB?w.b+' '+fmt(encB)+' / '+divB+' DIV':''):'';
+  return w.a+' vs '+w.b+pockets;
+ }).join(' | '):'ACTIVE WARS: NONE';
  if(selectedCountry)$('country-hint').textContent=(atWar(selectedCountry)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+' · ARMY ESTIMATED'+(countries.get(selectedCountry)?.estimated?' · POPULATION ESTIMATED':'');
 }
 function declareWar(a,b,natural){
@@ -201,7 +205,7 @@ function declareWar(a,b,natural){
  if(!a||!b||a===b||countries.get(a)?.annexedTo||countries.get(b)?.annexedTo){$('war-status').textContent='Choose two different countries.';return false}
  if(!countries.has(a)||!countries.has(b)){ $('war-status').textContent='Choose countries shown on the map.';return false}
  if(activeWars.some(w=>(w.a===a&&w.b===b)||(w.a===b&&w.b===a))){$('war-status').textContent='Those countries are already at war.';return false}
- const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0,progress:0,seed:Math.random()*6.28,settlementPending:false};
+ const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0,progress:0,seed:Math.random()*6.28,settlementPending:false,encirclements:[],encircledA:0,encircledB:0,encircledDivisionsA:0,encircledDivisionsB:0};
  activeWars.push(war);updateWarDeployments();
  $('war-status').textContent=(natural?'A diplomatic crisis escalated: ':'War declared: ')+a+' vs '+b+'.'+(war.front?'':' No shared land border, so no land frontline is shown.');
  renderWars();return true;
@@ -378,7 +382,10 @@ function geometryRings(geometry){
 }
 function borderPointKey(p){return Number(p[0]).toFixed(4)+','+Number(p[1]).toFixed(4)}
 function countryBorderEdges(name){
- const features=worldFeatures.filter(f=>countryName(f)===name);
+ // A sovereign state's border includes every polygon it owns, including
+ // territories absorbed by annexation. This is what makes Germany's new
+ // frontier follow the former Polish boundary after Poland is annexed.
+ const features=worldFeatures.filter(f=>sovereignOwner(countryName(f))===name);
  const edges=[];
  features.forEach(feature=>geometryRings(feature.geometry).forEach(ring=>{
   for(let i=1;i<ring.length;i++){
@@ -547,7 +554,12 @@ function updateWarDeployments(){
  });
  engagements.forEach((list,name)=>{
   const country=countries.get(name);if(!country)return;
-  const total=Math.max(0,(country.soldiers||0)-(country.reserve||0)),sum=list.reduce((v,x)=>v+x.threat,0);
+  const trapped=activeWars.reduce((sum,w)=>{
+   if(w.a===name)return sum+(w.encircledA||0);
+   if(w.b===name)return sum+(w.encircledB||0);
+   return sum;
+  },0);
+  const total=Math.max(0,(country.soldiers||0)-(country.reserve||0)-trapped),sum=list.reduce((v,x)=>v+x.threat,0);
   list.forEach(x=>{x.war[x.field]=sum?Math.floor(total*x.threat/sum):0});
  });
  activeWars.forEach(w=>{w.troopsA=w.troopsA||0;w.troopsB=w.troopsB||0});
@@ -555,6 +567,43 @@ function updateWarDeployments(){
 function activeWarStrength(w){
  const support=overlord=>Array.from(countries.values()).filter(c=>c.puppetOf===overlord).reduce((sum,c)=>sum+Math.max(0,(c.soldiers||0)-(c.reserve||0))*.3,0);
  return {attackers:Math.max(0,Math.round((w.troopsA||0)+support(w.a))),defenders:Math.max(0,Math.round((w.troopsB||0)+support(w.b)))};
+}
+function recordEncirclement(war,side,available){
+ if(!war.encirclements)war.encirclements=[];
+ if(war.encirclements.length>=3)return false;
+ const already=war.encirclements.filter(e=>e.side===side).reduce((n,e)=>n+e.troops,0);
+ const cap=Math.max(0,available*.14-already);
+ if(cap<5000)return false;
+ const troops=Math.min(cap,Math.round(available*(.025+Math.random()*.045)));
+ if(troops<5000)return false;
+ const divisions=Math.max(1,Math.min(8,Math.round(troops/12000)));
+ war.encirclements.push({side,troops,divisions,position:.24+Math.random()*.52,age:0});
+ war.encircledA=(war.encirclements||[]).filter(e=>e.side==='A').reduce((n,e)=>n+e.troops,0);
+ war.encircledB=(war.encirclements||[]).filter(e=>e.side==='B').reduce((n,e)=>n+e.troops,0);
+ war.encircledDivisionsA=(war.encirclements||[]).filter(e=>e.side==='A').reduce((n,e)=>n+e.divisions,0);
+ war.encircledDivisionsB=(war.encirclements||[]).filter(e=>e.side==='B').reduce((n,e)=>n+e.divisions,0);
+ return true;
+}
+function drawEncirclements(war,paths){
+ if(!war.encirclements?.length||!paths?.length)return;
+ const path=paths.reduce((best,p)=>polyLength(p)>polyLength(best||[])?p:best,null);
+ if(!path||path.length<2)return;
+ war.encirclements.forEach(e=>{
+  const p=pointAlong(path,e.position);
+  const side=e.side==='A'?war.a:war.b;
+  const color=e.side==='A'?'#a52f2a':'#245d91';
+  ctx.save();
+  ctx.beginPath();ctx.arc(p.x,p.y,13,0,Math.PI*2);
+  ctx.fillStyle='rgba(18,25,29,.92)';ctx.fill();
+  ctx.strokeStyle=color;ctx.lineWidth=3;ctx.stroke();
+  ctx.font='900 11px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.lineWidth=3;ctx.strokeStyle='rgba(250,248,235,.98)';
+  const label=fmt(e.troops)+' · '+e.divisions+' DIV';
+  ctx.strokeText(label,p.x,p.y-23);ctx.fillStyle=color;ctx.fillText(label,p.x,p.y-23);
+  ctx.font='900 9px Arial';ctx.lineWidth=2.5;ctx.strokeStyle='rgba(250,248,235,.98)';
+  ctx.strokeText('ENCIRCLED',p.x,p.y+25);ctx.fillStyle='#f0c7a0';ctx.fillText('ENCIRCLED',p.x,p.y+25);
+  ctx.restore();
+ });
 }
 function pointAlong(points,fraction){
  const full=polyLength(points),target=full*fraction;let walked=0;
@@ -576,7 +625,7 @@ function geometryPolygons(geometry){
 }
 function countryContainsProjectedPoint(name,x,y){
  for(const feature of worldFeatures){
-  if(countryName(feature)!==name)continue;
+  if(sovereignOwner(countryName(feature))!==name)continue;
   for(const polygon of geometryPolygons(feature.geometry)){
    if(!polygon.length||!pointInRing(x,y,polygon[0]))continue;
    let inHole=false;
@@ -590,7 +639,7 @@ function countryMapCenter(name){
  // Calculate the centroid from exterior rings only; holes must not pull a
  // country's centre across its border.
  let areaTotal=0,cxTotal=0,cyTotal=0;
- worldFeatures.filter(f=>countryName(f)===name).forEach(f=>geometryPolygons(f.geometry).forEach(poly=>{
+ worldFeatures.filter(f=>sovereignOwner(countryName(f))===name).forEach(f=>geometryPolygons(f.geometry).forEach(poly=>{
   const ring=poly[0];if(!ring||ring.length<3)return;
   let twiceArea=0,cx=0,cy=0;
   for(let i=0,j=ring.length-1;i<ring.length;j=i++){
@@ -604,7 +653,7 @@ function countryMapCenter(name){
  }));
  if(areaTotal>0)return [cxTotal/areaTotal,cyTotal/areaTotal];
  const pts=[];
- worldFeatures.filter(f=>countryName(f)===name).forEach(f=>geometryPolygons(f.geometry).forEach(poly=>{
+ worldFeatures.filter(f=>sovereignOwner(countryName(f))===name).forEach(f=>geometryPolygons(f.geometry).forEach(poly=>{
   const ring=poly[0]||[];
   ring.forEach(ll=>{const p=project(ll);if(Number.isFinite(p[0])&&Number.isFinite(p[1]))pts.push(p)});
  }));
@@ -754,10 +803,21 @@ function draw(now){
  // over the old internal border so the annexed state no longer appears independent.
  worldFeatures.forEach(f=>{
   const original=countryName(f),owner=sovereignOwner(original);
-  if(owner!==original){ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle='#d2d0bd';ctx.fill();ctx.strokeStyle='#d2d0bd';ctx.lineWidth=2.2;ctx.stroke()}
+  if(owner!==original){
+   // Paint over the old internal country border. The wider land-colour stroke
+   // erases the old boundary beneath the annexed territory.
+   ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle='#d2d0bd';ctx.fill();
+   ctx.strokeStyle='#d2d0bd';ctx.lineWidth=4;ctx.stroke();
+  }
  });
  worldFeatures.forEach(f=>{const name=sovereignOwner(countryName(f)),side=belligerents.get(name);if(!side)return;ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle=side==='attacker'?'rgba(190,71,67,.48)':'rgba(55,139,202,.48)';ctx.fill()});
- if(selectedCountry){const f=worldFeatures.find(x=>countryName(x)===selectedCountry);if(f){ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.strokeStyle='#ffe59a';ctx.lineWidth=4;ctx.stroke()}}
+ if(selectedCountry){
+  // Highlight every polygon belonging to the selected sovereign, including
+  // annexed territory, rather than outlining only its original home polygon.
+  worldFeatures.filter(f=>sovereignOwner(countryName(f))===selectedCountry).forEach(f=>{
+   ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.strokeStyle='#ffe59a';ctx.lineWidth=4;ctx.stroke();
+  });
+ }
  if(activeWars.length){
   activeWars.forEach((war,index)=>{
     if(!war.front||!war.front.length)war.front=buildWarFront(war.a,war.b);
@@ -779,6 +839,7 @@ function draw(now){
      const share=polyLength(path)/totalFrontLength;
     });
     drawDivisionFlags(war,movingPaths,strength,drawable);
+    drawEncirclements(war,movingPaths);
     // Each disconnected border segment is a separate engagement. Allocate
     // the country's frontline strength by segment length so East Prussia,
     // separated from mainland Germany by the Polish Corridor, gets its own
@@ -819,6 +880,8 @@ function resolveSettlement(choice){
  const war=pendingSettlement;if(!war)return;
  const winner=countries.get(war.a),loser=countries.get(war.b);if(!winner||!loser)return;
  if(choice==='annex'){
+  // Encircled personnel are still part of the defeated country's soldier
+  // total, so they are transferred too; no manpower is silently discarded.
   winner.population+=loser.population;winner.citizens+=loser.citizens||0;winner.soldiers+=loser.soldiers||0;winner.reserve+=loser.reserve||0;
   loser.population=0;loser.citizens=0;loser.soldiers=0;loser.reserve=0;loser.annexedTo=war.a;loser.puppetOf=null;
   // Remove the defeated state as a selectable sovereign and redraw its
@@ -843,8 +906,22 @@ function tick(dt){
  let losses=0;
  lossesByCountry.forEach((amount,name)=>{const c=countries.get(name);if(c){const actual=Math.min(c.soldiers,amount);c.soldiers=Math.max(0,c.soldiers-actual);losses+=actual}});
  casualties+=losses;
- // Civilians also suffer wartime deaths. This is a small daily population
- // loss, separate from military casualties and recruitment.
+ // Natural demographic change continues in peace and wartime: births add
+ // civilians, while ordinary mortality removes civilians. Rates are annual
+ // estimates converted to the simulator's accelerated day clock.
+ if(simDt>0){
+  const elapsedDays=simDt/2;
+  countries.forEach(country=>{
+   const birthRate=country.birthRate??.018;
+   const deathRate=country.deathRate??.011;
+   const births=Math.max(0,country.population*birthRate*elapsedDays/365);
+   const naturalDeaths=Math.min(Math.max(0,country.citizens||0),Math.max(0,country.population*deathRate*elapsedDays/365));
+   country.population+=births-naturalDeaths;
+   country.citizens=Math.max(0,(country.citizens||0)+births-naturalDeaths);
+  });
+ }
+ // Civilians also suffer additional wartime deaths. This is a small daily
+ // population loss, separate from ordinary mortality and military casualties.
  if(activeWars.length&&simDt>0){
   countries.forEach((country,name)=>{
    if(!atWar(name))return;
@@ -878,10 +955,32 @@ function tick(dt){
  if(activeWars.length){
   let pressureSum=0;
   activeWars.forEach(w=>{
+   if(w.encirclements?.length){
+    w.encirclements.forEach(e=>{e.age=(e.age||0)+(simDt/2)});
+    // A small chance for isolated units to break out over time. Escaped units
+    // return to the deployable pool; this is not a guaranteed rescue.
+    w.encirclements=w.encirclements.filter(e=>{
+     if(e.age>12&&Math.random()<1-Math.exp(-.0012*(simDt/2)))return false;
+     return true;
+    });
+    w.encircledA=w.encirclements.filter(e=>e.side==='A').reduce((n,e)=>n+e.troops,0);
+    w.encircledB=w.encirclements.filter(e=>e.side==='B').reduce((n,e)=>n+e.troops,0);
+    w.encircledDivisionsA=w.encirclements.filter(e=>e.side==='A').reduce((n,e)=>n+e.divisions,0);
+    w.encircledDivisionsB=w.encirclements.filter(e=>e.side==='B').reduce((n,e)=>n+e.divisions,0);
+   }
    const strength=activeWarStrength(w),total=strength.attackers+strength.defenders;
    if(total>0){
     const advantage=(strength.attackers-strength.defenders)/total;
     pressureSum+=advantage;
+    // Rare encirclements can form when one side holds a sustained, meaningful
+    // numerical advantage. They are not automatic: probability is checked per
+    // simulated day, with a strict cap on pockets and trapped manpower.
+    const encirclementChance=1-Math.exp(-.0018*(simDt/2));
+    if(Math.abs(advantage)>.22&&Math.max(strength.attackers,strength.defenders)>45000&&w.progress>.035&&Math.random()<encirclementChance){
+     const side=advantage>0?'B':'A';
+     const available=side==='A'?strength.attackers:strength.defenders;
+     if(recordEncirclement(w,side,available))updateWarDeployments();
+    }
     // A sustained numerical advantage advances the front into the defender.
     // The rate is deliberately gradual so a large country is not overrun in days.
     w.progress=Math.max(0,Math.min(1,(w.progress||0)+advantage*.012*simDt));
