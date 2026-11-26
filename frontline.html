@@ -175,17 +175,19 @@ function pointAtHalf(points){
 }
 function drawFrontCount(value,points,side,color){
  const mid=pointAtHalf(points),normalX=-mid.ty,normalY=mid.tx;
- const offset=side==='blue'?-114:114;
- const x=mid.x+normalX*offset,y=mid.y+normalY*offset,angle=Math.atan2(mid.ty,mid.tx);
- const target=Math.min(930,Math.max(500,mid.length*.78));
- const fontSize=88;
+ const offset=side==='blue'?-78:78;
+ const x=mid.x+normalX*offset,y=mid.y+normalY*offset;
+ // The theatre's frontline runs north-to-south: keep the count vertical and parallel to it.
+ const angle=Math.PI/2;
+ const target=Math.min(980,Math.max(540,mid.length*.88));
+ const fontSize=82;
  ctx.save();ctx.translate(x,y);ctx.rotate(angle);
  ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
  const natural=ctx.measureText(value).width||1;
  ctx.scale(target/natural,1);
- ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
- ctx.lineWidth=17;ctx.strokeStyle='rgba(16,25,29,.82)';ctx.strokeText(value,0,0);
- ctx.lineWidth=4;ctx.strokeStyle='rgba(248,246,228,.86)';ctx.strokeText(value,0,0);
+ ctx.textAlign='center';ctx.textBaseline='middle';
+ // Bare lettering only: no panel, badge, rectangle, border, or boxed background.
+ ctx.shadowColor='rgba(20,27,28,.72)';ctx.shadowBlur=3;ctx.shadowOffsetX=1;ctx.shadowOffsetY=1;
  ctx.fillStyle=color;ctx.fillText(value,0,0);
  ctx.restore();
 }
