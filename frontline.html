@@ -1013,8 +1013,9 @@ function drawFrontCounts(war,points,strength,borderPoints=points){
  const displayScale=Math.max(.22,Math.min(rect.width/W,rect.height/H)*viewScale);
  const fontSize=Math.max(14,Math.min(22,18/displayScale));
  const offset=Math.max(16,Math.min(34,23/displayScale));
- // Use the shared border as the common axis so the two force labels mirror one another.
- let tx=borderMid.tx,ty=borderMid.ty,tlen=Math.hypot(tx,ty)||1;
+ // Use the actual rendered frontline as the axis: troop labels must be parallel
+ // to the line itself, not to a separately calculated border tangent.
+ let tx=mid.tx,ty=mid.ty,tlen=Math.hypot(tx,ty)||1;
  tx/=tlen;ty/=tlen;
  const nx=-ty,ny=tx;
  let sideA=frontSideForCountry(war.a,borderPoints,.5);
@@ -1023,13 +1024,15 @@ function drawFrontCounts(war,points,strength,borderPoints=points){
  else if(!sideA)sideA=-sideB;
  else if(!sideB)sideB=-sideA;
  else if(sideA===sideB)sideB=-sideA;
- let angleA=Math.atan2(ty,tx);
- if(angleA>Math.PI/2||angleA< -Math.PI/2)angleA+=Math.PI;
- const angleB=angleA+Math.PI;
+ let lineAngle=Math.atan2(ty,tx);
+ // Both labels share exactly the frontline's orientation. They differ only
+ // in which side of the line they occupy; neither is rotated 180 degrees.
+ if(lineAngle>Math.PI/2)lineAngle-=Math.PI;
+ if(lineAngle< -Math.PI/2)lineAngle+=Math.PI;
  const candidates=[0,.12,-.12,.24,-.24,.36,-.36];
  const entries=[
-  {value:fmt(strength.attackers),side:sideA,color:'#a52f2a',angle:angleA},
-  {value:fmt(strength.defenders),side:sideB,color:'#245d91',angle:angleB}
+  {value:fmt(strength.attackers),side:sideA,color:'#a52f2a',angle:lineAngle},
+  {value:fmt(strength.defenders),side:sideB,color:'#245d91',angle:lineAngle}
  ];
  entries.forEach(entry=>{
   if(!entry.value||entry.value==='0')return;
