@@ -212,7 +212,7 @@ function hitCountry(x,y){
  return null;
 }
 
-const dependentTerritories=new Set(['Algeria (France)','Angola (Portugal)','Belgian Congo','British Raj','British Somaliland','Dutch East Indies','Ceylon','French Cameroons','French Equatorial Africa','French Guiana','French Indo-China','French Somaliland','French West Africa','Gold Coast','Hong Kong','Italian Somaliland','Kenya','Libya (Italy)','Madagascar (France)','Mandatory Palestine (GB)','Mesopotamia (GB)','Morocco (France)','Mozambique (Portugal)','Nigeria','Northern Rhodesia','Southern Rhodesia','Eritrea (Italy)','Ethiopia (Italy)','Jamaica','Kuwait','Laos','Malaya','Martinique','New Caledonia','Puerto Rico','Sudan','Togo','Tunisia','Uganda']);
+const dependentTerritories=new Set(['Algeria (France)','Angola (Portugal)','Belgian Congo','British Raj','British Somaliland','Dutch East Indies','Ceylon','French Cameroons','French Equatorial Africa','French Guiana','French Indo-China','French Somaliland','French West Africa','Gold Coast','Hong Kong','India','Italian Somaliland','Kenya','Libya (Italy)','Madagascar (France)','Mandatory Palestine (GB)','Mesopotamia (GB)','Morocco (France)','Mozambique (Portugal)','Nigeria','Northern Rhodesia','Southern Rhodesia','Eritrea (Italy)','Ethiopia (Italy)','Jamaica','Kuwait','Laos','Malaya','Martinique','New Caledonia','Puerto Rico','Sudan','Togo','Tunisia','Uganda']);
 function isSovereign(name){return !name.includes('(')&&!dependentTerritories.has(name)}
 async function load1936PopulationReference(){
  if(populationLoaded||populationLoading||!countries.size)return;populationLoading=true;
