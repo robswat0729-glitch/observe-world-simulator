@@ -1426,18 +1426,30 @@ function nextDay(){
  day++;simDate.setDate(simDate.getDate()+1);if(mode==='historical')historicalEvents();else naturalDiplomacy();generateDailyNews();renderHud();renderWars();
  if(!$('military-details').hidden)renderMilitaryDetails();
 }
+let simulationRuntimeError='';
+function showRuntimeError(error){
+ if(simulationRuntimeError)return;
+ simulationRuntimeError=String(error?.stack||error?.message||error||'Unknown runtime error');
+ paused=true;$('pause').textContent='▶ RESUME';
+ let banner=$('runtime-error-banner');
+ if(!banner){banner=document.createElement('div');banner.id='runtime-error-banner';banner.style.cssText='position:fixed;z-index:99999;left:10px;right:10px;top:12px;padding:12px;background:#401f20;color:#fff;border:2px solid #ffb15c;border-radius:8px;font:12px/1.4 monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:34vh;overflow:auto';document.body.appendChild(banner)}
+ banner.textContent='SIMULATION ERROR — send this message\n'+simulationRuntimeError.slice(0,1800);
+}
 function frame(now){
- if(!last)last=now;
- const dt=Math.min(.08,(now-last)/1000);last=now;
- if(!paused){
-  acc+=dt;dayAcc+=dt*speed;
-  // A fixed 20 Hz model cadence avoids runaway CPU use at 16x/32x.
-  // Each tick still receives the selected speed multiplier inside tick().
-  const tickStep=.05;
-  let stepped=false;while(acc>=tickStep){tick(tickStep);acc-=tickStep;stepped=true}if(stepped)renderHud()
-  while(dayAcc>=2){dayAcc-=2;nextDay()}
- }
- draw(now);requestAnimationFrame(frame);
+ try{
+  if(!last)last=now;
+  const dt=Math.min(.08,(now-last)/1000);last=now;
+  if(!paused){
+   acc+=dt;dayAcc+=dt*speed;
+   const tickStep=.05;
+   let stepped=false;
+   while(acc>=tickStep){tick(tickStep);acc-=tickStep;stepped=true}
+   if(stepped)renderHud();
+   while(dayAcc>=2){dayAcc-=2;nextDay()}
+  }
+  draw(now);
+ }catch(error){showRuntimeError(error)}
+ finally{requestAnimationFrame(frame)}
 }
 function setPause(v){paused=v;$('pause').textContent=v?'▶ RESUME':'Ⅱ PAUSE'}
 $('pause').addEventListener('click',()=>setPause(!paused));
