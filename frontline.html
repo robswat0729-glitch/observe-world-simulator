@@ -37,7 +37,7 @@ canvas{display:block;width:100%;height:100%;object-fit:contain;aspect-ratio:7/4;
 .hud-bottom strong{font-size:18px;font-variant-numeric:tabular-nums}
 .legend{position:absolute;left:13px;bottom:88px;z-index:2;background:rgba(12,20,25,.82);padding:7px 10px;font-size:10px;letter-spacing:1px;pointer-events:none}
 .legend i{display:inline-block;width:9px;height:9px;margin:0 5px 0 0;border-radius:50%}
-.country-panel{position:fixed;z-index:7;top:145px;left:9px;width:min(310px,calc(100vw - 18px));max-height:43vh;overflow:auto;padding:10px 12px;background:rgba(12,20,25,.92);border:1px solid rgba(220,235,232,.3);border-radius:5px;backdrop-filter:blur(8px);font-size:11px}.country-panel h3{margin:0 0 7px;font-size:14px;letter-spacing:1px}.country-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:8px 0}.country-stat{padding:6px 0;border-top:1px solid #52636a}.country-stat span{display:block;color:#bdc9c7;font-size:9px;letter-spacing:.7px}.country-stat strong{font-size:14px;font-variant-numeric:tabular-nums}.war-tools{display:grid;grid-template-columns:1fr;gap:6px;margin-top:10px}.war-tools button{width:100%;padding:11px}.country-panel{box-shadow:0 12px 35px rgba(0,0,0,.35)}.country-panel[hidden]{display:none!important}.target-prompt{position:fixed;z-index:8;top:145px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 24px);padding:10px 14px;background:rgba(12,20,25,.94);border:1px solid #e7d69e;border-radius:4px;color:#fff0bc;font-size:12px;font-weight:900;letter-spacing:.5px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.3)}.target-prompt[hidden]{display:none!important}.war-status,.war-list{margin-top:7px;color:#e7d69e;font-size:10px;line-height:1.35}@media(max-width:650px){.country-panel{top:140px;left:6px;width:min(270px,calc(100vw - 12px));max-height:39vh;padding:8px}.country-stat strong{font-size:12px}.country-panel h3{font-size:12px}}
+.country-panel{position:fixed;z-index:7;top:145px;left:9px;width:min(310px,calc(100vw - 18px));max-height:43vh;overflow:auto;padding:10px 12px;background:rgba(12,20,25,.92);border:1px solid rgba(220,235,232,.3);border-radius:5px;backdrop-filter:blur(8px);font-size:11px}.country-panel h3{margin:0 0 7px;font-size:14px;letter-spacing:1px}.country-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:8px 0}.country-stat{padding:6px 0;border-top:1px solid #52636a}.country-stat span{display:block;color:#bdc9c7;font-size:9px;letter-spacing:.7px}.country-stat strong{font-size:14px;font-variant-numeric:tabular-nums}.war-tools{display:grid;grid-template-columns:1fr;gap:6px;margin-top:10px}.war-tools button{width:100%;padding:11px}.country-panel{box-shadow:0 12px 35px rgba(0,0,0,.35)}.country-panel[hidden]{display:none!important}.target-prompt{position:fixed;z-index:8;top:145px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 24px);padding:10px 14px;background:rgba(12,20,25,.94);border:1px solid #e7d69e;border-radius:4px;color:#fff0bc;font-size:12px;font-weight:900;letter-spacing:.5px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.3)}.target-prompt[hidden]{display:none!important}.war-status,.war-list{margin-top:7px;color:#e7d69e;font-size:10px;line-height:1.35}@media(max-width:650px){.country-panel{top:140px;left:6px;width:min(270px,calc(100vw - 12px));max-height:39vh;padding:8px}.country-stat strong{font-size:12px}.country-panel h3{font-size:12px}}
 .controls{position:fixed;z-index:6;left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-between;gap:7px;padding:8px;background:rgba(12,20,25,.84);border:1px solid rgba(220,235,232,.24);border-radius:6px;backdrop-filter:blur(8px);flex-wrap:wrap}
 button,select{border:1px solid #576a72;border-radius:4px;background:#263b45;color:#eef3f1;padding:9px 13px;font-weight:800;font-size:12px;letter-spacing:.5px}
 button:active{transform:translateY(1px)}
@@ -74,7 +74,7 @@ button:active{transform:translateY(1px)}
   <div class="legend"><i style="background:#c65e59"></i>WAR DECLARER <i style="background:#5a9ed4;margin-left:10px"></i>DEFENDER</div>
   <div class="hud hud-bottom"><span>TOTAL CASUALTIES</span><strong id="casualties">0</strong></div>
  </div>
- <div id="peace-settlement" style="display:none;position:fixed;z-index:20;inset:0;background:rgba(4,10,14,.82);align-items:center;justify-content:center;padding:18px"><div style="width:min(420px,100%);background:#17252d;border:1px solid #aab8b8;padding:20px;color:#f2f4ef"><h2 id="settlement-title" style="margin:0 0 8px;font-size:20px">COUNTRY DEFEATED</h2><p id="settlement-copy" style="line-height:1.5;color:#cbd6d5">Choose the fate of the defeated country.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button id="annex-country">ANNEX TERRITORY</button><button id="puppet-country">INSTALL PUPPET</button></div></div></div><section class="country-panel" id="country-panel" hidden><h3 id="country-name">COUNTRY</h3><div id="country-hint">1936 national statistics</div><div class="country-stats"><div class="country-stat"><span>POPULATION · 1936</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>TOTAL SOLDIERS</span><strong id="country-army">—</strong></div><div class="country-stat"><span>RESERVES</span><strong id="country-reserve">—</strong></div></div><div class="war-tools"><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">Choose this country as the attacker, then tap the target country on the map.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section><div class="target-prompt" id="target-prompt" hidden></div>
+ <div id="peace-settlement" style="display:none;position:fixed;z-index:20;inset:0;background:rgba(4,10,14,.82);align-items:center;justify-content:center;padding:18px"><div style="width:min(420px,100%);background:#17252d;border:1px solid #aab8b8;padding:20px;color:#f2f4ef"><h2 id="settlement-title" style="margin:0 0 8px;font-size:20px">COUNTRY DEFEATED</h2><p id="settlement-copy" style="line-height:1.5;color:#cbd6d5">Choose the fate of the defeated country.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button id="annex-country">ANNEX TERRITORY</button><button id="puppet-country">INSTALL PUPPET</button></div></div></div><section class="country-panel" id="country-panel" hidden><h3 id="country-name">COUNTRY</h3><div id="country-hint">1936 national statistics</div><div class="country-stats"><div class="country-stat"><span>POPULATION</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>LOYAL SOLDIERS</span><strong id="country-army">—</strong></div><div class="country-stat"><span>RESERVES</span><strong id="country-reserve">—</strong></div><div class="country-stat"><span>STABILITY</span><strong id="country-stability">—</strong></div></div><div id="country-rebels" class="war-status" hidden></div><div class="war-tools"><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">Choose this country as the attacker, then tap the target country on the map.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section><div class="target-prompt" id="target-prompt" hidden></div>
  <div class="controls">
   <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div><div class="control-group zoom-tools"><button id="zoom-out" aria-label="Zoom out">−</button><button id="zoom-in" aria-label="Zoom in">＋</button><button id="zoom-reset">RESET VIEW</button></div>
   <div class="control-group"><select id="mode" aria-label="Simulation mode"><option value="historical">HISTORICAL</option><option value="nonhistorical">NON-HISTORICAL</option></select><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
@@ -163,8 +163,8 @@ const country1936={
 function countryName(f){const p=f.properties||{};return String(p.NAME||p.ADMIN||p.name||p.NAME_EN||p.SOVEREIGNT||'').trim()}
 function countryRecord(name){
  const k=Object.keys(country1936).find(x=>x.toLowerCase()===name.toLowerCase());
- if(k){const soldiers=country1936[k][1],population=country1936[k][0];return {name,population,citizens:Math.max(0,population-soldiers),soldiers,reserve:soldiers*.35,estimated:false};}
- return {name,population:1000000,citizens:995000,soldiers:5000,reserve:1750,estimated:true};
+ if(k){const soldiers=country1936[k][1],population=country1936[k][0];return {name,population,citizens:Math.max(0,population-soldiers),soldiers,reserve:soldiers*.35,stability:72+Math.random()*18,civilWar:null,estimated:false};}
+ return {name,population:1000000,citizens:995000,soldiers:5000,reserve:1750,stability:72+Math.random()*18,civilWar:null,estimated:true};
 }
 function registerCountries(){
  // Rebuilding the map must not recreate national records. In particular,
@@ -189,6 +189,10 @@ function showCountry(name){
  $('country-name').textContent=name.toUpperCase();
  $('country-hint').textContent=(atWar(name)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+(c.estimated?' · SOME FIGURES ESTIMATED':' · 1936 ESTIMATES');
  $('country-pop').textContent=fmt(c.population);$('country-army').textContent=fmt(c.soldiers);$('country-reserve').textContent=fmt(c.reserve||0);
+ $('country-stability').textContent=Math.round(Math.max(0,Math.min(100,c.stability??75)))+'%';
+ const rebelBox=$('country-rebels');
+ if(c.civilWar){rebelBox.hidden=false;rebelBox.textContent='CIVIL WAR · REBELS: '+fmt(c.civilWar.troops)+' SOLDIERS · '+c.civilWar.divisions+' DIVISIONS';}
+ else{rebelBox.hidden=true;rebelBox.textContent='';}
  $('war-status').textContent='Press DECLARE WAR, then tap the country you want to attack.';
  $('country-panel').hidden=false;
 }
@@ -198,6 +202,8 @@ function renderWars(){
   const pockets=encA||encB?' · ENCIRCLED: '+(encA? w.a+' '+fmt(encA)+' / '+divA+' DIV':'')+(encA&&encB?' | ':'')+(encB?w.b+' '+fmt(encB)+' / '+divB+' DIV':''):'';
   return w.a+' vs '+w.b+pockets;
  }).join(' | '):'ACTIVE WARS: NONE';
+ const civilWarEntries=[...countries.values()].filter(c=>c.civilWar&&!c.annexedTo).map(c=>c.name+' REBELS '+fmt(c.civilWar.troops)+' / '+c.civilWar.divisions+' DIV');
+ if(civilWarEntries.length)$('war-list').textContent+=' · CIVIL WARS: '+civilWarEntries.join(' | ');
  if(selectedCountry)$('country-hint').textContent=(atWar(selectedCountry)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+' · ARMY ESTIMATED'+(countries.get(selectedCountry)?.estimated?' · POPULATION ESTIMATED':'');
 }
 function declareWar(a,b,natural){
@@ -254,7 +260,17 @@ async function load1936PopulationReference(){
    // after its manpower and population have already been absorbed.
    if(rec.annexedTo)return;
    const key=name.toLowerCase(),match=values.get(aliases[key]||key);
-   if(match){rec.population=match;if(rec.estimated){rec.soldiers=Math.round(match*.005);rec.reserve=rec.soldiers*.35}rec.citizens=Math.max(0,rec.population-rec.soldiers);}
+   if(match){
+    rec.population=match;
+    if(rec.estimated&&!rec.armyReferenceLoaded){
+     const baseSoldiers=Math.round(match*.005);
+     rec.soldiers=baseSoldiers+(rec.pendingAnnexSoldiers||0);
+     rec.reserve=baseSoldiers*.35+(rec.pendingAnnexReserve||0);
+     rec.armyReferenceLoaded=true;
+     rec.pendingAnnexSoldiers=0;rec.pendingAnnexReserve=0;
+    }
+    rec.citizens=Math.max(0,rec.population-rec.soldiers);
+   }
   });
   if(selectedCountry)showCountry(selectedCountry);populationLoaded=true;
  }catch(error){console.warn('1936 population reference not loaded; using built-in historical estimates.',error)}finally{populationLoading=false}
@@ -814,6 +830,14 @@ function draw(now){
   }
  });
  worldFeatures.forEach(f=>{const name=sovereignOwner(countryName(f)),side=belligerents.get(name);if(!side)return;ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle=side==='attacker'?'rgba(190,71,67,.48)':'rgba(55,139,202,.48)';ctx.fill()});
+ // Civil-war states receive a distinct red overlay on their territory.
+ countries.forEach((country,name)=>{
+  if(!country.civilWar||country.annexedTo)return;
+  worldFeatures.filter(f=>sovereignOwner(countryName(f))===name).forEach(f=>{
+   ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle='rgba(171,35,43,.28)';ctx.fill();
+   ctx.strokeStyle='rgba(245,93,83,.9)';ctx.lineWidth=2;ctx.setLineDash([5,4]);ctx.stroke();ctx.setLineDash([]);
+  });
+ });
  if(selectedCountry){
   // Highlight every polygon belonging to the selected sovereign, including
   // annexed territory, rather than outlining only its original home polygon.
@@ -883,10 +907,27 @@ function resolveSettlement(choice){
  const war=pendingSettlement;if(!war)return;
  const winner=countries.get(war.a),loser=countries.get(war.b);if(!winner||!loser)return;
  if(choice==='annex'){
-  // Encircled personnel are still part of the defeated country's soldier
-  // total, so they are transferred too; no manpower is silently discarded.
-  winner.population+=loser.population;winner.citizens+=loser.citizens||0;winner.soldiers+=loser.soldiers||0;winner.reserve+=loser.reserve||0;
-  loser.population=0;loser.citizens=0;loser.soldiers=0;loser.reserve=0;loser.annexedTo=war.a;loser.puppetOf=null;
+  // Snapshot the defeated country's entire remaining manpower before changing
+  // either record. If the population reference is still loading, queue the
+  // transfer so its later baseline-army initialization cannot overwrite it.
+  const absorbedPopulation=Math.max(0,loser.population||0);
+  const absorbedCitizens=Math.max(0,loser.citizens||0);
+  const absorbedSoldiers=Math.max(0,loser.soldiers||0);
+  const absorbedReserve=Math.max(0,loser.reserve||0);
+  winner.population+=absorbedPopulation;
+  winner.citizens+=absorbedCitizens;
+  if(populationLoaded){
+   winner.soldiers+=absorbedSoldiers;
+   winner.reserve+=absorbedReserve;
+  }else{
+   winner.pendingAnnexSoldiers=(winner.pendingAnnexSoldiers||0)+absorbedSoldiers;
+   winner.pendingAnnexReserve=(winner.pendingAnnexReserve||0)+absorbedReserve;
+   winner.soldiers+=absorbedSoldiers;
+   winner.reserve+=absorbedReserve;
+  }
+  winner.stability=Math.max(0,Math.min(100,(winner.stability??75)-8));
+  winner.armyReferenceLoaded=true;
+  loser.population=0;loser.citizens=0;loser.soldiers=0;loser.reserve=0;loser.pendingAnnexSoldiers=0;loser.pendingAnnexReserve=0;loser.annexedTo=war.a;loser.puppetOf=null;
   // Remove the defeated state as a selectable sovereign and redraw its
   // former territory as part of the annexing country's map color.
   if(selectedCountry===war.b)selectedCountry=war.a;
@@ -923,6 +964,28 @@ function tick(dt){
    country.citizens=Math.max(0,(country.citizens||0)+births-naturalDeaths);
   });
  }
+ // Stability changes gradually with war pressure and recovers during peace.
+ // Below 20%, a portion of the armed forces may split into a rebel movement.
+ if(simDt>0){
+  const elapsedDays=simDt/2;
+  countries.forEach((country,name)=>{
+   if(country.annexedTo)return;
+   const atWarNow=atWar(name);
+   const warWear=atWarNow?.035:0;
+   const recovery=atWarNow?0:.012;
+   const casualtyPressure=Math.min(.025,(lossesByCountry.get(name)||0)/Math.max(1,country.population)*180);
+   country.stability=Math.max(0,Math.min(100,(country.stability??78)+(recovery-warWear-casualtyPressure)*elapsedDays));
+   if(country.stability<20&&!country.civilWar){
+    const rebelTroops=Math.min(Math.max(0,country.soldiers-1000),Math.round(country.soldiers*.24));
+    const rebelReserve=Math.min(country.reserve||0,Math.round((country.reserve||0)*.2));
+    if(rebelTroops>=1000){
+     country.soldiers-=rebelTroops;
+     country.reserve=Math.max(0,(country.reserve||0)-rebelReserve);
+     country.civilWar={troops:rebelTroops,reserve:rebelReserve,divisions:Math.max(1,Math.round(rebelTroops/12000)),progress:0};
+    }
+   }
+  });
+ }
  // Civilians also suffer additional wartime deaths. This is a small daily
  // population loss, separate from ordinary mortality and military casualties.
  if(activeWars.length&&simDt>0){
@@ -941,6 +1004,31 @@ function tick(dt){
    const dailyRate=atWar(country.name)?.00002:.000003;
    const recruits=Math.min(civilianPool,Math.max(0,country.population*dailyRate*simDt/2));
    if(recruits>0){country.citizens=civilianPool-recruits;country.soldiers+=recruits;country.reserve=(country.reserve||0)+recruits;}
+  });
+ }
+ // Civil wars consume troops on both sides, can recruit rebel supporters, and
+ // eventually end if either side is defeated or rebels take control.
+ if(simDt>0){
+  const elapsedDays=simDt/2;
+  countries.forEach(country=>{
+   const cw=country.civilWar;if(!cw)return;
+   const governmentLoss=Math.min(country.soldiers,Math.max(0,country.soldiers*.00012*intensity*elapsedDays));
+   const rebelLoss=Math.min(cw.troops,Math.max(0,cw.troops*.00016*intensity*elapsedDays));
+   country.soldiers=Math.max(0,country.soldiers-governmentLoss);
+   cw.troops=Math.max(0,cw.troops-rebelLoss);
+   casualties+=governmentLoss+rebelLoss;
+   const recruits=Math.min(Math.max(0,country.citizens||0),country.population*.000025*elapsedDays);
+   if(recruits>0){country.citizens-=recruits;country.population-=0;cw.troops+=recruits;cw.divisions=Math.max(1,Math.round(cw.troops/12000));}
+   const total=country.soldiers+cw.troops;
+   if(cw.troops<1000){
+    country.civilWar=null;country.stability=Math.max(25,country.stability);
+   }else if(country.soldiers<1000||cw.troops>country.soldiers*1.15){
+    country.soldiers+=cw.troops;country.reserve=(country.reserve||0)+cw.reserve;
+    country.civilWar=null;country.stability=45;
+   }else{
+    cw.progress=Math.max(0,Math.min(100,cw.progress+((cw.troops-country.soldiers)/Math.max(1,total))*.08*elapsedDays));
+    cw.divisions=Math.max(1,Math.round(cw.troops/12000));
+   }
   });
  }
  // Reserves are kept out of the frontline until needed. Each simulated day,
@@ -999,6 +1087,10 @@ function tick(dt){
   $('country-pop').textContent=fmt(c.population);
   $('country-army').textContent=fmt(c.soldiers);
   $('country-reserve').textContent=fmt(c.reserve||0);
+  $('country-stability').textContent=Math.round(Math.max(0,Math.min(100,c.stability??75)))+'%';
+  const rebelBox=$('country-rebels');
+  if(c.civilWar){rebelBox.hidden=false;rebelBox.textContent='CIVIL WAR · REBELS: '+fmt(c.civilWar.troops)+' SOLDIERS · '+c.civilWar.divisions+' DIVISIONS';}
+  else{rebelBox.hidden=true;rebelBox.textContent='';}
  }
 }
 function nextDay(){
