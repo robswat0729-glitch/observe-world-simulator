@@ -78,7 +78,7 @@ button:active{transform:translateY(1px)}
  <div class="controls">
   <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div><div class="control-group zoom-tools"><button id="zoom-out" aria-label="Zoom out">−</button><button id="zoom-in" aria-label="Zoom in">＋</button><button id="zoom-reset">RESET VIEW</button></div>
   <div class="control-group"><select id="mode" aria-label="Simulation mode"><option value="historical">HISTORICAL</option><option value="nonhistorical">NON-HISTORICAL</option></select><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
-  <button id="sound-toggle" type="button" aria-pressed="false">🔊 SOUND: OFF</button><div class="note">EUROPE MAP · 1936 START · POPULATION & ARMED FORCES ESTIMATES</div>
+  <button id="sound-toggle" type="button" aria-pressed="false">🔊 SOUND: OFF</button><span class="note" style="font-size:10px">Music: <a href="https://www.scottbuckley.com.au/library/goliath/" target="_blank" rel="noopener">Goliath — Scott Buckley (CC BY 4.0)</a></span><div class="note">EUROPE MAP · 1936 START · POPULATION & ARMED FORCES ESTIMATES</div>
  </div>
 </main>
 <script>
@@ -230,7 +230,9 @@ function renderWars(){
 }
 
 // Procedural audio: no external files or network requests. Browsers start audio only after a user gesture.
-let audioCtx=null,audioEnabled=false,musicTimer=null,battleTimer=null,alarmTimer=null,musicStep=0;
+let audioCtx=null,audioEnabled=false,battleTimer=null,alarmTimer=null;
+const warMusic=new Audio('https://www.scottbuckley.com.au/library/wp-content/uploads/2021/08/sb_goliath.mp3');
+warMusic.loop=true;warMusic.preload='none';warMusic.volume=.48;
 function ensureAudio(){
  const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
  if(!audioCtx)audioCtx=new AC();if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx;
@@ -249,9 +251,8 @@ function playWarAlarm(){
  const t=ac.currentTime;tone(880,.42,.085,'sawtooth',0,1250);tone(660,.42,.075,'sawtooth',.48,1100);},950);
 }
 function startMusic(){
- if(musicTimer)clearInterval(musicTimer);musicStep=0;
- const notes=[146.83,174.61,196,220,196,174.61,164.81,146.83];
- musicTimer=setInterval(()=>{if(!audioEnabled)return;const n=notes[musicStep++%notes.length];tone(n,1.7,.018,'sawtooth',0,650);tone(n*1.5,1.35,.012,'triangle',.08,900);if(musicStep%4===1){tone(73.42,1.9,.025,'triangle',0,240);tone(293.66,.8,.009,'sine',.22,1100)}},1550);
+ if(!audioEnabled)return;
+ warMusic.play().catch(()=>{const button=$('sound-toggle');button.textContent='🔊 TAP SOUND AGAIN';});
 }
 function startBattleAmbience(){
  if(battleTimer)clearInterval(battleTimer);
@@ -264,7 +265,7 @@ function startBattleAmbience(){
 }
 function setSoundEnabled(on){
  audioEnabled=!!on;const button=$('sound-toggle');button.textContent=audioEnabled?'🔊 SOUND: ON':'🔇 SOUND: OFF';button.setAttribute('aria-pressed',String(audioEnabled));
- if(audioEnabled){ensureAudio();startMusic();startBattleAmbience()}else{[musicTimer,battleTimer,alarmTimer].forEach(t=>{if(t)clearInterval(t)});musicTimer=battleTimer=alarmTimer=null}
+ if(audioEnabled){ensureAudio();startMusic();startBattleAmbience()}else{warMusic.pause();[battleTimer,alarmTimer].forEach(t=>{if(t)clearInterval(t)});battleTimer=alarmTimer=null}
 }
 $('sound-toggle').addEventListener('click',()=>setSoundEnabled(!audioEnabled));
 const LANDLOCKED_EUROPEAN_COUNTRIES=new Set(['Andorra','Austria','Belarus','Czechoslovakia','Hungary','Kosovo','Liechtenstein','Luxembourg','Moldova','North Macedonia','San Marino','Serbia','Slovakia','Switzerland','Vatican City']);
