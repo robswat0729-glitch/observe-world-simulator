@@ -230,7 +230,7 @@ function declareWar(a,b,natural,allianceResponse=false){
  if(!countries.has(a)||!countries.has(b)){ $('war-status').textContent='Choose countries shown on the map.';return false}
  if(areAllied(a,b)){$('war-status').textContent=a+' and '+b+' are bound by a defensive alliance.';return false}
  if(activeWars.some(w=>(w.a===a&&w.b===b)||(w.a===b&&w.b===a))){$('war-status').textContent='Those countries are already at war.';return false}
- const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0,progress:0,seed:Math.random()*6.28,settlementPending:false,encirclements:[],encircledA:0,encircledB:0,encircledDivisionsA:0,encircledDivisionsB:0,supplyA:78,supplyB:78};
+ const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0,progress:0,seed:Math.random()*6.28,settlementPending:false,encirclements:[],encircledA:0,encircledB:0,encircledDivisionsA:0,encircledDivisionsB:0,supplyA:70,supplyB:70};
  activeWars.push(war);updateWarDeployments();
  // Defensive allies of the attacked country join automatically; response is one level deep.
  if(!allianceResponse){alliesOf(b).forEach(ally=>{if(ally!==a&&!activeWars.some(x=>(x.a===ally&&x.b===a)||(x.a===a&&x.b===ally)))declareWar(ally,a,true,true)})}
@@ -836,24 +836,36 @@ function drawFrontline(points,now){
  pathFront(points);ctx.strokeStyle='rgba(255,224,202,.96)';ctx.lineWidth=1;ctx.setLineDash([4,5]);ctx.lineDashOffset=-(now/110)%9;ctx.stroke();ctx.setLineDash([]);
  ctx.restore();
 }
+const supplyCities=[
+ ['LONDON',[-.12,51.5]],['PARIS',[2.35,48.86]],['BERLIN',[13.4,52.52]],['WARSAW',[21.01,52.23]],['VIENNA',[16.37,48.2]],['KYIV',[30.52,50.45]],['MINSK',[27.56,53.9]],['MOSCOW',[37.62,55.75]],['BUCHAREST',[26.1,44.43]],['ROME',[12.5,41.9]],['MADRID',[-3.7,40.42]],['LISBON',[-9.14,38.72]],['BRUSSELS',[4.35,50.85]],['AMSTERDAM',[4.9,52.37]],['PRAGUE',[14.42,50.08]],['BUDAPEST',[19.04,47.5]],['BELGRADE',[20.46,44.8]],['SOFIA',[23.32,42.7]],['ATHENS',[23.73,37.98]],['COPENHAGEN',[12.57,55.68]],['OSLO',[10.75,59.91]],['STOCKHOLM',[18.07,59.33]],['HELSINKI',[24.94,60.17]],['TALLINN',[24.75,59.44]],['RIGA',[24.1,56.95]],['VILNIUS',[25.28,54.69]],['ZAGREB',[15.98,45.81]],['SARAJEVO',[18.41,43.86]],['TIRANA',[19.82,41.33]],['DUBLIN',[-6.26,53.35]],['BERN',[7.45,46.95]],['ANKARA',[32.86,39.93]],['ISTANBUL',[28.98,41.01]],['KRAKOW',[19.94,50.06]],['MUNICH',[11.58,48.14]],['HAMBURG',[9.99,53.55]],['LYON',[4.84,45.76]],['MARSEILLE',[5.37,43.3]],['MILAN',[9.19,45.46]],['NAPLES',[14.27,40.85]],['LENINGRAD',[30.31,59.93]],['KHARKIV',[36.23,49.99]],['ODESSA',[30.73,46.48]]
+];
+function nearestSupplyCity(name){
+ let best=null,bestDistance=Infinity;
+ supplyCities.forEach(([city,ll])=>{const p=project(ll);if(!countryContainsProjectedPoint(name,p[0],p[1]))return;const center=countryMapCenter(name);if(!center)return;const d=Math.hypot(p[0]-center[0],p[1]-center[1]);if(d<bestDistance){bestDistance=d;best={name:city,x:p[0],y:p[1]}}});
+ if(best)return best;
+ const center=countryMapCenter(name);return center?{name:'LOCAL DEPOT',x:center[0],y:center[1]}:null;
+}
+function supplyTargetFor(war,side,path){
+ const name=side==='A'?war.a:war.b,field=side==='A'?'troopsA':'troopsB',city=nearestSupplyCity(name);
+ if(!city||!path||path.length<2)return 65;
+ const contact=pointAlong(path,.5),distance=Math.hypot(contact.x-city.x,contact.y-city.y);
+ const deployed=Math.max(0,war[field]||0),load=Math.max(0,deployed/160000);
+ const damage=Math.max(0,war.progress||0)*(side==='A'?1:.65);
+ return Math.max(12,Math.min(96,94-distance*.055-load*8-damage*13));
+}
 function drawSupplyTrains(war,paths,now){
  if(!paths?.length)return;
- const path=paths.reduce((best,p)=>polyLength(p)>polyLength(best||[])?p:best,null);
- if(!path||path.length<2)return;
+ const path=paths.reduce((best,p)=>polyLength(p)>polyLength(best||[])?p:best,null);if(!path||path.length<2)return;
  const contact=pointAlong(path,.5);
  [[war.a,'supplyA','#a9473f',0],[war.b,'supplyB','#347bb0',.5]].forEach(([name,key,color,offset])=>{
-  const origin=countryMapCenter(name);if(!origin)return;
-  const dx=contact.x-origin[0],dy=contact.y-origin[1],length=Math.hypot(dx,dy);if(length<8)return;
-  ctx.save();ctx.globalAlpha=.48;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.setLineDash([5,5]);ctx.beginPath();ctx.moveTo(origin[0],origin[1]);ctx.lineTo(contact.x,contact.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  const city=nearestSupplyCity(name);if(!city)return;
+  const dx=contact.x-city.x,dy=contact.y-city.y;if(Math.hypot(dx,dy)<2)return;
+  ctx.save();ctx.globalAlpha=.58;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.setLineDash([5,5]);ctx.beginPath();ctx.moveTo(city.x,city.y);ctx.lineTo(contact.x,contact.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
   for(let train=0;train<2;train++){
-   const t=(now*.000012+offset+train*.5)%1,x=origin[0]+dx*t,y=origin[1]+dy*t,angle=Math.atan2(dy,dx);
-   ctx.save();ctx.translate(x,y);ctx.rotate(angle);
-   ctx.fillStyle='rgba(17,27,32,.92)';ctx.fillRect(-8,-5,16,8);ctx.fillStyle=color;ctx.fillRect(-5,-8,7,4);
-   ctx.fillStyle='#f3e7c5';ctx.fillRect(2,-4,4,3);
-   ctx.fillStyle='#172127';ctx.beginPath();ctx.arc(-4,4,2.2,0,Math.PI*2);ctx.arc(5,4,2.2,0,Math.PI*2);ctx.fill();
-   ctx.restore();
+   const phase=(now*.000018+offset+train*.5)%1,t=train===0?phase:1-phase,x=city.x+dx*t,y=city.y+dy*t;
+   ctx.save();ctx.translate(x,y);ctx.rotate(Math.atan2(dy,dx));ctx.fillStyle='rgba(17,27,32,.94)';ctx.fillRect(-9,-5,18,8);ctx.fillStyle=color;ctx.fillRect(-6,-8,7,4);ctx.fillStyle='#f3e7c5';ctx.fillRect(2,-4,5,3);ctx.fillStyle='#172127';ctx.beginPath();ctx.arc(-5,4,2.2,0,Math.PI*2);ctx.arc(6,4,2.2,0,Math.PI*2);ctx.fill();ctx.restore();
   }
-  const label='RAIL SUPPLY '+Math.round(war[key]??78)+'%';ctx.save();ctx.font='900 9px Arial';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='rgba(245,242,225,.95)';ctx.strokeText(label,origin[0]+dx*.38,origin[1]+dy*.38-10);ctx.fillStyle=color;ctx.fillText(label,origin[0]+dx*.38,origin[1]+dy*.38-10);ctx.restore();
+  const label=city.name+' → FRONT · '+Math.round(war[key]??70)+'%';ctx.save();ctx.font='900 9px Arial';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='rgba(245,242,225,.96)';ctx.strokeText(label,city.x+dx*.38,city.y+dy*.38-10);ctx.fillStyle=color;ctx.fillText(label,city.x+dx*.38,city.y+dy*.38-10);ctx.restore();
  });
 }
 function draw(now){
@@ -993,9 +1005,11 @@ function tick(dt){
  updateWarDeployments();
  const elapsedSupplyDays=simDt/2;
  activeWars.forEach(w=>{
-  const loadA=Math.max(0,(w.troopsA||0)/450000-1),loadB=Math.max(0,(w.troopsB||0)/450000-1);
-  w.supplyA=Math.max(5,Math.min(100,(w.supplyA??78)+(.012-loadA*.025)*elapsedSupplyDays));
-  w.supplyB=Math.max(5,Math.min(100,(w.supplyB??78)+(.012-loadB*.025)*elapsedSupplyDays));
+  const longest=w.front?.reduce((best,p)=>polyLength(p)>polyLength(best||[])?p:best,null);
+  const targetA=supplyTargetFor(w,'A',longest),targetB=supplyTargetFor(w,'B',longest);
+  const adjustment=Math.min(1,Math.max(.002,elapsedSupplyDays*.16));
+  w.supplyA=Math.max(5,Math.min(100,(w.supplyA??70)+(targetA-(w.supplyA??70))*adjustment));
+  w.supplyB=Math.max(5,Math.min(100,(w.supplyB??70)+(targetB-(w.supplyB??70))*adjustment));
  });
  activeWars.forEach(w=>{
   const strength=activeWarStrength(w),al=strength.attackers*lossRate*simDt,bl=strength.defenders*lossRate*simDt;
