@@ -212,10 +212,13 @@ function countryEconomicProfile(name,population){
 function fmtMoney(value){const n=Math.max(0,Number(value)||0);if(n>=1e12)return '$'+(n/1e12).toFixed(2)+'T';if(n>=1e9)return '$'+(n/1e9).toFixed(2)+'B';if(n>=1e6)return '$'+(n/1e6).toFixed(1)+'M';return '$'+Math.round(n).toLocaleString('en-US');}
 function economicCombatMultiplier(country){
  if(!country)return 1;const profile=ideologyProfile(country.ideology||'AUTHORITARIAN'),gdp=Math.max(1,country.gdp||1),share=Math.max(0,country.militarySpending||0)/gdp;
- const budgetBonus=Math.max(-.08,Math.min(.18,(share-.04)*2.2));
- return Math.max(.82,Math.min(1.35,1+profile.military+budgetBonus));
+ const budgetBonus=Math.max(-.07,Math.min(.10,(share-.04)*1.35));
+ return Math.max(.88,Math.min(1.16,1+profile.military+budgetBonus));
 }
-function techCost(l){return 100+Math.max(0,l-1)*50}function ensureTech(c){if(!Number.isFinite(c.techLevel))c.techLevel=1;if(!Number.isFinite(c.scientificPoints))c.scientificPoints=0;if(!Number.isFinite(c.researchShare))c.researchShare=.01;if(!Number.isFinite(c.scientificRate))c.scientificRate=1;if(!Number.isFinite(c.nuclearCooldown))c.nuclearCooldown=0}function updateResearchRate(c){ensureTech(c);c.scientificRate=(c.researchShare/.01)*(c.ideology==='DEMOCRACY'?1.05:1);return c.scientificRate}function researchAnnualCost(c){return Math.max(0,c.gdp||0)*c.researchShare}function techCombatMultiplier(c){return c?1+Math.pow(Math.max(0,Math.min(39,(c.techLevel||1)-1)),1.12)*.045:1}
+function nationalCombatMultiplier(country){if(!country)return 1;const raw=Math.pow(equipmentCombatMultiplier(country),.28)*Math.pow(economicCombatMultiplier(country),.28)*Math.pow(techCombatMultiplier(country),.44);const exhaustion=Math.max(0,Math.min(100,country.warExhaustion||0));return Math.max(.78,Math.min(1.48,raw*(1-exhaustion*.0018)));}
+function defensiveTerrainBonus(name){const n=String(name||'').toLowerCase();if(/soviet|ussr|russia/.test(n))return 1.24;if(/switzerland|norway|finland/.test(n))return 1.20;if(/czechoslovakia|yugoslavia|greece|albania/.test(n))return 1.16;if(/france|poland|romania|turkey/.test(n))return 1.12;if(/belgium|netherlands|denmark/.test(n))return 1.07;return 1.04;}
+function frontOverstretch(name){const fronts=Math.max(1,warsForCountry(name).length);return 1/(1+Math.max(0,fronts-1)*.16);}
+function techCost(l){return 100+Math.max(0,l-1)*50}function ensureTech(c){if(!Number.isFinite(c.techLevel))c.techLevel=1;if(!Number.isFinite(c.scientificPoints))c.scientificPoints=0;if(!Number.isFinite(c.researchShare))c.researchShare=.01;if(!Number.isFinite(c.scientificRate))c.scientificRate=1;if(!Number.isFinite(c.nuclearCooldown))c.nuclearCooldown=0;if(!Number.isFinite(c.warExhaustion))c.warExhaustion=0}function updateResearchRate(c){ensureTech(c);c.scientificRate=(c.researchShare/.01)*(c.ideology==='DEMOCRACY'?1.05:1);return c.scientificRate}function researchAnnualCost(c){return Math.max(0,c.gdp||0)*c.researchShare}function techCombatMultiplier(c){return c?1+Math.pow(Math.max(0,Math.min(39,(c.techLevel||1)-1))/39,.72)*.32:1}
 const techMilestones=[[1,'Interwar foundations','Bolt-action rifles · interwar tanks · early radios'],[5,'Infantry modernization','Improved rifles · submachine guns · field communications'],[10,'Mechanization','Modern medium tanks · motor transport · artillery coordination'],[15,'Combined arms','Semi-automatic rifles · improved armour · air defence'],[20,'Advanced engineering','Jet-age aircraft research · heavier armour · radar'],[25,'Guided systems','Advanced electronics · next-generation military systems'],[30,'STRATEGIC NUCLEAR AGE','Strategic nuclear capability unlocked · deterrence'],[35,'Advanced military systems','Next-generation aircraft · integrated command networks'],[40,'Peak doctrine','Maximum conventional military technology']];
 function currentTechMilestone(l){return techMilestones.filter(x=>x[0]<=l).slice(-1)[0]}function renderTechnology(){if(!selectedCountry)return;const c=countries.get(selectedCountry);if(!c)return;ensureTech(c);updateResearchRate(c);const l=c.techLevel,cost=l>=40?0:techCost(l),pct=l>=40?100:Math.min(100,c.scientificPoints/cost*100),m=currentTechMilestone(l),n=l>=30?Math.max(1,Math.floor((l-28)/2)):0;$('research-funding').value=String(c.researchShare);$('research-budget').innerHTML='ANNUAL RESEARCH EXPENDITURE: <strong>'+fmtMoney(researchAnnualCost(c))+'</strong><br>RESEARCH RATE: <strong>'+c.scientificRate.toFixed(2)+' points / second</strong><br>GDP remaining after this allocation: <strong>'+fmtMoney(Math.max(0,c.gdp-researchAnnualCost(c)))+'</strong>';$('tech-country').textContent=selectedCountry.toUpperCase()+' · TECHNOLOGY';$('tech-summary').innerHTML='<h3>TECH LEVEL '+l+' / 40</h3><div class="tech-copy">COMBAT EFFICIENCY: <strong>'+techCombatMultiplier(c).toFixed(2)+'×</strong><br>SCIENTIFIC EFFORTS: <strong>'+c.scientificRate.toFixed(2)+' POINTS / SECOND</strong><br>RESEARCH: <strong>'+fmt(c.scientificPoints)+' / '+(l>=40?'MAX LEVEL':fmt(cost)+' POINTS')+'</strong><br>NUCLEAR STATUS: <strong>'+(l>=30?n+' strategic warheads':'LOCKED · LEVEL 30')+'</strong></div><div class="tech-bar"><i style="width:'+pct.toFixed(1)+'%"></i></div><div class="tech-copy">'+(l>=40?'Maximum technology reached.':fmt(Math.max(0,cost-c.scientificPoints))+' points to next level.')+'<br>CURRENT DOCTRINE: <strong>'+m[1]+'</strong><br>'+m[2]+'</div>';$('tech-unlocks').innerHTML=techMilestones.map(x=>'<div class="tech-unlock"><strong>LEVEL '+x[0]+' · '+(l>=x[0]?'UNLOCKED':'LOCKED')+'</strong>'+x[1]+'<br>'+x[2]+'</div>').join('')}
 function researchTick(dt){if(dt<=0)return;countries.forEach(c=>{ensureTech(c);updateResearchRate(c);if(c.techLevel>=40||c.scientificRate<=0)return;c.scientificPoints+=c.scientificRate*dt;let g=0;while(c.techLevel<40&&c.scientificPoints>=techCost(c.techLevel)&&g++<40){c.scientificPoints-=techCost(c.techLevel);c.techLevel++;if([5,10,15,20,25,30,35,40].includes(c.techLevel)){const m=currentTechMilestone(c.techLevel);publishNews(c.name.toUpperCase()+' REACHES TECH LEVEL '+c.techLevel,c.name+' enters '+m[1]+'. '+m[2],'SCIENTIFIC BREAKTHROUGH')}}})}
@@ -273,7 +276,7 @@ function equipmentCombatMultiplier(country){
  const baseline=assetProfile(country.name,Math.max(1,country.soldiers||0));
  const ratio=(key)=>Math.max(0,eq[key]||0)/Math.max(1,baseline[key]||1);
  const armour=(ratio('MAIN BATTLE TANKS')*.55+ratio('LIGHT / RECON TANKS')*.12+ratio('ARMOURED VEHICLES')*.13+ratio('FIELD ARTILLERY')*.75+ratio('ANTI-TANK GUNS')*.12+ratio('AIRCRAFT TOTAL')*.48+ratio('FIGHTER AIRCRAFT')*.16+ratio('BOMBERS / ATTACK AIRCRAFT')*.12+ratio('TRUCKS & LOGISTICS VEHICLES')*.25)/2.48;
- return Math.max(.65,Math.min(1.45,.72+armour*.48));
+ return Math.max(.78,Math.min(1.22,.84+armour*.30));
 }
 function isSeaPoint(x,y){
  for(const feature of worldFeatures){for(const polygon of geometryPolygons(feature.geometry)){if(polygon[0]&&pointInRing(x,y,polygon[0].map(project))){let hole=false;for(let h=1;h<polygon.length;h++)if(pointInRing(x,y,polygon[h].map(project)))hole=!hole;if(!hole)return false;}}}
@@ -826,9 +829,9 @@ function activeWarStrength(w){
  const puppetSupport=overlord=>Array.from(countries.values()).filter(c=>c.puppetOf===overlord).reduce((sum,c)=>sum+Math.max(0,(c.soldiers||0)-(c.reserve||0))*.3,0);
  const alliesA=(w.supportA||[]).reduce((n,x)=>n+(x.troops||0),0),alliesB=(w.supportB||[]).reduce((n,x)=>n+(x.troops||0),0);
  const supplyA=Math.max(0,Math.min(100,w.supplyA??70)),supplyB=Math.max(0,Math.min(100,w.supplyB??70));
- const equipmentA=equipmentCombatMultiplier(countries.get(w.a))*economicCombatMultiplier(countries.get(w.a))*techCombatMultiplier(countries.get(w.a)),equipmentB=equipmentCombatMultiplier(countries.get(w.b))*economicCombatMultiplier(countries.get(w.b))*techCombatMultiplier(countries.get(w.b));
- const alliedEquipmentA=(w.supportA||[]).length?(w.supportA.reduce((n,x)=>n+equipmentCombatMultiplier(countries.get(x.name))*economicCombatMultiplier(countries.get(x.name))*techCombatMultiplier(countries.get(x.name))*Math.max(0,x.troops||0),0)/Math.max(1,alliesA)):equipmentA;
- const alliedEquipmentB=(w.supportB||[]).length?(w.supportB.reduce((n,x)=>n+equipmentCombatMultiplier(countries.get(x.name))*techCombatMultiplier(countries.get(x.name))*Math.max(0,x.troops||0),0)/Math.max(1,alliesB)):equipmentB;
+ const countryA=countries.get(w.a),countryB=countries.get(w.b),equipmentA=nationalCombatMultiplier(countryA)*frontOverstretch(w.a),equipmentB=nationalCombatMultiplier(countryB)*frontOverstretch(w.b)*defensiveTerrainBonus(w.b);
+ const alliedEquipmentA=(w.supportA||[]).length?(w.supportA.reduce((n,x)=>n+nationalCombatMultiplier(countries.get(x.name))*Math.max(0,x.troops||0),0)/Math.max(1,alliesA)):equipmentA;
+ const alliedEquipmentB=(w.supportB||[]).length?(w.supportB.reduce((n,x)=>n+nationalCombatMultiplier(countries.get(x.name))*Math.max(0,x.troops||0),0)/Math.max(1,alliesB)):equipmentB;
  ensureNavalWar(w);
  const hasLandFront=!!(w.front&&w.front.length);
  const transportA=w.naval.unitsA.filter(x=>x.type==='TRANSPORT').length,transportB=w.naval.unitsB.filter(x=>x.type==='TRANSPORT').length;
@@ -836,7 +839,7 @@ function activeWarStrength(w){
  const landB=hasLandFront?Math.max(0,w.troopsB||0):Math.min(Math.max(0,w.troopsB||0),transportB*10000);
  const powerA=(landA*equipmentA+alliesA*alliedEquipmentA+puppetSupport(w.a)*equipmentA);
  const powerB=(landB*equipmentB+alliesB*alliedEquipmentB+puppetSupport(w.b)*equipmentB);
- return {attackers:Math.max(0,Math.round(powerA*(.55+supplyA*.0045))),defenders:Math.max(0,Math.round(powerB*(.55+supplyB*.0045))),supplyA,supplyB,alliesA,alliesB,equipmentA,equipmentB,transportCapacityA:transportA*10000,transportCapacityB:transportB*10000};
+ return {attackers:Math.max(0,Math.round(powerA*(.48+supplyA*.0052))),defenders:Math.max(0,Math.round(powerB*(.48+supplyB*.0052))),supplyA,supplyB,alliesA,alliesB,equipmentA,equipmentB,transportCapacityA:transportA*10000,transportCapacityB:transportB*10000};
 }
 function recordEncirclement(war,side,available){
  if(!war.encirclements)war.encirclements=[];
@@ -931,11 +934,11 @@ function countryMapCenter(name){
  const center=[pts.reduce((v,p)=>v+p[0],0)/pts.length,pts.reduce((v,p)=>v+p[1],0)/pts.length];countryCenterCache.set(name,center);return center;
 }
 function advancedFrontPath(war,points){
- const mid=pointAlong(points,.5),target=countryMapCenter(war.b),source=countryMapCenter(war.a);
+ const mid=pointAlong(points,.5),forward=(war.progress||0)>=0,target=countryMapCenter(forward?war.b:war.a),source=countryMapCenter(forward?war.a:war.b);
  if(!target||!source||!war.progress)return points;
  const vx=target[0]-source[0],vy=target[1]-source[1],vd=Math.hypot(vx,vy)||1;
  const fx=vx/vd,fy=vy/vd,maxPush=Math.min(Math.hypot(target[0]-mid.x,target[1]-mid.y)*.78,190);
- const progress=Math.max(0,Math.min(1,war.progress));
+ const progress=Math.max(0,Math.min(1,Math.abs(war.progress)));
  // Localized pressure bends the front into salients rather than translating
  // the original border as one rigid, unchanged shape.
  const visualProgress=Math.pow(progress,.62);
@@ -952,15 +955,15 @@ function advancedFrontPath(war,points){
  });
 }
 function drawCapturedStrip(war,points){
- if(!war.progress||war.progress<=0)return;
- const shifted=advancedFrontPath(war,points);
- const features=worldFeatures.filter(f=>countryName(f)===war.b);
+ if(!war.progress)return;
+ const shifted=advancedFrontPath(war,points),capturedName=war.progress>0?war.b:war.a;
+ const features=worldFeatures.filter(f=>countryName(f)===capturedName);
  if(!features.length)return;
  features.forEach(f=>{
   ctx.save();ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.clip();
   ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
   for(let i=shifted.length-1;i>=0;i--)ctx.lineTo(shifted[i][0],shifted[i][1]);
-  ctx.closePath();ctx.fillStyle='rgba(190,71,67,'+Math.min(.62,.18+war.progress*.48)+')';ctx.fill();
+  ctx.closePath();ctx.fillStyle=(war.progress>0?'rgba(190,71,67,':'rgba(55,139,202,')+Math.min(.62,.18+Math.abs(war.progress)*.48)+')';ctx.fill();
   ctx.restore();
  });
 }
@@ -1107,7 +1110,7 @@ function supplyTargetFor(war,side,path){
  if(!city||!path||path.length<2)return 65;
  const contact=pointAlong(path,.5),distance=Math.hypot(contact.x-city.x,contact.y-city.y);
  const deployed=Math.max(0,war[field]||0),load=Math.max(0,deployed/160000);
- const damage=Math.max(0,war.progress||0)*(side==='A'?1:.65);
+ const damage=Math.max(0,side==='A'?(war.progress||0):-(war.progress||0))*(side==='A'?1:.65);
  return Math.max(12,Math.min(96,94-distance*.055-load*8-damage*13));
 }
 function drawSupplyTrains(war,paths,now){
@@ -1217,57 +1220,42 @@ function renderHud(){
  $('red-territory-label').textContent='AXIS '+Math.round(redPct)+'%';
 }
 let pendingSettlement=null;
-function offerSettlement(war){
+function offerSettlement(war,winnerSide='A'){
  if(war.settlementPending||!activeWars.includes(war))return;
- war.settlementPending=true;pendingSettlement=war;
- $('settlement-title').textContent=war.b.toUpperCase()+' DEFEATED';
- $('settlement-copy').textContent=war.a+' has captured the capital and at least 75% of '+war.b+' territory. Choose whether to annex the country or install a puppet government.';
+ war.winnerSide=winnerSide;war.settlementPending=true;pendingSettlement=war;
+ const winnerName=winnerSide==='A'?war.a:war.b,loserName=winnerSide==='A'?war.b:war.a;
+ $('settlement-title').textContent=loserName.toUpperCase()+' DEFEATED';
+ $('settlement-copy').textContent=winnerName+' has broken the opposing war effort and forced '+loserName+' to surrender. Choose whether to annex the country or install a puppet government.';
  $('peace-settlement').style.display='flex';setPause(true);
 }
 function resolveSettlement(choice){
  const war=pendingSettlement;if(!war)return;
- const winner=countries.get(war.a),loser=countries.get(war.b);if(!winner||!loser)return;
+ const winnerName=war.winnerSide==='B'?war.b:war.a,loserName=war.winnerSide==='B'?war.a:war.b;
+ const winner=countries.get(winnerName),loser=countries.get(loserName);if(!winner||!loser)return;
  if(choice==='annex'){
-  // Snapshot the defeated country's entire remaining manpower before changing
-  // either record. If the population reference is still loading, queue the
-  // transfer so its later baseline-army initialization cannot overwrite it.
-  const absorbedPopulation=Math.max(0,loser.population||0);
-  const absorbedCitizens=Math.max(0,loser.citizens||0);
-  const absorbedSoldiers=Math.max(0,loser.soldiers||0);
-  const absorbedReserve=Math.max(0,loser.reserve||0);
-  winner.population+=absorbedPopulation;
-  winner.citizens+=absorbedCitizens;
-  if(populationLoaded){
-   winner.soldiers+=absorbedSoldiers;
-   winner.reserve+=absorbedReserve;
-   winner.armyReferenceLoaded=true;
-  }else{
-   // Keep the visible values updated immediately, and retain separate
-   // transfer bonuses for the still-loading 1936 baseline data.
-   winner.pendingAnnexPopulation=(winner.pendingAnnexPopulation||0)+absorbedPopulation;
-   winner.pendingAnnexSoldiers=(winner.pendingAnnexSoldiers||0)+absorbedSoldiers;
-   winner.pendingAnnexReserve=(winner.pendingAnnexReserve||0)+absorbedReserve;
-   winner.soldiers+=absorbedSoldiers;
-   winner.reserve+=absorbedReserve;
-  }
-  winner.stability=Math.max(0,Math.min(100,(winner.stability??75)-8));
-  loser.population=0;loser.citizens=0;loser.soldiers=0;loser.reserve=0;loser.pendingAnnexSoldiers=0;loser.pendingAnnexReserve=0;loser.annexedTo=war.a;loser.puppetOf=null;if(loser.civilWar){loser.civilWar.progress=0;loser.civilWar.troops=Math.max(500,loser.civilWar.troops);}
+  // Annexed land adds civilians, but its defeated armed forces are disbanded.
+  // The conqueror receives no soldiers or reserves from the annexed country.
+  const absorbedPopulation=Math.max(0,loser.population||0),absorbedCitizens=Math.max(0,loser.citizens||0);
+  winner.population+=absorbedPopulation;winner.citizens+=absorbedCitizens;
+  if(!populationLoaded)winner.pendingAnnexPopulation=(winner.pendingAnnexPopulation||0)+absorbedPopulation;
+  winner.stability=Math.max(0,Math.min(100,(winner.stability??75)-12));
+  loser.population=0;loser.citizens=0;loser.soldiers=0;loser.reserve=0;loser.pendingAnnexSoldiers=0;loser.pendingAnnexReserve=0;loser.annexedTo=winnerName;loser.puppetOf=null;if(loser.civilWar){loser.civilWar.progress=0;loser.civilWar.troops=Math.max(500,loser.civilWar.troops);}
   // Remove the defeated state as a selectable sovereign and redraw its
   // former territory as part of the annexing country's map color.
-  if(selectedCountry===war.b)selectedCountry=war.a;
+  if(selectedCountry===loserName)selectedCountry=winnerName;
   buildBase();
- }else{loser.puppetOf=war.a;loser.annexedTo=null;}
- activeWars=activeWars.filter(w=>w!==war&&w.a!==war.b&&w.b!==war.b);
+ }else{loser.puppetOf=winnerName;loser.annexedTo=null;}
+ activeWars=activeWars.filter(w=>w!==war&&w.a!==loserName&&w.b!==loserName);
  pendingSettlement=null;$('peace-settlement').style.display='none';
  updateWarDeployments();renderWars();if(selectedCountry)showCountry(selectedCountry);
- $('war-status').textContent=choice==='annex'?war.a+' annexed '+war.b+'. Its population and manpower were absorbed.':war.b+' became a puppet of '+war.a+'. It will contribute troops to its overlord\'s wars.';
- publishNews(choice==='annex'?war.a.toUpperCase()+' ANNEXES '+war.b.toUpperCase():war.b.toUpperCase()+' FALLS UNDER '+war.a.toUpperCase(),choice==='annex'?war.a+' has absorbed '+war.b+' and its remaining population and manpower.':'A new puppet government has been installed in '+war.b+'.','MAJOR DEVELOPMENT');
+ $('war-status').textContent=choice==='annex'?winnerName+' annexed '+loserName+'. Civilian population absorbed; the defeated army was disbanded.':loserName+' became a puppet of '+winnerName+'. It will contribute troops to its overlord\'s wars.';
+ publishNews(choice==='annex'?winnerName.toUpperCase()+' ANNEXES '+loserName.toUpperCase():loserName.toUpperCase()+' FALLS UNDER '+winnerName.toUpperCase(),choice==='annex'?winnerName+' has absorbed '+loserName+' territory and civilian population. Its remaining military manpower was disbanded.':'A new puppet government has been installed in '+loserName+'.','MAJOR DEVELOPMENT');
  if(!$('military-details').hidden)renderMilitaryDetails();if(!$('tech-details').hidden)renderTechnology();
 }
 $('annex-country').addEventListener('click',()=>resolveSettlement('annex'));
 $('puppet-country').addEventListener('click',()=>resolveSettlement('puppet'));
 function tick(dt){
- const intensity=Number($('intensity').value),simDt=dt*speed,lossRate=.00012*intensity,lossesByCountry=new Map();
+ const intensity=Number($('intensity').value),simDt=dt*speed,lossRate=.00022*intensity,lossesByCountry=new Map();
  updateWarDeployments();
  researchTick(simDt);countries.forEach(c=>{ensureTech(c);c.nuclearCooldown=Math.max(0,c.nuclearCooldown-simDt/2)});
   const transferDays=simDt/2;
@@ -1285,7 +1273,7 @@ function tick(dt){
  activeWars.forEach(w=>{
   attemptNuclearStrike(w,simDt);
   tickNavalBattle(w,simDt,intensity);
-  const strength=activeWarStrength(w),al=strength.attackers*lossRate*simDt,bl=strength.defenders*lossRate*simDt;
+  const strength=activeWarStrength(w),al=strength.attackers*lossRate*simDt*(.78+.42*strength.defenders/Math.max(1,strength.attackers)),bl=strength.defenders*lossRate*simDt*(.78+.42*strength.attackers/Math.max(1,strength.defenders));
   const totalA=Math.max(1,(w.troopsA||0)+(strength.alliesA||0)),totalB=Math.max(1,(w.troopsB||0)+(strength.alliesB||0));
   lossesByCountry.set(w.a,(lossesByCountry.get(w.a)||0)+al*(w.troopsA||0)/totalA);
   (w.supportA||[]).forEach(x=>lossesByCountry.set(x.name,(lossesByCountry.get(x.name)||0)+al*(x.troops||0)/totalA));
@@ -1293,7 +1281,7 @@ function tick(dt){
   (w.supportB||[]).forEach(x=>lossesByCountry.set(x.name,(lossesByCountry.get(x.name)||0)+bl*(x.troops||0)/totalB));
  });
  let losses=0;
- lossesByCountry.forEach((amount,name)=>{const c=countries.get(name);if(c){const before=Math.max(1,c.soldiers||0),actual=Math.min(c.soldiers,amount);c.soldiers=Math.max(0,c.soldiers-actual);losses+=actual;
+ lossesByCountry.forEach((amount,name)=>{const c=countries.get(name);if(c){const before=Math.max(1,c.soldiers||0),actual=Math.min(c.soldiers,amount);c.soldiers=Math.max(0,c.soldiers-actual);c.reserve=Math.min(Math.max(0,c.reserve||0),c.soldiers);losses+=actual;
   // Equipment is a real, finite stockpile: combat destroys or abandons a
   // modest share of heavy kit as well as personnel. Logistics vehicles and
   // aircraft are somewhat more vulnerable; naval assets decline more slowly.
@@ -1323,10 +1311,11 @@ function tick(dt){
   countries.forEach((country,name)=>{
    if(country.annexedTo)return;
    const atWarNow=atWar(name);
-   const warWear=atWarNow?.035:0;
-   const recovery=atWarNow?0:.012;
-   const casualtyPressure=Math.min(.025,(lossesByCountry.get(name)||0)/Math.max(1,country.population)*180);
+   const warWear=atWarNow?.055:0;
+   const recovery=atWarNow?0:.018;
+   const casualtyPressure=Math.min(.04,(lossesByCountry.get(name)||0)/Math.max(1,country.population)*260);
    country.stability=Math.max(0,Math.min(100,(country.stability??70)+(recovery-warWear-casualtyPressure)*elapsedDays));
+   country.warExhaustion=Math.max(0,Math.min(100,(country.warExhaustion||0)+(atWarNow?.025:-.06)*elapsedDays+casualtyPressure*.35*elapsedDays));
    if(country.stability<20&&!country.civilWar){
     const rebelTroops=Math.min(Math.max(0,country.soldiers-1000),Math.round(country.soldiers*.24));
     const rebelReserve=Math.min(country.reserve||0,Math.round((country.reserve||0)*.2));
@@ -1435,16 +1424,17 @@ function tick(dt){
     // numerical advantage. They are not automatic: probability is checked per
     // simulated day, with a strict cap on pockets and trapped manpower.
     const encirclementChance=1-Math.exp(-.0018*(simDt/2));
-    if(Math.abs(advantage)>.22&&Math.max(strength.attackers,strength.defenders)>45000&&w.progress>.035&&Math.random()<encirclementChance){
+    if(Math.abs(advantage)>.28&&Math.max(strength.attackers,strength.defenders)>60000&&Math.abs(w.progress)>.035&&Math.random()<encirclementChance){
      const side=advantage>0?'B':'A';
      const available=side==='A'?strength.attackers:strength.defenders;
      if(recordEncirclement(w,side,available))updateWarDeployments();
     }
     // A sustained numerical advantage advances the front into the defender.
     // The rate is deliberately gradual so a large country is not overrun in days.
-    w.progress=Math.max(0,Math.min(1,(w.progress||0)+advantage*.012*simDt));
+    w.progress=Math.max(-.75,Math.min(.75,(w.progress||0)+advantage*.0032*simDt));
     // Occupation progress reaches the surrender threshold at 75%.
-    if(w.progress>=.75&&!w.settlementPending)offerSettlement(w);
+    if(w.progress>=.75&&!w.settlementPending)offerSettlement(w,'A');
+     else if(w.progress<=-.75&&!w.settlementPending)offerSettlement(w,'B');
    }
   });
   const pressure=pressureSum/activeWars.length;
