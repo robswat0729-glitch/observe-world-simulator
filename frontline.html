@@ -267,6 +267,14 @@ function setSoundEnabled(on){
  if(audioEnabled){ensureAudio();startMusic();startBattleAmbience()}else{[musicTimer,battleTimer,alarmTimer].forEach(t=>{if(t)clearInterval(t)});musicTimer=battleTimer=alarmTimer=null}
 }
 $('sound-toggle').addEventListener('click',()=>setSoundEnabled(!audioEnabled));
+const LANDLOCKED_EUROPEAN_COUNTRIES=new Set(['Andorra','Austria','Belarus','Czechoslovakia','Hungary','Kosovo','Liechtenstein','Luxembourg','Moldova','North Macedonia','San Marino','Serbia','Slovakia','Switzerland','Vatican City']);
+function canAllyReachHost(ally,host){
+ // A landlocked country cannot receive an expeditionary force from a distant
+ // ally unless the two countries share a land border. Coastal hosts can still
+ // receive naval support through the sea-lift system.
+ if(LANDLOCKED_EUROPEAN_COUNTRIES.has(host)&&!buildWarFront(ally,host))return false;
+ return true;
+}
 function declareWar(a,b,natural,allianceResponse=false){
  a=sovereignOwner(a);b=sovereignOwner(b);
  if(!a||!b||a===b||countries.get(a)?.annexedTo||countries.get(b)?.annexedTo){$('war-status').textContent='Choose two different countries.';return false}
@@ -279,7 +287,7 @@ function declareWar(a,b,natural,allianceResponse=false){
  [...new Set([...alliesOf(a),...alliesOf(b)])].forEach(ally=>{
   const side=alliesOf(a).includes(ally)?'A':'B';
   const allyCountry=countries.get(ally),enemyCountry=countries.get(side==='A'?b:a);
-  if(!allyCountry||!enemyCountry||atWar(ally)||allyCountry.stability<25)return;
+  if(!allyCountry||!enemyCountry||atWar(ally)||allyCountry.stability<25)return;const host=side==='A'?a:b;if(!canAllyReachHost(ally,host))return;
   const relativePower=allyCountry.soldiers/Math.max(1,enemyCountry.soldiers);
   const chance=Math.max(.08,Math.min(.68,.22+relativePower*.22+(allyCountry.stability-50)*.002));
   if(Math.random()<chance)(side==='A'?war.supportA:war.supportB).push(createSupportTransfer(ally,side==='A'?a:b,war));
