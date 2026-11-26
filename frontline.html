@@ -189,7 +189,7 @@ function declareWar(a,b,natural){
  if(!a||!b||a===b){$('war-status').textContent='Choose two different countries.';return false}
  if(!countries.has(a)||!countries.has(b)){ $('war-status').textContent='Choose countries shown on the map.';return false}
  if(activeWars.some(w=>(w.a===a&&w.b===b)||(w.a===b&&w.b===a))){$('war-status').textContent='Those countries are already at war.';return false}
- const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0};
+ const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0,progress:0};
  activeWars.push(war);updateWarDeployments();
  $('war-status').textContent=(natural?'A diplomatic crisis escalated: ':'War declared: ')+a+' vs '+b+'.'+(war.front?'':' No shared land border, so no land frontline is shown.');
  renderWars();return true;
@@ -374,10 +374,10 @@ function countryBorderEdges(name){
 // Match overlapping border portions, even when one country's GeoJSON edge is
 // split into several points and the neighbouring country's edge is not.
 function sharedBorderPieces(edgesA,edgesB){
- // Historical GeoJSON often simplifies the two sides of a political border
- // independently. Exact coordinate matching therefore misses real borders.
- // Match collinear overlapping segments with a small geographic tolerance.
- const pieces=[],seen=new Set(),tol=.035,parallel=.035,minLength=.002;
+ // Match border segments even when the two polygons have independently
+ // simplified vertices. Compare line direction, perpendicular offset and
+ // the overlapping interval rather than requiring identical endpoints.
+ const pieces=[],seen=new Set(),tol=.14,parallel=.075,minLength=.0015;
  for(const a of edgesA){
   const ux=a.b[0]-a.a[0],uy=a.b[1]-a.a[1],len2=ux*ux+uy*uy,len=Math.sqrt(len2);
   if(len<minLength)continue;
@@ -397,7 +397,6 @@ function sharedBorderPieces(edgesA,edgesB){
    if(!seen.has(key)){seen.add(key);pieces.push({a:p,b:q})}
   }
  }
- // Merge near-identical overlaps produced by different vertex subdivisions.
  return pieces;
 }
 function closestSegmentPoints(p1,p2,q1,q2){
@@ -413,10 +412,10 @@ function closestSegmentPoints(p1,p2,q1,q2){
  return {p:[p1[0]+sc*ux,p1[1]+sc*uy],q:[q1[0]+tc*vx,q1[1]+tc*vy],u:[ux,uy],v:[vx,vy],gap:Math.hypot((p1[0]+sc*ux)-(q1[0]+tc*vx),(p1[1]+sc*uy)-(q1[1]+tc*vy))};
 }
 function fallbackAdjacentFront(a,b){
+ // Only use a short, local segment when two actual boundary segments are
+ // genuinely close. Never invent a diagonal through the middle of Europe.
  const ea=countryBorderEdges(a),eb=countryBorderEdges(b);
  let best=null,bestScore=Infinity;
- // Compare whole segments, not just their vertices. Shared borders often have
- // different vertex subdivisions on each country's GeoJSON polygon.
  for(const x of ea){
   const p1=project(x.a),p2=project(x.b),lx=Math.hypot(p2[0]-p1[0],p2[1]-p1[1]);
   if(lx<2)continue;
@@ -425,35 +424,19 @@ function fallbackAdjacentFront(a,b){
    if(ly<2)continue;
    const hit=closestSegmentPoints(p1,p2,q1,q2);
    const parallel=Math.abs(hit.u[0]*hit.v[1]-hit.u[1]*hit.v[0])/(lx*ly);
-   // Prefer close, parallel boundary segments; penalize crossings and tiny fragments.
-   const score=hit.gap+parallel*18+30/Math.min(lx,ly);
+   const score=hit.gap+parallel*22+20/Math.min(lx,ly);
    if(score<bestScore){bestScore=score;best={...hit,lx,ly,parallel}}
   }
  }
- if(!best){
-  // Even when a dataset omits a usable shared boundary, never leave an active
-  // war without a visible engagement line and its two front-strength labels.
-  const center=name=>{
-   const features=worldFeatures.filter(f=>countryName(f)===name),pts=[];
-   features.forEach(f=>geometryRings(f.geometry).forEach(ring=>ring.forEach(ll=>{const p=project(ll);if(Number.isFinite(p[0])&&Number.isFinite(p[1]))pts.push(p)})));
-   if(!pts.length)return null;
-   return [pts.reduce((v,p)=>v+p[0],0)/pts.length,pts.reduce((v,p)=>v+p[1],0)/pts.length];
-  };
-  const ca=center(a),cb=center(b);if(!ca||!cb)return null;
-  const dx=cb[0]-ca[0],dy=cb[1]-ca[1],d=Math.hypot(dx,dy)||1;
-  const tx=-dy/d,ty=dx/d,cx=(ca[0]+cb[0])/2,cy=(ca[1]+cb[1])/2;
-  const half=Math.max(42,Math.min(125,Math.max(W,H)*.075));
-  return [[cx-tx*half,cy-ty*half],[cx+tx*half,cy+ty*half]];
- }
- // Keep the engagement line anchored to the closest actual border segments.
- // Do not reject it just because the map's two country outlines are simplified
- // differently or the countries are separated by water.
+ // A real shared land border should be within a few pixels after projection.
+ if(!best||best.gap>9||best.parallel>.22)return null;
  let tx=best.u[0]/best.lx+best.v[0]/best.ly,ty=best.u[1]/best.lx+best.v[1]/best.ly;
  let len=Math.hypot(tx,ty);
  if(len<.05){tx=best.u[0]/best.lx;ty=best.u[1]/best.ly;len=1}
  tx/=len;ty/=len;
  const cx=(best.p[0]+best.q[0])/2,cy=(best.p[1]+best.q[1])/2;
- const half=Math.max(42,Math.min(125,Math.max(W,H)*.075));
+ // Use the overlap of the nearest boundary segments, not a long arbitrary chord.
+ const half=Math.max(12,Math.min(75,Math.min(best.lx,best.ly)*.42));
  return [[cx-tx*half,cy-ty*half],[cx+tx*half,cy+ty*half]];
 }
 function buildWarFront(a,b){
@@ -491,7 +474,7 @@ function buildWarFront(a,b){
   return true;
  });
  projected.sort((x,y)=>polyLength(y)-polyLength(x));
- return projected.length?projected:(fallbackAdjacentFront(a,b)?[fallbackAdjacentFront(a,b)]:null);
+ if(projected.length)return projected;const fallback=fallbackAdjacentFront(a,b);return fallback?[fallback]:null;
 }
 
 function updateWarDeployments(){
@@ -528,8 +511,39 @@ function pointAlong(points,fraction){
  }
  return pointAtHalf(points);
 }
+function countryMapCenter(name){
+ const pts=[];
+ worldFeatures.filter(f=>countryName(f)===name).forEach(f=>geometryRings(f.geometry).forEach((ring,index)=>{
+  if(index===0)ring.forEach(ll=>{const p=project(ll);if(Number.isFinite(p[0])&&Number.isFinite(p[1]))pts.push(p)});
+ }));
+ if(!pts.length)return null;
+ return [pts.reduce((v,p)=>v+p[0],0)/pts.length,pts.reduce((v,p)=>v+p[1],0)/pts.length];
+}
+function advancedFrontPath(war,points){
+ const mid=pointAlong(points,.5),target=countryMapCenter(war.b),source=countryMapCenter(war.a);
+ if(!target||!source||!war.progress)return points;
+ let dx=target[0]-mid.x,dy=target[1]-mid.y,d=Math.hypot(dx,dy)||1;
+ // Bias the push toward the defending country's interior.
+ const towardX=target[0]-source[0],towardY=target[1]-source[1],td=Math.hypot(towardX,towardY)||1;
+ dx=dx/d*.72+towardX/td*.28;dy=dy/d*.72+towardY/td*.28;d=Math.hypot(dx,dy)||1;
+ const maxPush=Math.min(Math.hypot(target[0]-mid.x,target[1]-mid.y)*.72,150);
+ const push=Math.max(0,Math.min(1,war.progress))*maxPush;
+ return points.map(p=>[p[0]+dx/d*push,p[1]+dy/d*push]);
+}
+function drawCapturedStrip(war,points){
+ if(!war.progress||war.progress<=0)return;
+ const shifted=advancedFrontPath(war,points);
+ const features=worldFeatures.filter(f=>countryName(f)===war.b);
+ if(!features.length)return;
+ features.forEach(f=>{
+  ctx.save();ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.clip();
+  ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
+  for(let i=shifted.length-1;i>=0;i--)ctx.lineTo(shifted[i][0],shifted[i][1]);
+  ctx.closePath();ctx.fillStyle='rgba(190,71,67,'+Math.min(.62,.18+war.progress*.48)+')';ctx.fill();
+  ctx.restore();
+ });
+}
 function drawFrontCounts(war,points,strength){
- // One paired set of figures at the midpoint of each actual connected front.
  const mid=pointAlong(points,.5);
  if(!Number.isFinite(mid.x)||!Number.isFinite(mid.y))return;
  let angle=Math.atan2(mid.ty,mid.tx);
@@ -540,16 +554,10 @@ function drawFrontCounts(war,points,strength){
  const fontSize=Math.max(16,Math.min(40,20/displayScale));
  const gap=Math.max(11,Math.min(19,13/displayScale));
  [{value:fmt(strength.attackers),side:-1,color:'#a52f2a'},{value:fmt(strength.defenders),side:1,color:'#245d91'}].forEach(entry=>{
-  ctx.save();
-  ctx.translate(mid.x+nx*gap*entry.side,mid.y+ny*gap*entry.side);
-  ctx.rotate(angle);
-  ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
-  ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
-  ctx.lineWidth=Math.max(3.5,4/displayScale);
-  ctx.strokeStyle='rgba(250,248,235,.98)';
-  ctx.strokeText(entry.value,0,0);
-  ctx.fillStyle=entry.color;ctx.fillText(entry.value,0,0);
-  ctx.restore();
+  ctx.save();ctx.translate(mid.x+nx*gap*entry.side,mid.y+ny*gap*entry.side);ctx.rotate(angle);
+  ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
+  ctx.lineWidth=Math.max(3.5,4/displayScale);ctx.strokeStyle='rgba(250,248,235,.98)';ctx.strokeText(entry.value,0,0);
+  ctx.fillStyle=entry.color;ctx.fillText(entry.value,0,0);ctx.restore();
  });
 }
 function drawFrontline(points,now){
@@ -579,9 +587,11 @@ function draw(now){
     const totalFrontLength=drawable.reduce((sum,path)=>sum+polyLength(path),0)||1;
     const strength=activeWarStrength(war);
     drawable.forEach((path,pathIndex)=>{
-     drawFrontline(path,now+index*173+pathIndex*61);
+     drawCapturedStrip(war,path);
+     const movingPath=advancedFrontPath(war,path);
+     drawFrontline(movingPath,now+index*173+pathIndex*61);
      const share=polyLength(path)/totalFrontLength;
-     drawFrontCounts(war,path,{attackers:Math.round(strength.attackers*share),defenders:Math.round(strength.defenders*share)});
+     drawFrontCounts(war,movingPath,{attackers:Math.round(strength.attackers*share),defenders:Math.round(strength.defenders*share)});
     });
    });
  }else{
@@ -609,7 +619,21 @@ function tick(dt){
  let losses=0;
  lossesByCountry.forEach((amount,name)=>{const c=countries.get(name);if(c){const actual=Math.min(c.soldiers,amount);c.soldiers=Math.max(0,c.soldiers-actual);losses+=actual}});
  casualties+=losses;updateWarDeployments();
- if(activeWars.length){let pressureSum=0;activeWars.forEach(w=>{const strength=activeWarStrength(w),total=strength.attackers+strength.defenders;if(total>0)pressureSum+=(strength.attackers-strength.defenders)/total});const pressure=pressureSum/activeWars.length;territory=Math.max(5,Math.min(95,territory+pressure*.12*simDt))}
+ if(activeWars.length){
+  let pressureSum=0;
+  activeWars.forEach(w=>{
+   const strength=activeWarStrength(w),total=strength.attackers+strength.defenders;
+   if(total>0){
+    const advantage=(strength.attackers-strength.defenders)/total;
+    pressureSum+=advantage;
+    // A sustained numerical advantage advances the front into the defender.
+    // The rate is deliberately gradual so a large country is not overrun in days.
+    w.progress=Math.max(0,Math.min(1,(w.progress||0)+advantage*.012*simDt));
+   }
+  });
+  const pressure=pressureSum/activeWars.length;
+  territory=Math.max(5,Math.min(95,territory+pressure*.12*simDt));
+ }
  if(selectedCountry&&countries.has(selectedCountry))$('country-army').textContent=fmt(countries.get(selectedCountry).soldiers);
 }
 function nextDay(){
