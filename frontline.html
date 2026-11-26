@@ -16,7 +16,7 @@ header{position:fixed;z-index:5;top:8px;left:10px;right:10px;height:34px;padding
 .header-right{display:flex;align-items:center;gap:14px;font-size:11px;font-weight:800;letter-spacing:1px;color:#e2e8e5}
 main{position:fixed;inset:0;max-width:none;margin:0;padding:0}
 .mapframe{position:fixed;inset:0;width:100vw;height:100dvh;margin:0;background:#c5ceca;border:0;box-shadow:none;overflow:hidden}
-canvas{display:block;width:100%;height:100%;aspect-ratio:auto;touch-action:none}
+canvas{display:block;width:100%;height:100%;object-fit:contain;aspect-ratio:11/10;background:#b9c5c4;touch-action:none}
 .hud{position:absolute;z-index:2;pointer-events:none;text-shadow:0 2px 4px #000}
 .hud-top{top:50px;left:14px;display:flex;align-items:flex-start;gap:16px}
 .datebox{background:rgba(12,20,25,.84);padding:9px 12px;border-left:3px solid #e7e1c8;min-width:135px}
@@ -53,7 +53,7 @@ button:active{transform:translateY(1px)}
 </header>
 <main>
  <div class="mapframe">
-  <canvas id="map" width="1600" height="900" aria-label="Animated war map showing one continuous frontline"></canvas>
+  <canvas id="map" width="1100" height="1000" aria-label="Animated war map showing one continuous frontline"></canvas>
   <div class="hud hud-top"><div class="datebox"><strong id="date">DAY 001</strong><span id="clock">06:00 · SIMULATION</span></div><div class="front-tag">ONE CONTINUOUS FRONTLINE</div></div>
   <div class="legend"><i style="background:#5a9ed4"></i>BLUE CONTROL <i style="background:#c65e59;margin-left:10px"></i>RED CONTROL <span style="color:#f1dda0;margin-left:10px">━━</span> FRONTLINE</div>
   <div class="hud hud-bottom"><span>TOTAL CASUALTIES</span><strong id="casualties">0</strong></div>
@@ -67,7 +67,7 @@ button:active{transform:translateY(1px)}
 <script>
 (function(){
 'use strict';
-const W=1600,H=900;
+const W=1100,H=1000;
 const canvas=document.getElementById('map'),ctx=canvas.getContext('2d');
 const $=id=>document.getElementById(id);
 const fmt=n=>Math.max(0,Math.round(n)).toLocaleString('en-US');
@@ -76,7 +76,7 @@ let blueTroops=1250000,redTroops=1310000,worldFeatures=[],baseCanvas=null,mapRea
 // Offline built-in geographic shapes: no remote map downloads are required.
 const GEO_SOURCES=[];
 const LON_MIN=-14,LON_MAX=53,LAT_MIN=36,LAT_MAX=72;
-function project(ll){const lon=ll[0],lat=Math.max(-85,Math.min(85,ll[1]));const merc=y=>Math.log(Math.tan(Math.PI/4+y*Math.PI/360));const top=merc(LAT_MAX),bottom=merc(LAT_MIN);return [(lon-LON_MIN)/(LON_MAX-LON_MIN)*W,(top-merc(lat))/(top-bottom)*H]}
+function project(ll){const lon=ll[0],lat=Math.max(-85,Math.min(85,ll[1]));const merc=y=>Math.log(Math.tan(Math.PI/4+y*Math.PI/360));const top=merc(LAT_MAX),bottom=merc(LAT_MIN);const mid=(LAT_MAX+LAT_MIN)/2;const xSpan=(LON_MAX-LON_MIN)*Math.cos(mid*Math.PI/180);const x=(lon-LON_MIN)*Math.cos(mid*Math.PI/180);return [x/xSpan*W,(top-merc(lat))/(top-bottom)*H]}
 function traceGeometry(target,geometry){if(!geometry)return;const polygons=geometry.type==='Polygon'?[geometry.coordinates]:geometry.type==='MultiPolygon'?geometry.coordinates:[];polygons.forEach(poly=>poly.forEach(ring=>{if(!ring.length)return;let p=project(ring[0]);target.moveTo(p[0],p[1]);for(let i=1;i<ring.length;i++){p=project(ring[i]);target.lineTo(p[0],p[1])}target.closePath()}))}
 function traceCountries(target){target.beginPath();worldFeatures.forEach(f=>traceGeometry(target,f.geometry))}
 const baseFront=[[18,70],[19.5,66.5],[20.5,63],[20.8,59.5],[22.4,56],[22.8,52.5],[25,49],[27.5,45.5],[29.5,42],[31,39]];
