@@ -594,25 +594,34 @@ function buildWarFront(a,b){
 function updateWarDeployments(){
  const engagements=new Map();
  activeWars.forEach(w=>{
-  const a=countries.get(w.a),b=countries.get(w.b);if(!a||!b)return;
-  const length=w.front?.reduce((sum,p)=>sum+polyLength(p),0)||0;
-  const push=(name,enemy,field)=>{
-   if(!engagements.has(name))engagements.set(name,[]);
-   // A larger and more capable enemy receives a larger share of the country's army.
+  const participants=[
+   {name:w.a,enemy:w.b,field:'troopsA'},
+   {name:w.b,enemy:w.a,field:'troopsB'},
+   ...(w.supportA||[]).map(x=>({name:x.name,enemy:w.b,support:x,side:'A'})),
+   ...(w.supportB||[]).map(x=>({name:x.name,enemy:w.a,support:x,side:'B'}))
+  ];
+  participants.forEach(p=>{
+   const country=countries.get(p.name),enemy=countries.get(p.enemy);if(!country||!enemy)return;
+   if(!engagements.has(p.name))engagements.set(p.name,[]);
+   const length=w.front?.reduce((sum,path)=>sum+polyLength(path),0)||0;
    const threat=Math.max(1,enemy.soldiers)*(1+Math.min(length/700,.8));
-   engagements.get(name).push({war:w,field,threat});
-  };
-  push(w.a,b,'troopsA');push(w.b,a,'troopsB');
+   engagements.get(p.name).push({war:w,field:p.field,support:p.support,side:p.side,threat});
+  });
  });
  engagements.forEach((list,name)=>{
   const country=countries.get(name);if(!country)return;
   const trapped=activeWars.reduce((sum,w)=>{
-   if(w.a===name)return sum+(w.encircledA||0);
-   if(w.b===name)return sum+(w.encircledB||0);
+   if(w.a===name)sum+=w.encircledA||0;
+   if(w.b===name)sum+=w.encircledB||0;
    return sum;
   },0);
-  const total=Math.max(0,(country.soldiers||0)-(country.reserve||0)-trapped),sum=list.reduce((v,x)=>v+x.threat,0);
-  list.forEach(x=>{x.war[x.field]=sum?Math.floor(total*x.threat/sum):0});
+  const available=Math.max(0,(country.soldiers||0)-(country.reserve||0)-trapped);
+  const threatTotal=list.reduce((sum,item)=>sum+item.threat,0);
+  list.forEach(item=>{
+   const deployed=threatTotal?Math.floor(available*item.threat/threatTotal):0;
+   if(item.support)item.support.troops=deployed;
+   else item.war[item.field]=deployed;
+  });
  });
  activeWars.forEach(w=>{w.troopsA=w.troopsA||0;w.troopsB=w.troopsB||0});
 }
