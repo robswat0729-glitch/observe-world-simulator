@@ -1349,9 +1349,19 @@ function tick(dt){
  });
  updateBorderDefenseConstruction(elapsedSupplyDays);
  activeWars.forEach(w=>{
+  const adjustment=Math.min(1,Math.max(.002,elapsedSupplyDays*.16));
+  if(w.civilWar){
+   const cw=countries.get(w.a)?.civilWar;
+   if(cw){
+    const targetA=Math.max(12,Math.min(100,72-(w.progress||0)*30)),targetB=Math.max(12,Math.min(100,68+(w.progress||0)*30));
+    w.supplyA=Math.max(5,Math.min(100,(w.supplyA??72)+(targetA-(w.supplyA??72))*adjustment));
+    w.supplyB=Math.max(5,Math.min(100,(w.supplyB??68)+(targetB-(w.supplyB??68))*adjustment));
+    cw.supplyGov=w.supplyA;cw.supplyRebel=w.supplyB;
+   }
+   return;
+  }
   const longest=w.front?.reduce((best,p)=>polyLength(p)>polyLength(best||[])?p:best,null);
   const targetA=supplyTargetFor(w,'A',longest),targetB=supplyTargetFor(w,'B',longest);
-  const adjustment=Math.min(1,Math.max(.002,elapsedSupplyDays*.16));
   w.supplyA=Math.max(5,Math.min(100,(w.supplyA??70)+(targetA-(w.supplyA??70))*adjustment));
   w.supplyB=Math.max(5,Math.min(100,(w.supplyB??70)+(targetB-(w.supplyB??70))*adjustment));
  });
