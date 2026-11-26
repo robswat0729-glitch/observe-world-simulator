@@ -895,9 +895,9 @@ function countryContainsProjectedPoint(name,x,y){
  }
  return false;
 }
+const countryCenterCache=new Map(),supplyCityCache=new Map();
 function countryMapCenter(name){
- // Calculate the centroid from exterior rings only; holes must not pull a
- // country's centre across its border.
+ if(countryCenterCache.has(name))return countryCenterCache.get(name);
  let areaTotal=0,cxTotal=0,cyTotal=0;
  worldFeatures.filter(f=>sovereignOwner(countryName(f))===name).forEach(f=>geometryPolygons(f.geometry).forEach(poly=>{
   const ring=poly[0];if(!ring||ring.length<3)return;
@@ -911,14 +911,14 @@ function countryMapCenter(name){
    areaTotal+=area;cxTotal+=x*area;cyTotal+=y*area;
   }
  }));
- if(areaTotal>0)return [cxTotal/areaTotal,cyTotal/areaTotal];
+ if(areaTotal>0){const center=[cxTotal/areaTotal,cyTotal/areaTotal];countryCenterCache.set(name,center);return center;}
  const pts=[];
  worldFeatures.filter(f=>sovereignOwner(countryName(f))===name).forEach(f=>geometryPolygons(f.geometry).forEach(poly=>{
   const ring=poly[0]||[];
   ring.forEach(ll=>{const p=project(ll);if(Number.isFinite(p[0])&&Number.isFinite(p[1]))pts.push(p)});
  }));
- if(!pts.length)return null;
- return [pts.reduce((v,p)=>v+p[0],0)/pts.length,pts.reduce((v,p)=>v+p[1],0)/pts.length];
+ if(!pts.length){countryCenterCache.set(name,null);return null;}
+ const center=[pts.reduce((v,p)=>v+p[0],0)/pts.length,pts.reduce((v,p)=>v+p[1],0)/pts.length];countryCenterCache.set(name,center);return center;
 }
 function advancedFrontPath(war,points){
  const mid=pointAlong(points,.5),target=countryMapCenter(war.b),source=countryMapCenter(war.a);
@@ -962,11 +962,9 @@ function drawFrontCounts(war,points,strength,borderPoints=points){
  const fontSize=Math.max(16,Math.min(27,21/displayScale)),baseGap=Math.max(24,Math.min(42,27/displayScale));
  let nx=-borderMid.ty,ny=borderMid.tx,nlen=Math.hypot(nx,ny)||1;nx/=nlen;ny/=nlen;
  const sideOfCountry=name=>{
-  for(const distance of [4,8,14,22,32,46]){
-   const plus=countryContainsProjectedPoint(name,borderMid.x+nx*distance,borderMid.y+ny*distance),minus=countryContainsProjectedPoint(name,borderMid.x-nx*distance,borderMid.y-ny*distance);
-   if(plus&&!minus)return 1;if(minus&&!plus)return -1;
-  }
-  const center=countryMapCenter(name);if(center){const cross=borderMid.tx*(center[1]-borderMid.y)-borderMid.ty*(center[0]-borderMid.x);if(Math.abs(cross)>.5)return Math.sign(cross)}return 0;
+  const center=countryMapCenter(name);
+  if(center){const cross=borderMid.tx*(center[1]-borderMid.y)-borderMid.ty*(center[0]-borderMid.x);if(Math.abs(cross)>.5)return Math.sign(cross)}
+  return 0;
  };
  let attackerSide=sideOfCountry(war.a),defenderSide=sideOfCountry(war.b);
  if(!attackerSide&&!defenderSide){attackerSide=1;defenderSide=-1}else if(!attackerSide)attackerSide=-defenderSide;else if(!defenderSide)defenderSide=-attackerSide;else if(attackerSide===defenderSide)defenderSide=-attackerSide;
@@ -1051,10 +1049,7 @@ function drawDivisionFlags(war,paths,strength,borderPaths=paths){
    for(let j=0;j<paths.length;j++){const len=polyLength(paths[j]);if(remaining<=len){pathIndex=j;break}remaining-=len}
    const path=paths[pathIndex],p=pointAlong(path,Math.max(0,Math.min(1,remaining/(polyLength(path)||1))));
    let px=-p.ty,py=p.tx,plen=Math.hypot(px,py)||1;px/=plen;py/=plen;
-   const testDistance=5;
-   const plus=countryContainsProjectedPoint(entry.name,p.x+px*testDistance,p.y+py*testDistance);
-   const minus=countryContainsProjectedPoint(entry.name,p.x-px*testDistance,p.y-py*testDistance);
-   let side=plus&&!minus?1:minus&&!plus?-1:(entry.frontSide==='A'?1:-1);
+   const side=entry.frontSide==='A'?1:-1;
    const offset=side*3.5,x=p.x+px*offset,y=p.y+py*offset;
    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
    ctx.font='9px "Noto Color Emoji", "Apple Color Emoji", Arial';
@@ -1078,10 +1073,12 @@ const supplyCities=[
  ['LONDON',[-.12,51.5]],['PARIS',[2.35,48.86]],['BERLIN',[13.4,52.52]],['WARSAW',[21.01,52.23]],['VIENNA',[16.37,48.2]],['KYIV',[30.52,50.45]],['MINSK',[27.56,53.9]],['MOSCOW',[37.62,55.75]],['BUCHAREST',[26.1,44.43]],['ROME',[12.5,41.9]],['MADRID',[-3.7,40.42]],['LISBON',[-9.14,38.72]],['BRUSSELS',[4.35,50.85]],['AMSTERDAM',[4.9,52.37]],['PRAGUE',[14.42,50.08]],['BUDAPEST',[19.04,47.5]],['BELGRADE',[20.46,44.8]],['SOFIA',[23.32,42.7]],['ATHENS',[23.73,37.98]],['COPENHAGEN',[12.57,55.68]],['OSLO',[10.75,59.91]],['STOCKHOLM',[18.07,59.33]],['HELSINKI',[24.94,60.17]],['TALLINN',[24.75,59.44]],['RIGA',[24.1,56.95]],['VILNIUS',[25.28,54.69]],['ZAGREB',[15.98,45.81]],['SARAJEVO',[18.41,43.86]],['TIRANA',[19.82,41.33]],['DUBLIN',[-6.26,53.35]],['BERN',[7.45,46.95]],['ANKARA',[32.86,39.93]],['ISTANBUL',[28.98,41.01]],['KRAKOW',[19.94,50.06]],['MUNICH',[11.58,48.14]],['HAMBURG',[9.99,53.55]],['LYON',[4.84,45.76]],['MARSEILLE',[5.37,43.3]],['MILAN',[9.19,45.46]],['NAPLES',[14.27,40.85]],['LENINGRAD',[30.31,59.93]],['KHARKIV',[36.23,49.99]],['ODESSA',[30.73,46.48]]
 ];
 function nearestSupplyCity(name){
- let best=null,bestDistance=Infinity;
- supplyCities.forEach(([city,ll])=>{const p=project(ll);if(!countryContainsProjectedPoint(name,p[0],p[1]))return;const center=countryMapCenter(name);if(!center)return;const d=Math.hypot(p[0]-center[0],p[1]-center[1]);if(d<bestDistance){bestDistance=d;best={name:city,x:p[0],y:p[1]}}});
- if(best)return best;
- const center=countryMapCenter(name);return center?{name:'LOCAL DEPOT',x:center[0],y:center[1]}:null;
+ if(supplyCityCache.has(name))return supplyCityCache.get(name);
+ let best=null,bestDistance=Infinity;const center=countryMapCenter(name);
+ if(!center){supplyCityCache.set(name,null);return null}
+ supplyCities.forEach(([city,ll])=>{const p=project(ll);if(!countryContainsProjectedPoint(name,p[0],p[1]))return;const d=Math.hypot(p[0]-center[0],p[1]-center[1]);if(d<bestDistance){bestDistance=d;best={name:city,x:p[0],y:p[1]}}});
+ if(!best)best={name:'LOCAL DEPOT',x:center[0],y:center[1]};
+ supplyCityCache.set(name,best);return best;
 }
 function supplyTargetFor(war,side,path){
  const name=side==='A'?war.a:war.b,field=side==='A'?'troopsA':'troopsB',city=nearestSupplyCity(name);
