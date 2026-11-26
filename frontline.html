@@ -851,7 +851,7 @@ function drawFrontReinforcements(war){
    // Each division starts at the nearest city and travels separately; staggered
    // departures prevent an instant wall of flags appearing on the border.
    const stagger=Math.max(0,(i%5)*.025),travel=Math.max(0,Math.min(1,(progress-stagger)/(1-stagger||1)));
-   const x=a.x+(b.x-a.x)*travel,y=a.y+(b.y-a.y)*travel;
+   const spread=travel<.12?1-travel/.12:0,angle=i*2.3999632297,radius=3+(i%4)*2;const x=a.x+(b.x-a.x)*travel+Math.cos(angle)*radius*spread,y=a.y+(b.y-a.y)*travel+Math.sin(angle)*radius*spread;
    ctx.font='9px "Noto Color Emoji","Apple Color Emoji",Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=1.5;ctx.strokeStyle='rgba(250,248,235,.96)';ctx.strokeText(countryFlag(name),x,y-5);ctx.fillStyle='#26343a';ctx.fillRect(x-4,y+1,8,4);
   });
   ctx.restore();
