@@ -1,63 +1,64 @@
 <!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FRONTLINE — World War Simulator</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><meta name="theme-color" content="#101820"><title>FRONTLINE — World War Simulator</title>
 <style>
-:root{color-scheme:dark;--bg:#101820;--panel:#192a35;--blue:#4c9de6;--red:#e15c5c;--gold:#e8cf8a}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#edf2ee;font:14px system-ui,Arial}
-header{padding:12px 16px;background:#091219;border-bottom:1px solid #354650;display:flex;justify-content:space-between;align-items:center;gap:8px}
-h1{font-size:18px;letter-spacing:2px;margin:0}small{color:#9caeb6}
-button,select{background:#263d4a;color:#fff;border:1px solid #506875;border-radius:6px;padding:9px 12px;font-weight:700}
-button.primary{background:#315f80}.toolbar,.stats{display:flex;gap:8px;flex-wrap:wrap;padding:10px}
-.stat{background:var(--panel);border:1px solid #354a55;border-radius:7px;padding:7px 11px;flex:1;min-width:100px}
-.stat label{display:block;color:#9fb0b7;font-size:10px;letter-spacing:1px}.stat b{font-size:17px;font-variant-numeric:tabular-nums}
-main{padding:10px;max-width:1200px;margin:auto}.mapbox{position:relative;border:1px solid #42545d;border-radius:9px;overflow:hidden;background:#16303b}
-canvas{width:100%;height:auto;display:block}.tag{position:absolute;top:10px;left:10px;background:#071219dd;padding:7px 9px;border-radius:5px;font-size:11px}
-.legend{position:absolute;bottom:10px;left:10px;background:#071219dd;padding:8px;border-radius:5px;font-size:11px}
-.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 5px 0 9px}.blue{color:#7dbfff}.red{color:#ff9090}
-.dashboard{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.panel{background:var(--panel);border:1px solid #354a55;border-radius:8px;padding:12px}
-h2{font-size:12px;letter-spacing:1.4px;margin:0 0 10px;color:#c4d0d3}
-.row{display:flex;justify-content:space-between;gap:10px;margin:7px 0}.num{font-size:18px;font-weight:900;font-variant-numeric:tabular-nums}
-.log{max-height:160px;overflow:auto;font-size:12px;color:#c6d2d5}.log div{padding:5px 0;border-bottom:1px solid #30434c}
-@media(max-width:650px){.dashboard{grid-template-columns:1fr}h1{font-size:15px}.stat{min-width:75px}}
-</style></head>
-<body>
-<header><div><h1>FRONTLINE</h1><small>WORLD WAR SIMULATOR · VARenn THEATER</small></div><div><button id="pause">Ⅱ Pause</button> <button id="next" class="primary">Next day ▶</button></div></header>
-<div class="stats">
-<div class="stat"><label>WAR DAY</label><b id="day">001</b></div>
-<div class="stat"><label>BLUE TERRITORY</label><b id="bt">52%</b></div>
-<div class="stat"><label>RED TERRITORY</label><b id="rt">48%</b></div>
-<div class="stat"><label>TOTAL CASUALTIES</label><b id="cas">0</b></div>
-</div>
-<main><div class="mapbox"><canvas id="map" width="1100" height="650"></canvas><div class="tag">LIVE FRONTLINE MAP · FICTIONAL WORLD</div><div class="legend"><i class="dot" style="background:#4c9de6"></i>BLUE ALLIANCE<i class="dot" style="background:#e15c5c"></i>RED COALITION<br><span style="color:#e8cf8a">━━</span> Active front</div></div>
-<div class="dashboard">
-<section class="panel"><h2>ARMY STRENGTH ON THE FRONT</h2><div class="row"><span class="blue">BLUE FRONTLINE ARMY</span><b class="num" id="blueCount">1,250,000</b></div><div class="row"><span class="red">RED FRONTLINE ARMY</span><b class="num" id="redCount">1,310,000</b></div><small>These counters show combatants committed to this front only — not each country's total armed forces. Counts are exact whole numbers.</small></section>
-<section class="panel"><h2>SIMULATION CONTROLS</h2><div class="toolbar" style="padding:0"><button id="resume" class="primary">▶ Resume</button><button id="speed">1× Speed</button><select id="intensity"><option value="1">Normal battle intensity</option><option value="1.6">High battle intensity</option><option value=".6">Low battle intensity</option></select></div><p><small>One simulated day passes every three seconds at 1× speed. The army counters change as casualties and reinforcements are processed.</small></p></section>
-<section class="panel" style="grid-column:1/-1"><h2>WAR CHRONICLE</h2><div class="log" id="log"></div></section>
-</div></main>
+:root{color-scheme:dark;--bg:#111a20;--panel:#1a2a33;--muted:#a8b6ba;--blue:#4c9de6;--red:#df5c5c;--gold:#e8d08d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#eef2ed;font:14px system-ui,Arial}header{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 15px;background:#091219;border-bottom:1px solid #3b4c55}h1{font-size:18px;letter-spacing:2px;margin:0}small,.muted{color:var(--muted)}button,select{background:#263e4b;color:#fff;border:1px solid #506873;border-radius:6px;padding:8px 11px;font-weight:700}button.primary{background:#315f80}.stats{display:flex;gap:7px;flex-wrap:wrap;padding:9px 12px}.stat{background:var(--panel);border:1px solid #354b56;border-radius:7px;padding:6px 10px;flex:1;min-width:90px}.stat label{display:block;color:var(--muted);font-size:10px;letter-spacing:1px}.stat b{font-size:16px;font-variant-numeric:tabular-nums}main{padding:10px;max-width:1400px;margin:auto}.mapbox{position:relative;background:#132b36;border:1px solid #425761;border-radius:9px;overflow:hidden}canvas{display:block;width:100%;height:auto;touch-action:pan-y}.maptag{position:absolute;top:9px;left:9px;background:#07131cdd;padding:7px 9px;border-radius:5px;font-size:10px;letter-spacing:1px}.legend{position:absolute;bottom:9px;left:9px;background:#07131cdd;padding:7px 9px;border-radius:5px;font-size:11px}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 5px 0 9px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}.panel{background:var(--panel);border:1px solid #354b56;border-radius:8px;padding:11px}.panel h2{font-size:12px;letter-spacing:1.3px;margin:0 0 9px;color:#cbd5d6}.row{display:flex;justify-content:space-between;gap:8px;margin:7px 0}.count{font-size:19px;font-weight:900;font-variant-numeric:tabular-nums}.blue{color:#83c2ff}.red{color:#ff9696}.front{border-top:1px solid #344852;padding:7px 0}.front:first-of-type{border-top:0}.fronttitle{font-weight:800;font-size:12px}.frontnums{display:flex;justify-content:space-between;gap:8px;font-weight:900;font-variant-numeric:tabular-nums}.log{max-height:135px;overflow:auto;font-size:11px}.log div{padding:4px 0;border-bottom:1px solid #30434c}.controls{display:flex;gap:6px;flex-wrap:wrap}.controls>*{flex:1}@media(max-width:650px){.grid{grid-template-columns:1fr}h1{font-size:15px}.count{font-size:17px}.stat{min-width:70px}}
+</style></head><body>
+<header><div><h1>FRONTLINE</h1><small>WORLD WAR SIMULATOR · ATLAS-INSPIRED MAP PRESENTATION</small></div><div class="controls" style="max-width:245px"><button id="pause">Ⅱ PAUSE</button><button id="next" class="primary">NEXT DAY ▶</button></div></header>
+<div class="stats"><div class="stat"><label>WAR DAY</label><b id="day">001</b></div><div class="stat"><label>BLUE TERRITORY</label><b id="blueTerr">52%</b></div><div class="stat"><label>RED TERRITORY</label><b id="redTerr">48%</b></div><div class="stat"><label>BLUE COMMITTED</label><b id="blueTotal">1,250,000</b></div><div class="stat"><label>RED COMMITTED</label><b id="redTotal">1,310,000</b></div><div class="stat"><label>CASUALTIES</label><b id="casualties">0</b></div></div>
+<main><div class="mapbox"><canvas id="map" width="1200" height="700"></canvas><div class="maptag">LIVE WAR MAP · FRONTLINE ARMY COUNTERS · FICTIONAL THEATER</div><div class="legend"><i class="dot" style="background:#4c9de6"></i>BLUE ALLIANCE <i class="dot" style="background:#df5c5c"></i>RED COALITION<br><span style="color:#e8d08d">━━</span> Contested frontline</div></div>
+<div class="grid"><section class="panel"><h2>ARMY GROUPS DEPLOYED ALONG THE FRONT</h2><div id="fronts"></div><small>Each map counter is the exact number of troops committed to that sector. The totals above are the sum of all active front sectors.</small></section>
+<section class="panel"><h2>SIMULATION SPEED</h2><div class="controls"><button id="resume" class="primary">▶ RESUME</button><button id="speed">1× SPEED</button><select id="intensity"><option value="1">Normal combat</option><option value="1.6">Heavy combat</option><option value=".55">Low combat</option></select></div><p class="muted">The map animates continuously. Army counters refresh several times per second; the war calendar advances automatically. At higher speeds, days pass faster.</p><div class="row"><span>Map refresh</span><b>60 FPS</b></div><div class="row"><span>Army strength updates</span><b>5 times / second</b></div><div class="row"><span>Day progression</span><b id="dayRate">1 day / 2 sec</b></div></section>
+<section class="panel" style="grid-column:1/-1"><h2>WAR CHRONICLE</h2><div class="log" id="log"></div></section></div></main>
 <script>
 (function(){
-var c=document.getElementById('map'),g=c.getContext('2d'),day=1,paused=false,speed=1,losses=0,bt=52,blue=1250000,red=1310000,timer=null,events=[];
-var $=function(x){return document.getElementById(x)},fmt=function(n){return Math.round(n).toLocaleString('en-US')};
-function note(s){events.unshift(s);events=events.slice(0,24);$('log').innerHTML=events.map(function(x){return '<div>'+x+'</div>'}).join('')}
-function land(){g.beginPath();g.moveTo(80,130);g.lineTo(190,65);g.lineTo(350,78);g.lineTo(455,42);g.lineTo(620,90);g.lineTo(810,75);g.lineTo(1000,195);g.lineTo(930,320);g.lineTo(1015,455);g.lineTo(830,590);g.lineTo(650,580);g.lineTo(530,635);g.lineTo(390,575);g.lineTo(220,610);g.lineTo(95,480);g.lineTo(130,350);g.lineTo(50,245);g.closePath()}
-function plate(x,y,label,value,color){g.fillStyle='#08131beF';g.fillRect(x-132,y-36,264,72);g.strokeStyle=color;g.lineWidth=3;g.strokeRect(x-132,y-36,264,72);g.textAlign='center';g.textBaseline='middle';g.font='bold 12px system-ui';g.fillStyle=color;g.fillText(label,x,y-17);g.font='900 27px system-ui';g.fillStyle='#fff';g.fillText(fmt(value),x,y+13)}
+const $=id=>document.getElementById(id),c=$('map'),g=c.getContext('2d'),fmt=n=>Math.max(0,Math.round(n)).toLocaleString('en-US');
+let day=1,paused=false,speed=1,cas=0,territory=52,last=0,acc=0,dayAcc=0,logItems=[],lastLog=0;
+const sectors=[
+{name:'NORTHERN FRONT',x:385,y:190,blue:315000,red:292000,fx:530,fy:190,phase:.2},
+{name:'CENTRAL FRONT',x:590,y:355,blue:438000,red:476000,fx:585,fy:350,phase:1.4},
+{name:'SOUTHERN FRONT',x:405,y:535,blue:276000,red:254000,fx:520,fy:520,phase:2.2},
+{name:'EASTERN FRONT',x:850,y:380,blue:221000,red:288000,fx:705,fy:390,phase:3.1}
+];
+function note(s){logItems.unshift(s);logItems=logItems.slice(0,18);$('log').innerHTML=logItems.map(x=>'<div>'+x+'</div>').join('')}
+function land(){g.beginPath();g.moveTo(90,135);g.lineTo(190,70);g.lineTo(360,80);g.lineTo(465,42);g.lineTo(625,90);g.lineTo(820,75);g.lineTo(1060,190);g.lineTo(970,320);g.lineTo(1080,470);g.lineTo(855,615);g.lineTo(660,590);g.lineTo(535,660);g.lineTo(385,590);g.lineTo(220,625);g.lineTo(85,490);g.lineTo(130,350);g.lineTo(48,245);g.closePath()}
+function text(s,x,y,color,size=13,align='center'){g.fillStyle=color;g.font='bold '+size+'px system-ui';g.textAlign=align;g.textBaseline='middle';g.fillText(s,x,y)}
+function pill(x,y,side,value,color){let w=150,h=31;g.fillStyle='#08131bea';g.fillRect(x-w/2,y-h/2,w,h);g.strokeStyle=color;g.lineWidth=2;g.strokeRect(x-w/2,y-h/2,w,h);text(fmt(value),x,y,color,17)}
 function draw(){
-g.clearRect(0,0,1100,650);g.fillStyle='#17303b';g.fillRect(0,0,1100,650);
-g.strokeStyle='#29434e';g.lineWidth=1;for(var x=0;x<1100;x+=55){g.beginPath();g.moveTo(x,0);g.lineTo(x,650);g.stroke()}for(var y=0;y<650;y+=55){g.beginPath();g.moveTo(0,y);g.lineTo(1100,y);g.stroke()}
-land();g.fillStyle='#607767';g.fill();g.strokeStyle='#a3b39a';g.lineWidth=4;g.stroke();
-g.save();land();g.clip();g.fillStyle='rgba(76,157,230,.46)';g.fillRect(0,0,1100*bt/100,650);g.fillStyle='rgba(225,92,92,.43)';g.fillRect(1100*bt/100,0,1100,650);g.restore();
-var fx=1100*bt/100;g.beginPath();g.moveTo(fx,95);g.bezierCurveTo(fx-60,210,fx+50,340,fx-25,465);g.lineTo(fx+10,570);g.strokeStyle='#e8cf8a';g.lineWidth=6;g.setLineDash([16,10]);g.stroke();g.setLineDash([]);
-g.fillStyle='#e8eee6';g.font='bold 16px system-ui';g.textAlign='center';g.fillText('BLUE ALLIANCE',250,36);g.fillText('RED COALITION',850,36);
-plate(255,105,'BLUE FRONTLINE ARMY',blue,'#72b9fa');plate(845,105,'RED FRONTLINE ARMY',red,'#ff8181');
-[['NORTH FRONT',350,220],['CENTRAL FRONT',550,355],['SOUTH FRONT',410,500]].forEach(function(a){g.beginPath();g.arc(a[1],a[2],15,0,Math.PI*2);g.fillStyle='#101820';g.fill();g.strokeStyle='#e8cf8a';g.lineWidth=3;g.stroke();g.fillStyle='#fff';g.font='bold 13px system-ui';g.fillText('⚔',a[1],a[2]+1);g.font='bold 12px system-ui';g.fillStyle='#f5e8c5';g.fillText(a[0],a[1],a[2]+32)});
-[['VARDEN',260,290],['KORVIK',790,260],['MIREN',600,520]].forEach(function(a){g.beginPath();g.arc(a[1],a[2],5,0,Math.PI*2);g.fillStyle='#f4e7c6';g.fill();g.font='bold 12px system-ui';g.textAlign='left';g.fillText(a[0],a[1]+10,a[2]+4)});
+g.clearRect(0,0,1200,700);g.fillStyle='#142d38';g.fillRect(0,0,1200,700);
+g.strokeStyle='#25414c';g.lineWidth=1;for(let x=0;x<1200;x+=60){g.beginPath();g.moveTo(x,0);g.lineTo(x,700);g.stroke()}for(let y=0;y<700;y+=60){g.beginPath();g.moveTo(0,y);g.lineTo(1200,y);g.stroke()}
+land();g.fillStyle='#627968';g.fill();g.strokeStyle='#a2b39a';g.lineWidth=4;g.stroke();
+g.save();land();g.clip();g.fillStyle='rgba(76,157,230,.43)';g.fillRect(0,0,1200*territory/100,700);g.fillStyle='rgba(223,92,92,.42)';g.fillRect(1200*territory/100,0,1200,700);g.restore();
+text('BLUE ALLIANCE',270,42,'#a8d4fa',17);text('RED COALITION',930,42,'#ffb0a9',17);
+let fx=1200*territory/100;g.beginPath();g.moveTo(fx,85);g.bezierCurveTo(fx-55,210,fx+45,330,fx-20,470);g.lineTo(fx+8,615);g.strokeStyle='#e8d08d';g.lineWidth=5;g.setLineDash([15,9]);g.stroke();g.setLineDash([]);
+sectors.forEach((s,i)=>{
+let shift=Math.sin(performance.now()/850+s.phase)*7,px=s.fx+shift,py=s.fy+Math.cos(performance.now()/1100+s.phase)*5;
+g.beginPath();g.arc(px,py,17,0,Math.PI*2);g.fillStyle='#0c171d';g.fill();g.strokeStyle='#f1d58c';g.lineWidth=3;g.stroke();text('⚔',px,py,'#fff',15);
+let above=i%2===0?-45:45;pill(px,py+above,s.blue>0?'B': 'B',s.blue,'#72baff');pill(px,py+above+31,'R',s.red,'#ff8d8d');
+text(s.name,px,py+(above<0?-85:83),'#fff0c6',12);
+});
+[['VARDEN',255,295],['KORVIK',855,260],['MIREN',610,565]].forEach(a=>{g.beginPath();g.arc(a[1],a[2],5,0,Math.PI*2);g.fillStyle='#f2e7c8';g.fill();text(a[0],a[1]+10,a[2]+4,'#f6f0dc',12,'left')});
 }
-function render(){$('day').textContent=String(day).padStart(3,'0');$('bt').textContent=Math.round(bt)+'%';$('rt').textContent=(100-Math.round(bt))+'%';$('cas').textContent=fmt(losses);$('blueCount').textContent=fmt(blue);$('redCount').textContent=fmt(red);draw()}
-function step(){day++;var intensity=Number($('intensity').value),bl=Math.round(blue*(.0008+Math.random()*.0006)*intensity),rl=Math.round(red*(.0008+Math.random()*.0006)*intensity);blue=Math.max(0,blue-bl);red=Math.max(0,red-rl);losses+=bl+rl;blue+=Math.round(700+Math.random()*1600);red+=Math.round(700+Math.random()*1600);var push=((blue-red)/(blue+red))*.18+(Math.random()-.5)*.16;bt=Math.max(8,Math.min(92,bt+push));if(Math.random()<.35)note('Day '+String(day).padStart(3,'0')+' — '+(push>0?'Blue':'Red')+' forces make a local advance.');if(day%10===0)note('Day '+String(day).padStart(3,'0')+' — Reinforcements reach the front; both sides report further casualties.');render()}
-function setPause(v){paused=v;$('pause').textContent=paused?'▶ Resume':'Ⅱ Pause';$('resume').textContent=paused?'▶ Resume':'Ⅱ Pause';if(timer)clearInterval(timer);timer=null;if(!paused)timer=setInterval(step,3000/speed)}
-$('pause').onclick=function(){setPause(!paused)};$('resume').onclick=function(){setPause(!paused)};$('next').onclick=function(){setPause(true);step()};$('speed').onclick=function(){speed=speed===1?2:speed===2?4:1;$('speed').textContent=speed+'× Speed';if(!paused)setPause(false)};
-note('Day 001 — The war begins. Two alliances mobilize along the Varenn front.');render();setPause(false);
+function totals(){return sectors.reduce((a,s)=>{a.b+=s.blue;a.r+=s.red;return a},{b:0,r:0})}
+function render(){
+let t=totals();$('day').textContent=String(day).padStart(3,'0');$('blueTerr').textContent=territory.toFixed(1)+'%';$('redTerr').textContent=(100-territory).toFixed(1)+'%';$('blueTotal').textContent=fmt(t.b);$('redTotal').textContent=fmt(t.r);$('casualties').textContent=fmt(cas);
+$('fronts').innerHTML=sectors.map(s=>'<div class="front"><div class="fronttitle">'+s.name+'</div><div class="frontnums"><span class="blue">'+fmt(s.blue)+'</span><span class="red">'+fmt(s.red)+'</span></div></div>').join('');
+}
+function combatTick(dt){
+let intensity=Number($('intensity').value),t=totals(),net=0;
+sectors.forEach(s=>{
+let bl=Math.max(1,Math.round(s.blue*(.000025+Math.random()*.000035)*intensity*dt*5));
+let rl=Math.max(1,Math.round(s.red*(.000025+Math.random()*.000035)*intensity*dt*5));
+s.blue=Math.max(0,s.blue-bl);s.red=Math.max(0,s.red-rl);cas+=bl+rl;
+s.blue+=Math.round((250+Math.random()*650)*dt*5);s.red+=Math.round((250+Math.random()*650)*dt*5);
+net+=(s.blue-s.red)/(s.blue+s.red||1);
+});
+territory=Math.max(7,Math.min(93,territory+net*.00008*dt*5));
+}
+function nextDay(){day++;let t=totals(),b=t.b,r=t.r;let side=territory>50?'Blue':territory<50?'Red':'Neither';if(day%3===0||Math.random()<.2)note('Day '+String(day).padStart(3,'0')+' — '+side+' forces hold the initiative. Frontline strength: '+fmt(b)+' vs '+fmt(r)+'.');if(day%10===0)note('Day '+String(day).padStart(3,'0')+' — Reinforcements and replacement drafts arrive across the theater.');}
+function frame(now){if(!last)last=now;let dt=Math.min(.1,(now-last)/1000);last=now;if(!paused){acc+=dt;dayAcc+=dt*speed;if(acc>=.2){combatTick(acc);acc=0;render()}while(dayAcc>=2){dayAcc-=2;nextDay();render()}}draw();requestAnimationFrame(frame)}
+function setPause(v){paused=v;$('pause').textContent=v?'▶ RESUME':'Ⅱ PAUSE';$('resume').textContent=v?'▶ RESUME':'Ⅱ PAUSE'}
+$('pause').onclick=()=>setPause(!paused);$('resume').onclick=()=>setPause(!paused);$('next').onclick=()=>{setPause(true);nextDay();render()};$('speed').onclick=()=>{speed=speed===1?2:speed===2?4:speed===4?8:1;$('speed').textContent=speed+'× SPEED';$('dayRate').textContent='1 day / '+(2/speed).toFixed(2)+' sec'};
+note('Day 001 — War begins. Four army groups deploy across the Varenn front.');render();requestAnimationFrame(frame);
 })();
 </script></body></html>
