@@ -344,6 +344,7 @@ function declareWar(a,b,natural,allianceResponse=false){
  });
  updateWarDeployments();
  $('war-status').textContent=(natural?'A diplomatic crisis escalated: ':'War declared: ')+a+' vs '+b+'.'+(war.front?'':' No shared land border, so no land frontline is shown.');
+ publishNews('WAR DECLARED: '+a.toUpperCase()+' VS '+b.toUpperCase(),a+' has formally entered a state of war with '+b+'. The AI desk is tracking mobilisations, frontline strength and casualties.','BREAKING NEWS');
  renderWars();return true;
 }
 function pointInRing(x,y,ring){
@@ -1142,6 +1143,8 @@ function resolveSettlement(choice){
  pendingSettlement=null;$('peace-settlement').style.display='none';
  updateWarDeployments();renderWars();if(selectedCountry)showCountry(selectedCountry);
  $('war-status').textContent=choice==='annex'?war.a+' annexed '+war.b+'. Its population and manpower were absorbed.':war.b+' became a puppet of '+war.a+'. It will contribute troops to its overlord\'s wars.';
+ publishNews(choice==='annex'?war.a.toUpperCase()+' ANNEXES '+war.b.toUpperCase():war.b.toUpperCase()+' FALLS UNDER '+war.a.toUpperCase(),choice==='annex'?war.a+' has absorbed '+war.b+' and its remaining population and manpower.':'A new puppet government has been installed in '+war.b+'.','MAJOR DEVELOPMENT');
+ if(!$('military-details').hidden)renderMilitaryDetails();
 }
 $('annex-country').addEventListener('click',()=>resolveSettlement('annex'));
 $('puppet-country').addEventListener('click',()=>resolveSettlement('puppet'));
@@ -1316,7 +1319,8 @@ function tick(dt){
  }
 }
 function nextDay(){
- day++;simDate.setDate(simDate.getDate()+1);if(mode==='historical')historicalEvents();else naturalDiplomacy();renderHud();renderWars();
+ day++;simDate.setDate(simDate.getDate()+1);if(mode==='historical')historicalEvents();else naturalDiplomacy();generateDailyNews();renderHud();renderWars();
+ if(!$('military-details').hidden)renderMilitaryDetails();
 }
 function frame(now){
  if(!last)last=now;
@@ -1324,7 +1328,7 @@ function frame(now){
  if(!paused){
   acc+=dt;dayAcc+=dt*speed;
   // Run the troop-strength and casualty model in fixed 10 ms steps (100 updates/sec).
-  while(acc>=.01){tick(.01);acc-=.01;renderHud()}
+  let stepped=false;while(acc>=.05){tick(.05);acc-=.05;stepped=true}if(stepped)renderHud()
   while(dayAcc>=2){dayAcc-=2;nextDay()}
  }
  draw(now);requestAnimationFrame(frame);
@@ -1334,7 +1338,7 @@ $('pause').addEventListener('click',()=>setPause(!paused));
 $('next').addEventListener('click',()=>{setPause(true);nextDay()});
 $('speed').addEventListener('click',()=>{speed=speed===1?2:speed===2?4:speed===4?8:1;$('speed').textContent=speed+'× SPEED'});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)last=0});
-syncHistoricalForces();renderHud();
+syncHistoricalForces();renderHud();publishNews('EUROPEAN WAR DESK OPENS','The simulation has begun. The AI desk will monitor diplomatic crises, military movements, battles and political upheaval.','INITIAL BRIEFING');
 function handleCountryTap(name){
  if(!name||!countries.has(name))return;
  if(pendingWarFrom){
