@@ -71,7 +71,8 @@ const $=id=>document.getElementById(id);
 const fmt=n=>Math.max(0,Math.round(n)).toLocaleString('en-US');
 let day=1,paused=false,speed=1,casualties=0,territory=50,last=0,acc=0,dayAcc=0;
 let blueTroops=1250000,redTroops=1310000,worldFeatures=[],baseCanvas=null,mapReady=false,loadMessage='Loading geographic map…';
-const GEO_SOURCES=['https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson','https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_0_countries.geojson','https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_admin_0_countries.geojson','https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'];
+// Offline built-in geographic shapes: no remote map downloads are required.
+const GEO_SOURCES=[];
 const LON_MIN=-14,LON_MAX=53,LAT_MIN=36,LAT_MAX=72;
 function project(ll){const lon=ll[0],lat=Math.max(-85,Math.min(85,ll[1]));const merc=y=>Math.log(Math.tan(Math.PI/4+y*Math.PI/360));const top=merc(LAT_MAX),bottom=merc(LAT_MIN);return [(lon-LON_MIN)/(LON_MAX-LON_MIN)*W,(top-merc(lat))/(top-bottom)*H]}
 function traceGeometry(target,geometry){if(!geometry)return;const polygons=geometry.type==='Polygon'?[geometry.coordinates]:geometry.type==='MultiPolygon'?geometry.coordinates:[];polygons.forEach(poly=>poly.forEach(ring=>{if(!ring.length)return;let p=project(ring[0]);target.moveTo(p[0],p[1]);for(let i=1;i<ring.length;i++){p=project(ring[i]);target.lineTo(p[0],p[1])}target.closePath()}))}
@@ -224,28 +225,24 @@ $('next').addEventListener('click',()=>{setPause(true);nextDay()});
 $('speed').addEventListener('click',()=>{speed=speed===1?2:speed===2?4:speed===4?8:1;$('speed').textContent=speed+'× SPEED'});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)last=0});
 renderHud();
-async function loadMap(){
- let lastError=null;
- for(const url of GEO_SOURCES){
-  try{
-   loadMessage='Loading geographic map…';
-   const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),10000);
-   let response;try{response=await fetch(url,{mode:'cors',cache:'force-cache',signal:controller.signal})}finally{clearTimeout(timer)}
-   if(!response.ok)throw new Error('HTTP '+response.status);
-   const data=await response.json();
-   if(!data||data.type!=='FeatureCollection'||!Array.isArray(data.features)||!data.features.length)throw new Error('Invalid geographic data');
-   worldFeatures=data.features.filter(f=>f&&f.geometry&&(f.geometry.type==='Polygon'||f.geometry.type==='MultiPolygon'));
-   if(!worldFeatures.length)throw new Error('No country outlines found');
-   buildBase();requestAnimationFrame(frame);return;
-  }catch(error){lastError=error;console.warn('Map source failed:',url,error)}
- }
- loadMessage='Map data unavailable — check connection and reload';
- ctx.fillStyle='#b9c4c0';ctx.fillRect(0,0,W,H);ctx.fillStyle='#24353a';ctx.textAlign='center';ctx.font='bold 25px Arial';
- ctx.fillText('GEOGRAPHIC MAP COULD NOT LOAD',W/2,H/2-18);ctx.font='16px Arial';
- ctx.fillText('Tried 4 map sources. Check your connection and refresh.',W/2,H/2+18);
- console.error('All geographic map sources failed',lastError);
+function loadMap(){
+ // Simplified built-in Europe geography keeps the map visible even when external
+ // data hosts, CORS, or mobile-network filters are unavailable.
+ const feature=(coords)=>({geometry:{type:'Polygon',coordinates:[coords]}});
+ worldFeatures=[
+  feature([[-10,36],[-9,43],[-5,44],[-1,43],[1,44],[3,47],[6,49],[7,52],[5,55],[8,56],[10,55],[12,54],[14,55],[16,54],[18,55],[20,54],[22,56],[24,57],[26,56],[28,57],[30,56],[32,57],[34,56],[36,57],[39,56],[42,57],[45,56],[49,57],[53,58],[53,72],[20,72],[18,70],[15,69],[12,67],[10,64],[8,61],[6,58],[4,55],[2,53],[-1,51],[-4,48],[-7,45],[-10,42],[-10,36]]),
+  feature([[-10,36],[-9,43],[-6,44],[-2,43],[0,42],[2,41],[3,39],[1,37],[-5,36],[-10,36]]),
+  feature([[-6,50],[-5,54],[-3,58],[0,57],[1,53],[-2,50],[-6,50]]),
+  feature([[5,58],[7,62],[9,66],[12,70],[18,71],[23,69],[25,65],[23,61],[19,58],[14,56],[9,56],[5,58]]),
+  feature([[20,59],[24,61],[28,64],[31,66],[30,69],[26,70],[22,68],[20,64],[20,59]]),
+  feature([[6,47],[8,45],[11,44],[13,42],[15,40],[17,41],[16,44],[14,46],[11,47],[6,47]]),
+  feature([[12,46],[14,45],[16,43],[18,42],[20,40],[23,39],[26,40],[28,42],[27,45],[24,47],[20,48],[16,48],[12,46]]),
+  feature([[13,54],[15,53],[18,54],[20,56],[18,58],[15,57],[13,54]]),
+  feature([[28,45],[30,43],[33,44],[35,46],[34,49],[31,50],[28,48],[28,45]])
+ ];
+ buildBase();
+ requestAnimationFrame(frame);
 }
-loadMap();
 })();
 </script>
 </body>
