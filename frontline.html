@@ -1,47 +1,261 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><meta name="theme-color" content="#101820"><title>FRONTLINE — World War Simulator</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#b9c2bf">
+<title>Frontline — Continuous War Map</title>
 <style>
-:root{color-scheme:dark;--bg:#101920;--panel:#192a33;--muted:#a9b8bd;--blue:#55aaff;--red:#ff6868;--gold:#f1d58b}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#eef3f4;font:14px system-ui,Arial}header{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 15px;background:#081219;border-bottom:1px solid #344b56}h1{font-size:18px;letter-spacing:2px;margin:0}small,.muted{color:var(--muted)}button,select{background:#263e4b;color:white;border:1px solid #526b76;border-radius:6px;padding:8px 11px;font-weight:700}.stats{display:flex;gap:7px;flex-wrap:wrap;padding:9px 12px}.stat{background:var(--panel);border:1px solid #354b56;border-radius:7px;padding:6px 10px;flex:1;min-width:95px}.stat label{display:block;color:var(--muted);font-size:10px;letter-spacing:1px}.stat b{font-size:16px;font-variant-numeric:tabular-nums}main{padding:10px;max-width:1400px;margin:auto}.mapbox{position:relative;background:#132b36;border:1px solid #425761;border-radius:9px;overflow:hidden}canvas{display:block;width:100%;height:auto;touch-action:pan-y}.maptag{position:absolute;top:9px;left:9px;background:#07131cdd;padding:7px 9px;border-radius:5px;font-size:10px;letter-spacing:1px}.legend{position:absolute;bottom:9px;left:9px;background:#07131cdd;padding:7px 9px;border-radius:5px;font-size:11px}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 5px 0 9px}.panel{background:var(--panel);border:1px solid #354b56;border-radius:8px;padding:11px;margin-top:9px}.controls{display:flex;gap:6px;flex-wrap:wrap}.controls>*{flex:1}.log{max-height:110px;overflow:auto;font-size:11px}.log div{padding:4px 0;border-bottom:1px solid #30434c}.blue{color:#83c2ff}.red{color:#ff9999}@media(max-width:650px){h1{font-size:15px}.stat{min-width:75px}.stat b{font-size:14px}}
-</style></head><body>
-<header><div><h1>FRONTLINE</h1><small>CONTINUOUS FRONTLINE SIMULATOR · ATLAS-INSPIRED</small></div><div class="controls" style="max-width:245px"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button></div></header>
-<div class="stats"><div class="stat"><label>WAR DAY</label><b id="day">001</b></div><div class="stat"><label>BLUE TERRITORY</label><b id="blueTerr">52.0%</b></div><div class="stat"><label>RED TERRITORY</label><b id="redTerr">48.0%</b></div><div class="stat"><label>BLUE TROOPS ON FRONT</label><b id="blueTotal">1,250,000</b></div><div class="stat"><label>RED TROOPS ON FRONT</label><b id="redTotal">1,310,000</b></div><div class="stat"><label>TOTAL CASUALTIES</label><b id="casualties">0</b></div></div>
-<main><div class="mapbox"><canvas id="map" width="1200" height="700"></canvas><div class="maptag">LIVE FRONTLINE · TROOP COUNTS POSITIONED DIRECTLY ON THE FRONT</div><div class="legend"><i class="dot" style="background:#55aaff"></i>BLUE ALLIANCE <i class="dot" style="background:#ff6868"></i>RED COALITION<br><span style="color:#f1d58b">━━</span> Active frontline</div></div>
-<section class="panel"><div class="controls"><button id="resume">▶ RESUME</button><button id="speed">1× SPEED</button><select id="intensity"><option value="1">Normal combat</option><option value="1.7">Heavy combat</option><option value=".55">Low combat</option></select></div><p class="muted">One large total troop count per side is displayed directly beside the continuous frontline. No army groups, no sector labels, no separate counters. The border itself advances as territory is captured or lost. Map animation: 60 FPS · troop counts: 30 updates/sec.</p></section>
-<section class="panel"><b>WAR CHRONICLE</b><div class="log" id="log"></div></section></main>
+:root{color-scheme:dark;--ink:#172127;--panel:rgba(15,24,29,.88);--muted:#c4d0d0;--blue:#8bd0ff;--red:#ffaaa3}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#101a20;color:#f0f3ef;font-family:Arial,Helvetica,sans-serif}
+body{overflow-x:hidden}
+header{height:54px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#111c22;border-bottom:1px solid #46545a}
+.brand{font-weight:900;font-size:15px;letter-spacing:2.8px}
+.brand small{display:block;margin-top:2px;font-size:9px;font-weight:600;letter-spacing:1.3px;color:#aebdc0}
+.header-right{display:flex;align-items:center;gap:14px;font-size:11px;font-weight:800;letter-spacing:1px;color:#e2e8e5}
+main{max-width:1700px;margin:0 auto;padding:0 10px 12px}
+.mapframe{position:relative;width:100%;margin:10px auto 0;background:#c5ceca;border:1px solid #52636a;box-shadow:0 8px 26px #0008;overflow:hidden}
+canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;touch-action:pan-y}
+.hud{position:absolute;z-index:2;pointer-events:none;text-shadow:0 2px 4px #000}
+.hud-top{top:12px;left:14px;display:flex;align-items:flex-start;gap:16px}
+.datebox{background:rgba(12,20,25,.84);padding:9px 12px;border-left:3px solid #e7e1c8;min-width:135px}
+.datebox strong{display:block;font-size:21px;letter-spacing:1px;line-height:1.05}
+.datebox span{font-size:10px;letter-spacing:1.6px;color:#c7d0ca}
+.front-tag{margin-top:4px;padding:7px 10px;background:rgba(12,20,25,.76);font-size:10px;letter-spacing:1.8px;font-weight:900}
+.hud-bottom{right:13px;bottom:12px;background:rgba(12,20,25,.86);padding:8px 11px;text-align:right}
+.hud-bottom span{display:block;color:#c1cbca;font-size:9px;letter-spacing:1.4px}
+.hud-bottom strong{font-size:18px;font-variant-numeric:tabular-nums}
+.legend{position:absolute;left:13px;bottom:13px;z-index:2;background:rgba(12,20,25,.82);padding:7px 10px;font-size:10px;letter-spacing:1px;pointer-events:none}
+.legend i{display:inline-block;width:9px;height:9px;margin:0 5px 0 0;border-radius:50%}
+.controls{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 2px 2px;flex-wrap:wrap}
+button,select{border:1px solid #576a72;border-radius:4px;background:#263b45;color:#eef3f1;padding:9px 13px;font-weight:800;font-size:12px;letter-spacing:.5px}
+button:active{transform:translateY(1px)}
+.control-group{display:flex;gap:7px;align-items:center}
+.note{font-size:10px;line-height:1.4;color:#9eafb3;text-align:right}
+@media(max-width:650px){
+ header{height:48px;padding:0 9px}.brand{font-size:13px}.brand small{font-size:8px}
+ .header-right{font-size:9px;gap:7px}main{padding:0 0 10px}.mapframe{margin-top:0;border-left:0;border-right:0}
+ .hud-top{top:7px;left:7px;gap:6px}.datebox{padding:6px 8px;min-width:98px}.datebox strong{font-size:15px}.datebox span{font-size:8px}
+ .front-tag{font-size:8px;margin-top:2px;padding:6px}.legend{left:7px;bottom:7px;font-size:8px;padding:5px 7px}
+ .hud-bottom{right:7px;bottom:7px;padding:5px 7px}.hud-bottom strong{font-size:13px}.hud-bottom span{font-size:8px}
+ .controls{padding:9px;gap:7px}.note{width:100%;text-align:left}
+ button,select{padding:8px 9px;font-size:11px}
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/d3-geo@3/dist/d3-geo.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+</head>
+<body>
+<header>
+ <div class="brand">FRONTLINE<small>CONTINUOUS WAR MAP · LIVE SIMULATION</small></div>
+ <div class="header-right"><span>BLUE ALLIANCE</span><span>VS</span><span>RED COALITION</span></div>
+</header>
+<main>
+ <div class="mapframe">
+  <canvas id="map" width="1600" height="900" aria-label="Animated war map showing one continuous frontline"></canvas>
+  <div class="hud hud-top"><div class="datebox"><strong id="date">DAY 001</strong><span id="clock">06:00 · SIMULATION</span></div><div class="front-tag">ONE CONTINUOUS FRONTLINE</div></div>
+  <div class="legend"><i style="background:#5a9ed4"></i>BLUE CONTROL <i style="background:#c65e59;margin-left:10px"></i>RED CONTROL <span style="color:#f1dda0;margin-left:10px">━━</span> FRONTLINE</div>
+  <div class="hud hud-bottom"><span>TOTAL CASUALTIES</span><strong id="casualties">0</strong></div>
+ </div>
+ <div class="controls">
+  <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div>
+  <div class="control-group"><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
+  <div class="note">Geographic outlines: Natural Earth · troop counts update 30 times per second · map animation 60 FPS</div>
+ </div>
+</main>
 <script>
-(()=>{const $=id=>document.getElementById(id),canvas=$('map'),ctx=canvas.getContext('2d'),fmt=n=>Math.max(0,Math.round(n)).toLocaleString('en-US');
-let day=1,paused=false,speed=1,casualties=0,territory=52,last=0,acc=0,dayAcc=0,logs=[];
-let blueTroops=1250000,redTroops=1310000;
-function note(s){logs.unshift(s);logs=logs.slice(0,12);$('log').innerHTML=logs.map(x=>'<div>'+x+'</div>').join('')}
-function frontX(t,y){return 600+(t-50)*10+Math.sin(y*.012)*34+Math.sin(y*.027+1.4)*16}
-function landPath(){ctx.beginPath();ctx.moveTo(95,135);ctx.lineTo(190,70);ctx.lineTo(360,80);ctx.lineTo(465,42);ctx.lineTo(625,90);ctx.lineTo(820,75);ctx.lineTo(1060,190);ctx.lineTo(970,320);ctx.lineTo(1080,470);ctx.lineTo(855,615);ctx.lineTo(660,590);ctx.lineTo(535,660);ctx.lineTo(385,590);ctx.lineTo(220,625);ctx.lineTo(85,490);ctx.lineTo(130,350);ctx.lineTo(48,245);ctx.closePath()}
-function draw(){let g=ctx;g.clearRect(0,0,1200,700);g.fillStyle='#142d38';g.fillRect(0,0,1200,700);
-g.strokeStyle='#25414c';g.lineWidth=1;for(let x=0;x<1200;x+=60){g.beginPath();g.moveTo(x,0);g.lineTo(x,700);g.stroke()}for(let y=0;y<700;y+=60){g.beginPath();g.moveTo(0,y);g.lineTo(1200,y);g.stroke()}
-landPath();g.fillStyle='#627968';g.fill();g.strokeStyle='#a2b39a';g.lineWidth=4;g.stroke();
-g.save();landPath();g.clip();
-g.beginPath();g.moveTo(0,0);for(let y=0;y<=700;y+=8)g.lineTo(frontX(territory,y),y);g.lineTo(0,700);g.closePath();g.fillStyle='rgba(55,139,213,.72)';g.fill();
-g.beginPath();g.moveTo(frontX(territory,0),0);g.lineTo(1200,0);g.lineTo(1200,700);g.lineTo(frontX(territory,700),700);for(let y=700;y>=0;y-=8)g.lineTo(frontX(territory,y),y);g.closePath();g.fillStyle='rgba(195,68,68,.70)';g.fill();g.restore();
-g.beginPath();for(let y=0;y<=700;y+=5){let x=frontX(territory,y);if(y===0)g.moveTo(x,y);else g.lineTo(x,y)}g.strokeStyle='#f1d58b';g.lineWidth=5;g.setLineDash([14,8]);g.stroke();g.setLineDash([]);
-g.font='bold 20px system-ui';g.textAlign='center';g.fillStyle='#d3eaff';g.fillText('BLUE ALLIANCE',260,42);g.fillStyle='#ffd1cb';g.fillText('RED COALITION',940,42);
-[['VARDEN',255,295],['KORVIK',855,260],['MIREN',610,565]].forEach(a=>{g.beginPath();g.arc(a[1],a[2],5,0,Math.PI*2);g.fillStyle='#f2e7c8';g.fill();g.font='bold 12px system-ui';g.fillStyle='#f6f0dc';g.textAlign='left';g.fillText(a[0],a[1]+10,a[2]+4)});
-const mid=frontX(territory,350),blueLabel=fmt(blueTroops),redLabel=fmt(redTroops);
-drawFrontNumber(blueLabel,Math.max(200,mid-180),350,'#9bd2ff',470);
-drawFrontNumber(redLabel,Math.min(1000,mid+180),350,'#ffaaa3',470);
+(function(){
+'use strict';
+const W=1600,H=900;
+const canvas=document.getElementById('map'),ctx=canvas.getContext('2d');
+const $=id=>document.getElementById(id);
+const fmt=n=>Math.max(0,Math.round(n)).toLocaleString('en-US');
+let day=1,paused=false,speed=1,casualties=0,territory=50,last=0,acc=0,dayAcc=0;
+let blueTroops=1250000,redTroops=1310000,worldFeatures=[],projection=null,geoPath=null,baseCanvas=null,mapReady=false;
+const baseFront=[[18,70],[19.5,66.5],[20.5,63],[20.8,59.5],[22.4,56],[22.8,52.5],[25,49],[27.5,45.5],[29.5,42],[31,39]];
+const countryLabels=[
+ ['UNITED KINGDOM',[-3.5,55.1]],['FRANCE',[2.0,47.3]],['SPAIN',[-4.2,40.4]],['GERMANY',[10.4,51.1]],
+ ['POLAND',[19.1,52.2]],['CZECHIA',[15.1,49.7]],['AUSTRIA',[14.2,47.6]],['ITALY',[11.1,42.7]],
+ ['SWEDEN',[16.5,61.8]],['NORWAY',[9.2,62.7]],['FINLAND',[26.0,64.5]],['BELARUS',[28.0,53.7]],
+ ['UKRAINE',[31.0,48.7]],['ROMANIA',[25.0,45.8]],['BULGARIA',[25.1,42.7]],['RUSSIA',[43.2,58.0]],
+ ['LITHUANIA',[24.0,55.2]],['LATVIA',[24.8,57.1]],['HUNGARY',[19.3,47.2]],['GREECE',[22.0,39.5]]
+];
+const cities=[['LONDON',[-.12,51.5]],['PARIS',[2.35,48.86]],['BERLIN',[13.4,52.52]],['WARSAW',[21.01,52.23]],['VIENNA',[16.37,48.2]],['KYIV',[30.52,50.45]],['MINSK',[27.56,53.9]],['MOSCOW',[37.62,55.75]],['BUCHAREST',[26.1,44.43]]];
+
+function projectionBounds(){
+ const region={type:'Polygon',coordinates:[[[-14,36],[53,36],[53,72],[-14,72],[-14,36]]]};
+ projection=d3.geoMercator().fitExtent([[26,28],[1574,872]],region);
+ geoPath=d3.geoPath(projection,ctx);
 }
-function drawFrontNumber(value,x,y,color,maxWidth){let g=ctx;let size=64;g.font='900 '+size+'px system-ui,Arial';while(g.measureText(value).width>maxWidth&&size>24){size--;g.font='900 '+size+'px system-ui,Arial'}let w=g.measureText(value).width+28,h=size+24;g.fillStyle='#07121beF';g.fillRect(x-w/2,y-h/2,w,h);g.strokeStyle=color;g.lineWidth=3;g.strokeRect(x-w/2,y-h/2,w,h);g.textAlign='center';g.textBaseline='middle';g.fillStyle=color;g.fillText(value,x,y+1)}
-function totals(){return {b:blue.reduce((a,v)=>a+v,0),r:red.reduce((a,v)=>a+v,0)}}
-function render(){let t={b:blueTroops,r:redTroops};$('day').textContent=String(day).padStart(3,'0');$('blueTerr').textContent=territory.toFixed(1)+'%';$('redTerr').textContent=(100-territory).toFixed(1)+'%';$('blueTotal').textContent=fmt(t.b);$('redTotal').textContent=fmt(t.r);$('casualties').textContent=fmt(casualties)}
-function tick(dt){let intensity=Number($('intensity').value);
-let bLoss=Math.round(blueTroops*(.000018+Math.random()*.000025)*intensity*dt*30),rLoss=Math.round(redTroops*(.000018+Math.random()*.000025)*intensity*dt*30);
-blueTroops=Math.max(0,blueTroops-bLoss)+Math.round((110+Math.random()*180)*dt*30);
-redTroops=Math.max(0,redTroops-rLoss)+Math.round((110+Math.random()*180)*dt*30);
-casualties+=bLoss+rLoss;
+function buildBase(){
+ projectionBounds();
+ baseCanvas=document.createElement('canvas');baseCanvas.width=W;baseCanvas.height=H;
+ const c=baseCanvas.getContext('2d'),path=d3.geoPath(projection,c);
+ const sea=c.createLinearGradient(0,0,W,H);sea.addColorStop(0,'#c5ceca');sea.addColorStop(.55,'#b9c5c4');sea.addColorStop(1,'#aebdc0');
+ c.fillStyle=sea;c.fillRect(0,0,W,H);
+ c.strokeStyle='rgba(69,91,99,.13)';c.lineWidth=1;
+ for(let lon=-10;lon<=50;lon+=5){const p1=projection([lon,36]),p2=projection([lon,72]);c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke()}
+ for(let lat=40;lat<=70;lat+=5){const p1=projection([-14,lat]),p2=projection([53,lat]);c.beginPath();c.moveTo(p1[0],p1[1]);c.lineTo(p2[0],p2[1]);c.stroke()}
+ worldFeatures.forEach((f,i)=>{
+  c.beginPath();path(f);
+  const shade=(i%5)*2;
+  c.fillStyle='rgb('+(190+shade)+','+(190+shade)+','+(174+shade)+')';c.fill();
+  c.strokeStyle='rgba(246,242,224,.9)';c.lineWidth=1.4;c.stroke();
+ });
+ // Soft terrain relief, deliberately restrained so borders and the front remain legible.
+ c.save();c.globalAlpha=.13;
+ for(let i=0;i<26;i++){
+  const x=80+(i*137)%1440,y=70+(i*211)%760;
+  c.beginPath();c.ellipse(x,y,80+(i%4)*27,22+(i%3)*13,(i%7)*.22,0,Math.PI*2);
+  c.strokeStyle=i%2?'#566963':'#f8f4df';c.lineWidth=2;c.stroke();
+ }
+ c.restore();
+ // National borders.
+ c.beginPath();worldFeatures.forEach(f=>path(f));c.strokeStyle='rgba(83,91,86,.58)';c.lineWidth=1.05;c.stroke();
+ // Country labels.
+ ctx.save();c.textAlign='center';c.textBaseline='middle';c.font='700 15px Arial, sans-serif';c.fillStyle='rgba(43,54,52,.73)';
+ countryLabels.forEach(([name,ll])=>{const p=projection(ll);if(p&&p[0]>15&&p[0]<W-15&&p[1]>20&&p[1]<H-15)c.fillText(name,p[0],p[1])});
+ c.restore();
+ // Major cities.
+ cities.forEach(([name,ll])=>{
+  const p=projection(ll);if(!p||p[0]<10||p[0]>W-10||p[1]<10||p[1]>H-10)return;
+  c.beginPath();c.arc(p[0],p[1],4.5,0,Math.PI*2);c.fillStyle='#f5edcf';c.fill();c.strokeStyle='#334348';c.lineWidth=1.6;c.stroke();
+  c.font='700 12px Arial';c.textAlign='left';c.textBaseline='middle';c.fillStyle='#283438';c.fillText(name,p[0]+8,p[1]+1);
+ });
+ c.font='700 11px Arial';c.fillStyle='rgba(38,53,58,.55)';c.textAlign='left';c.fillText('NORTH SEA',80,300);c.fillText('BLACK SEA',1190,780);
+ c.textAlign='right';c.fillText('BALTIC SEA',1240,150);
+ mapReady=true;
 }
-function nextDay(){day++;let balance=(blueTroops-redTroops)/(blueTroops+redTroops||1);let change=balance*.22+(Math.random()-.5)*.12;territory=Math.max(8,Math.min(92,territory+change));let lead=change>=0?'Blue':'Red';note('Day '+String(day).padStart(3,'0')+' — '+lead+' forces push the continuous frontline.');}
-function frame(now){if(!last)last=now;let dt=Math.min(.08,(now-last)/1000);last=now;if(!paused){acc+=dt;dayAcc+=dt*speed;if(acc>=1/30){tick(acc);acc=0;render()}while(dayAcc>=2){dayAcc-=2;nextDay();render()}}draw();requestAnimationFrame(frame)}
-function setPause(v){paused=v;$('pause').textContent=v?'▶ RESUME':'Ⅱ PAUSE';$('resume').textContent=v?'▶ RESUME':'Ⅱ PAUSE'}
-$('pause').onclick=()=>setPause(!paused);$('resume').onclick=()=>setPause(!paused);$('next').onclick=()=>{setPause(true);nextDay();render()};$('speed').onclick=()=>{speed=speed===1?2:speed===2?4:speed===4?8:1;$('speed').textContent=speed+'× SPEED'};
-note('Day 001 — War begins. A continuous frontline forms across the Varenn theater.');render();requestAnimationFrame(frame);
+function catmullRom(pts,steps){
+ const out=[];
+ for(let i=0;i<pts.length-1;i++){
+  const p0=pts[Math.max(0,i-1)],p1=pts[i],p2=pts[i+1],p3=pts[Math.min(pts.length-1,i+2)];
+  for(let j=0;j<steps;j++){
+   const t=j/steps,t2=t*t,t3=t2*t;
+   const x=.5*((2*p1[0])+(-p0[0]+p2[0])*t+(2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*t2+(-p0[0]+3*p1[0]-3*p2[0]+p3[0])*t3);
+   const y=.5*((2*p1[1])+(-p0[1]+p2[1])*t+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*t2+(-p0[1]+3*p1[1]-3*p2[1]+p3[1])*t3);
+   out.push([x,y]);
+  }
+ }
+ out.push(pts[pts.length-1]);return out;
+}
+function getFront(){
+ const shift=(territory-50)*.22;
+ const projected=baseFront.map(([lon,lat])=>projection([lon+shift,lat]));
+ return catmullRom(projected,8);
+}
+function pathFront(points){
+ ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);
+ for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);
+}
+function clipTerritory(points){
+ // Country geometry is used as the land mask; the single front divides that land into two sides.
+ ctx.save();ctx.beginPath();worldFeatures.forEach(f=>geoPath(f));ctx.clip();
+ ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(points[0][0],points[0][1]);
+ for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);
+ ctx.lineTo(0,H);ctx.closePath();ctx.fillStyle='rgba(55,139,202,.72)';ctx.fill();
+ ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);
+ for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);
+ ctx.lineTo(W,H);ctx.lineTo(W,0);ctx.closePath();ctx.fillStyle='rgba(190,71,67,.68)';ctx.fill();
+ ctx.restore();
+}
+function polyLength(points){let len=0;for(let i=1;i<points.length;i++)len+=Math.hypot(points[i][0]-points[i-1][0],points[i][1]-points[i-1][1]);return len}
+function pointAtHalf(points){
+ const full=polyLength(points),target=full/2;let walked=0;
+ for(let i=1;i<points.length;i++){
+  const a=points[i-1],b=points[i],seg=Math.hypot(b[0]-a[0],b[1]-a[1]);
+  if(walked+seg>=target){
+   const t=(target-walked)/(seg||1);
+   return {x:a[0]+(b[0]-a[0])*t,y:a[1]+(b[1]-a[1])*t,tx:(b[0]-a[0])/(seg||1),ty:(b[1]-a[1])/(seg||1),length:full};
+  }
+  walked+=seg;
+ }
+ return {x:800,y:450,tx:0,ty:1,length:full};
+}
+function drawFrontCount(value,points,side,color){
+ const mid=pointAtHalf(points),normalX=-mid.ty,normalY=mid.tx;
+ const offset=side==='blue'?-114:114;
+ const x=mid.x+normalX*offset,y=mid.y+normalY*offset,angle=Math.atan2(mid.ty,mid.tx);
+ const target=Math.min(930,Math.max(500,mid.length*.78));
+ const fontSize=88;
+ ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+ ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
+ const natural=ctx.measureText(value).width||1;
+ ctx.scale(target/natural,1);
+ ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
+ ctx.lineWidth=17;ctx.strokeStyle='rgba(16,25,29,.82)';ctx.strokeText(value,0,0);
+ ctx.lineWidth=4;ctx.strokeStyle='rgba(248,246,228,.86)';ctx.strokeText(value,0,0);
+ ctx.fillStyle=color;ctx.fillText(value,0,0);
+ ctx.restore();
+}
+function draw(now){
+ if(!mapReady){
+  ctx.fillStyle='#b9c4c0';ctx.fillRect(0,0,W,H);ctx.fillStyle='#24353a';ctx.font='bold 28px Arial';ctx.textAlign='center';ctx.fillText('LOADING GEOGRAPHIC MAP…',W/2,H/2);return;
+ }
+ ctx.drawImage(baseCanvas,0,0);
+ const front=getFront();
+ clipTerritory(front);
+ // The same single continuous line is drawn from the top of the map to the bottom of the theatre.
+ pathFront(front);ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='rgba(25,31,29,.75)';ctx.lineWidth=12;ctx.stroke();
+ pathFront(front);ctx.strokeStyle='#f0d99b';ctx.lineWidth=5;ctx.setLineDash([13,7]);ctx.stroke();ctx.setLineDash([]);
+ const pulse=.5+.5*Math.sin(now/420);
+ pathFront(front);ctx.strokeStyle='rgba(255,246,205,'+(.2+pulse*.35)+')';ctx.lineWidth=2.5;ctx.stroke();
+ // One count for Blue and one for Red. No boxes, pills, sectors, groups, or regional counters.
+ drawFrontCount(fmt(blueTroops),front,'blue','#d3edff');
+ drawFrontCount(fmt(redTroops),front,'red','#ffd5cf');
+}
+function renderHud(){
+ $('date').textContent='DAY '+String(day).padStart(3,'0');
+ $('clock').textContent='06:00 · SIMULATION';
+ $('casualties').textContent=fmt(casualties);
+}
+function tick(dt){
+ const intensity=Number($('intensity').value);
+ const bLoss=Math.round(blueTroops*(.000018+Math.random()*.000025)*intensity*dt*30);
+ const rLoss=Math.round(redTroops*(.000018+Math.random()*.000025)*intensity*dt*30);
+ blueTroops=Math.max(0,blueTroops-bLoss)+Math.round((110+Math.random()*180)*dt*30);
+ redTroops=Math.max(0,redTroops-rLoss)+Math.round((110+Math.random()*180)*dt*30);
+ casualties+=bLoss+rLoss;
+}
+function nextDay(){
+ day++;
+ const balance=(blueTroops-redTroops)/(blueTroops+redTroops||1);
+ const change=balance*.22+(Math.random()-.5)*.16;
+ territory=Math.max(8,Math.min(92,territory+change));
+ renderHud();
+}
+function frame(now){
+ if(!last)last=now;
+ const dt=Math.min(.08,(now-last)/1000);last=now;
+ if(!paused){
+  acc+=dt;dayAcc+=dt*speed;
+  if(acc>=1/30){tick(acc);acc=0;renderHud()}
+  while(dayAcc>=2){dayAcc-=2;nextDay()}
+ }
+ draw(now);requestAnimationFrame(frame);
+}
+function setPause(v){paused=v;$('pause').textContent=v?'▶ RESUME':'Ⅱ PAUSE'}
+$('pause').addEventListener('click',()=>setPause(!paused));
+$('next').addEventListener('click',()=>{setPause(true);nextDay()});
+$('speed').addEventListener('click',()=>{speed=speed===1?2:speed===2?4:speed===4?8:1;$('speed').textContent=speed+'× SPEED'});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)last=0});
+renderHud();
+async function loadMap(){
+ try{
+  if(!window.d3||!window.topojson)throw new Error('Map libraries did not load');
+  const response=await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json',{cache:'force-cache'});
+  if(!response.ok)throw new Error('Geographic data request failed');
+  const topology=await response.json();
+  worldFeatures=topojson.feature(topology,topology.objects.countries).features;
+  buildBase();requestAnimationFrame(frame);
+ }catch(error){
+  ctx.fillStyle='#b9c4c0';ctx.fillRect(0,0,W,H);ctx.fillStyle='#24353a';ctx.textAlign='center';ctx.font='bold 25px Arial';
+  ctx.fillText('GEOGRAPHIC MAP COULD NOT LOAD',W/2,H/2-12);ctx.font='16px Arial';ctx.fillText('Check your connection and refresh this page.',W/2,H/2+24);
+ }
+}
+loadMap();
 })();
-</script></body></html>
+</script>
+</body>
+</html>
