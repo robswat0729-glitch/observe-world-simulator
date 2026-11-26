@@ -469,16 +469,20 @@ function pointAlong(points,fraction){
  return pointAtHalf(points);
 }
 function drawFrontCount(value,points,fraction,side,color){
- const mid=pointAlong(points,fraction),nx=-mid.ty,ny=mid.tx;
- const rect=canvas.getBoundingClientRect(),displayScale=Math.max(.2,Math.min(rect.width/W,rect.height/H)*viewScale);
- const offset=23/displayScale;
+ const mid=pointAlong(points,fraction);
+ // Put the troop number directly ON the frontline, not beside it.
+ // The text baseline follows the local border tangent, so vertical fronts
+ // receive vertical labels and diagonal fronts receive diagonal labels.
  let angle=Math.atan2(mid.ty,mid.tx);
  if(angle>Math.PI/2||angle< -Math.PI/2)angle+=Math.PI;
- const fontSize=Math.max(12,Math.min(44,14/displayScale));
- ctx.save();ctx.translate(mid.x+nx*offset*(side==='blue'?-1:1),mid.y+ny*offset*(side==='blue'?-1:1));ctx.rotate(angle);
+ const rect=canvas.getBoundingClientRect();
+ const displayScale=Math.max(.2,Math.min(rect.width/W,rect.height/H)*viewScale);
+ const fontSize=Math.max(12,Math.min(42,15/displayScale));
+ ctx.save();ctx.translate(mid.x,mid.y);ctx.rotate(angle);
  ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
  ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
- ctx.lineWidth=Math.max(4,4/displayScale);ctx.strokeStyle='rgba(255,255,255,1)';ctx.strokeText(value,0,0);
+ // Outline only for contrast; no label background, badge, or box.
+ ctx.lineWidth=Math.max(3,3/displayScale);ctx.strokeStyle='rgba(255,255,255,.98)';ctx.strokeText(value,0,0);
  ctx.fillStyle=color;ctx.fillText(value,0,0);ctx.restore();
 }
 function drawFrontline(points,now){
