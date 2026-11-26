@@ -37,6 +37,7 @@ canvas{display:block;width:100%;height:100%;object-fit:contain;aspect-ratio:11/1
 .hud-bottom strong{font-size:18px;font-variant-numeric:tabular-nums}
 .legend{position:absolute;left:13px;bottom:88px;z-index:2;background:rgba(12,20,25,.82);padding:7px 10px;font-size:10px;letter-spacing:1px;pointer-events:none}
 .legend i{display:inline-block;width:9px;height:9px;margin:0 5px 0 0;border-radius:50%}
+.country-panel{position:fixed;z-index:7;top:145px;left:9px;width:min(310px,calc(100vw - 18px));max-height:43vh;overflow:auto;padding:10px 12px;background:rgba(12,20,25,.92);border:1px solid rgba(220,235,232,.3);border-radius:5px;backdrop-filter:blur(8px);font-size:11px}.country-panel h3{margin:0 0 7px;font-size:14px;letter-spacing:1px}.country-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0}.country-stat{padding:6px 0;border-top:1px solid #52636a}.country-stat span{display:block;color:#bdc9c7;font-size:9px;letter-spacing:.7px}.country-stat strong{font-size:14px;font-variant-numeric:tabular-nums}.war-tools{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}.war-tools select{min-width:0;width:100%;padding:7px 5px;font-size:10px}.war-tools button{grid-column:1/-1;width:100%;padding:8px}.war-status,.war-list{margin-top:7px;color:#e7d69e;font-size:10px;line-height:1.35}.panel-close{float:right;padding:3px 7px;font-size:10px}@media(max-width:650px){.country-panel{top:140px;left:6px;width:min(270px,calc(100vw - 12px));max-height:39vh;padding:8px}.country-stat strong{font-size:12px}.country-panel h3{font-size:12px}}
 .controls{position:fixed;z-index:6;left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-between;gap:7px;padding:8px;background:rgba(12,20,25,.84);border:1px solid rgba(220,235,232,.24);border-radius:6px;backdrop-filter:blur(8px);flex-wrap:wrap}
 button,select{border:1px solid #576a72;border-radius:4px;background:#263b45;color:#eef3f1;padding:9px 13px;font-weight:800;font-size:12px;letter-spacing:.5px}
 button:active{transform:translateY(1px)}
@@ -73,6 +74,7 @@ button:active{transform:translateY(1px)}
   <div class="legend"><i style="background:#5a9ed4"></i>ALLIED CONTROL <i style="background:#c65e59;margin-left:10px"></i>AXIS CONTROL <span style="color:#f1dda0;margin-left:10px">━━</span> FRONTLINE</div>
   <div class="hud hud-bottom"><span>TOTAL CASUALTIES</span><strong id="casualties">0</strong></div>
  </div>
+ <section class="country-panel" id="country-panel"><button class="panel-close" id="panel-close">CLOSE</button><h3 id="country-name">SELECT A COUNTRY</h3><div id="country-hint">Tap any country on the map to inspect its 1936 statistics.</div><div class="country-stats"><div class="country-stat"><span>POPULATION · 1936</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>ARMED FORCES · 1936</span><strong id="country-army">—</strong></div></div><div class="war-tools"><select id="war-attacker" aria-label="Country declaring war"><option value="">Attacker</option></select><select id="war-defender" aria-label="Country being attacked"><option value="">Target</option></select><button id="declare-war">DECLARE WAR</button></div><div class="war-status" id="war-status">All countries begin at peace. Select two countries to start a war.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section>
  <div class="controls">
   <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div>
   <div class="control-group"><select id="mode" aria-label="Simulation mode"><option value="historical">HISTORICAL</option><option value="nonhistorical">NON-HISTORICAL</option></select><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
@@ -88,6 +90,7 @@ const $=id=>document.getElementById(id);
 const fmt=n=>Math.max(0,Math.round(n)).toLocaleString('en-US');
 let day=1,paused=false,speed=1,casualties=0,territory=50,last=0,acc=0,dayAcc=0,simDate=new Date(1936,0,1),mode='historical';
 let blueTroops=2400000,redTroops=1500000,worldFeatures=[],baseCanvas=null,mapReady=false,loadMessage='Loading geographic map…',lastForceYear=-1;
+const countries=new Map();let selectedCountry=null,activeWars=[],countryHitData=[];
 const historicalForces={
  // Annual total armed-forces personnel (thousands), major powers; pre-1939 values are explicitly approximate buildup estimates.
  1936:{allies:2400,axis:1500},1937:{allies:2600,axis:1750},1938:{allies:3100,axis:2200},
