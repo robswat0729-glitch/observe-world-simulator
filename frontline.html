@@ -167,8 +167,19 @@ function countryRecord(name){
  return {name,population:1000000,citizens:995000,soldiers:5000,reserve:1750,estimated:true};
 }
 function registerCountries(){
+ // Rebuilding the map must not recreate national records. In particular,
+ // buildBase() runs after an annexation; replacing every record here used to
+ // erase annexedTo and restore the defeated country's original population,
+ // soldiers and independence immediately after the annex button was pressed.
+ const previousRecords=new Map(countries);
  countries.clear();countryHitData=[];
- worldFeatures.forEach(f=>{const name=countryName(f);if(name){if(!countries.has(name))countries.set(name,countryRecord(name));countryHitData.push({name,geometry:f.geometry})}});
+ worldFeatures.forEach(f=>{
+  const name=countryName(f);
+  if(name){
+   if(!countries.has(name))countries.set(name,previousRecords.get(name)||countryRecord(name));
+   countryHitData.push({name,geometry:f.geometry});
+  }
+ });
  if(countries.size&&!populationLoaded&&!populationLoading)load1936PopulationReference();
 }
 function atWar(name){return activeWars.some(w=>w.a===name||w.b===name)}
