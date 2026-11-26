@@ -824,6 +824,18 @@ function buildWarFront(a,b){
  if(projected.length)return projected;const known=knownHistoricalFront(a,b);if(known)return known;const fallback=fallbackAdjacentFront(a,b);return fallback||null;
 }
 
+function ensureBorderGarrisons(country){
+ if(country.borderGarrisonReady)return;
+ const neighbors=[...countries.keys()].filter(name=>name!==country.name&&!!buildWarFront(country.name,name));
+ const coastal=/United Kingdom|Britain|France|Germany|Italy|Spain|Portugal|Netherlands|Belgium|Norway|Sweden|Denmark|Poland|Romania|Greece|Turkey|Soviet|Russia|Yugoslavia|Finland|Estonia|Latvia|Lithuania|Ireland|Bulgaria|Albania/i.test(country.name);
+ const slots=Math.max(1,neighbors.length+(coastal?1:0));
+ const pool=Math.max(0,(country.soldiers||0)-(country.reserve||0))*.72;
+ const per=Math.floor(pool/slots/12000)*12000;
+ country.borderGarrisons={};
+ neighbors.forEach(name=>country.borderGarrisons[name]=per);
+ if(coastal)country.borderGarrisons.SEA=per;
+ country.borderGarrisonReady=true;
+}
 function divisionList(w,side){
  const key=side==='A'?'divisionsA':'divisionsB';
  if(!Array.isArray(w[key]))w[key]=[];
@@ -852,13 +864,17 @@ function updateWarDeployments(){
   const available=Math.max(0,(country.soldiers||0)-(country.reserve||0)-trapped);
   const threatTotal=list.reduce((sum,item)=>sum+item.threat,0);
   list.forEach(item=>{
+   ensureBorderGarrisons(country);
    const allocation=threatTotal?Math.floor(available*item.threat/threatTotal):0;
    const committed=item.support?Math.min(allocation,available*Math.max(0,Math.min(.8,item.support.commitRatio??.30))):allocation;
    const divisions=divisionList(item.war,item.side);
    if(!item.war['garrisonReady'+item.side]){
-    // Only the troops already stationed on this border are present when war begins.
-    const garrison=Math.floor(committed*.55/12000)*12000;
-    for(let n=0;n<garrison/12000;n++)divisions.push({troops:12000,status:'garrison',training:0,travel:0});
+    // Only the peacetime garrison assigned to this exact border enters combat.
+    // Other land-border and sea garrisons remain stationed at their posts.
+    const enemyName=item.war.a===name?item.war.b:item.war.a;
+    const stationed=item.support?Math.floor(committed*.35/12000)*12000:
+      (item.war.front?.length?(country.borderGarrisons[enemyName]||0):(country.borderGarrisons.SEA||0));
+    for(let n=0;n<stationed/12000;n++)divisions.push({troops:12000,status:'garrison',training:0,travel:0});
     item.war['garrisonReady'+item.side]=true;
     item.war['reinforcementClock'+item.side]=0;
   }
