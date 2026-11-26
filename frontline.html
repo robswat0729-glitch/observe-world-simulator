@@ -163,8 +163,8 @@ const country1936={
 function countryName(f){const p=f.properties||{};return String(p.NAME||p.ADMIN||p.name||p.NAME_EN||p.SOVEREIGNT||'').trim()}
 function countryRecord(name){
  const k=Object.keys(country1936).find(x=>x.toLowerCase()===name.toLowerCase());
- if(k){const soldiers=country1936[k][1];return {name,population:country1936[k][0],soldiers,reserve:soldiers*.35,estimated:false};}
- return {name,population:1000000,soldiers:5000,reserve:1750,estimated:true};
+ if(k){const soldiers=country1936[k][1],population=country1936[k][0];return {name,population,citizens:Math.max(0,population-soldiers),soldiers,reserve:soldiers*.35,estimated:false};}
+ return {name,population:1000000,citizens:995000,soldiers:5000,reserve:1750,estimated:true};
 }
 function registerCountries(){
  countries.clear();countryHitData=[];
@@ -230,7 +230,7 @@ async function load1936PopulationReference(){
   const aliases={'empire of japan':'japan','united kingdom':'united kingdom','soviet union':'ussr','persia':'iran','siam':'thailand','union of south africa':'south africa'};
   countries.forEach((rec,name)=>{
    const key=name.toLowerCase(),match=values.get(aliases[key]||key);
-   if(match){rec.population=match;if(rec.estimated){rec.soldiers=Math.round(match*.005);rec.reserve=rec.soldiers*.35}}
+   if(match){rec.population=match;if(rec.estimated){rec.soldiers=Math.round(match*.005);rec.reserve=rec.soldiers*.35}rec.citizens=Math.max(0,rec.population-rec.soldiers);}
   });
   if(selectedCountry)showCountry(selectedCountry);populationLoaded=true;
  }catch(error){console.warn('1936 population reference not loaded; using built-in historical estimates.',error)}finally{populationLoading=false}
@@ -608,12 +608,12 @@ function drawFrontCounts(war,points,strength,borderPoints=points){
  const displayScale=Math.max(.18,Math.min(rect.width/W,rect.height/H)*viewScale);
  const fontSize=Math.max(15,Math.min(38,20/displayScale));
  const gap=Math.max(12,Math.min(22,15/displayScale));
- // Determine which side each country actually occupies by testing points
- // immediately on either side of the original shared border. This avoids
- // centroid errors for curved, concave and multi-part countries.
- const nx=-borderMid.ty,ny=borderMid.tx;
+ // Use the original shared border to establish the true geographic sides.
+ // The moving frontline may cross into captured territory, so it must not
+ // decide which country owns the blue/defender label.
+ let nx=-borderMid.ty,ny=borderMid.tx,nlen=Math.hypot(nx,ny)||1;nx/=nlen;ny/=nlen;
  const sideOfCountry=(name)=>{
-  for(const distance of [3,6,10,16,24,34]){
+  for(const distance of [4,8,14,22,32,46]){
    const plus=countryContainsProjectedPoint(name,borderMid.x+nx*distance,borderMid.y+ny*distance);
    const minus=countryContainsProjectedPoint(name,borderMid.x-nx*distance,borderMid.y-ny*distance);
    if(plus&&!minus)return 1;
@@ -632,15 +632,14 @@ function drawFrontCounts(war,points,strength,borderPoints=points){
  else if(!defenderSide)defenderSide=-attackerSide;
  else if(attackerSide===defenderSide)defenderSide=-attackerSide;
  const tangentLength=Math.hypot(mid.tx,mid.ty)||1,tx=mid.tx/tangentLength,ty=mid.ty/tangentLength;
- const normalX=-ty,normalY=tx;
  const entries=[
   {value:fmt(strength.attackers),side:attackerSide,color:'#a52f2a'},
   {value:fmt(strength.defenders),side:defenderSide,color:'#245d91'}
  ];
  entries.forEach(entry=>{
   ctx.save();
-  const labelX=Math.max(16,Math.min(W-16,mid.x+normalX*gap*entry.side));
-  const labelY=Math.max(16,Math.min(H-16,mid.y+normalY*gap*entry.side));
+  const labelX=Math.max(16,Math.min(W-16,mid.x+nx*gap*entry.side));
+  const labelY=Math.max(16,Math.min(H-16,mid.y+ny*gap*entry.side));
   ctx.translate(labelX,labelY);
   let angle=Math.atan2(ty,tx);if(angle>Math.PI/2||angle< -Math.PI/2)angle+=Math.PI;
   ctx.rotate(angle);
@@ -716,6 +715,17 @@ function tick(dt){
  let losses=0;
  lossesByCountry.forEach((amount,name)=>{const c=countries.get(name);if(c){const actual=Math.min(c.soldiers,amount);c.soldiers=Math.max(0,c.soldiers-actual);losses+=actual}});
  casualties+=losses;
+ // Recruit civilians into the reserve pool. Total population stays stable;
+ // citizens become soldiers, and reserves remain included in TOTAL SOLDIERS.
+ if(simDt>0){
+  countries.forEach(country=>{
+   const civilianPool=Math.max(0,country.citizens??(country.population-country.soldiers));
+   if(!civilianPool)return;
+   const dailyRate=atWar(country.name)?.00002:.000003;
+   const recruits=Math.min(civilianPool,Math.max(0,country.population*dailyRate*simDt/2));
+   if(recruits>0){country.citizens=civilianPool-recruits;country.soldiers+=recruits;country.reserve=(country.reserve||0)+recruits;}
+  });
+ }
  // Reserves are kept out of the frontline until needed. Each simulated day,
  // a small share is committed as reinforcements; this raises front counts
  // while reducing the country's reserve count without creating new soldiers.
