@@ -250,6 +250,9 @@ async function load1936PopulationReference(){
   for(let i=1;i<lines.length;i++){const cells=lines[i].split(','),n=(cells[entityIndex]||'').replace(/^"|"$/g,'').trim(),v=Number(cells[valueIndex]);if(n&&Number.isFinite(v)&&v>0)values.set(n.toLowerCase(),v)}
   const aliases={'empire of japan':'japan','united kingdom':'united kingdom','soviet union':'ussr','persia':'iran','siam':'thailand','union of south africa':'south africa'};
   countries.forEach((rec,name)=>{
+   // A delayed population download must never resurrect an annexed state
+   // after its manpower and population have already been absorbed.
+   if(rec.annexedTo)return;
    const key=name.toLowerCase(),match=values.get(aliases[key]||key);
    if(match){rec.population=match;if(rec.estimated){rec.soldiers=Math.round(match*.005);rec.reserve=rec.soldiers*.35}rec.citizens=Math.max(0,rec.population-rec.soldiers);}
   });
