@@ -700,24 +700,18 @@ function countryFlag(name){
  return String.fromCodePoint(...code.split('').map(c=>0x1f1e6+c.charCodeAt(0)-65));
 }
 function drawDivisionFlags(war,paths,strength,borderPaths=paths){
- // A division is a variable-strength formation, not a preset 10,000/15,000-man token.
- // The number of flags follows the available frontline manpower; each flag's
- // displayed strength is recalculated from that country's current deployment.
+ // Small flag-only division markers. Army totals remain on the frontline labels;
+ // individual divisions intentionally have no soldier-count text.
  const totalLength=paths.reduce((sum,p)=>sum+polyLength(p),0);
  if(totalLength<1)return;
  const sides=[
-  {name:war.a,troops:Math.max(0,strength.attackers),side:1,seed:0.37},
-  {name:war.b,troops:Math.max(0,strength.defenders),side:-1,seed:1.91}
+  {name:war.a,troops:Math.max(0,strength.attackers),side:1},
+  {name:war.b,troops:Math.max(0,strength.defenders),side:-1}
  ];
  sides.forEach(entry=>{
   if(entry.troops<1)return;
   const count=Math.max(1,Math.min(28,Math.round(entry.troops/13500)));
-  const weights=Array.from({length:count},(_,i)=>.72+((Math.sin((war.seed||0)*13+i*17+entry.seed*29)+1)/2)*.72);
-  const weightSum=weights.reduce((a,b)=>a+b,0);
-  const sizes=weights.map(w=>Math.floor(entry.troops*w/weightSum));
-  sizes[sizes.length-1]+=entry.troops-sizes.reduce((a,b)=>a+b,0);
   let normalSide=entry.side;
-  // Determine the country's true side of the original border, not the moving line.
   const mid=pointAlong(borderPaths[0]||paths[0],.5),nx=-mid.ty,ny=mid.tx;
   const plus=countryContainsProjectedPoint(entry.name,mid.x+nx*8,mid.y+ny*8);
   const minus=countryContainsProjectedPoint(entry.name,mid.x-nx*8,mid.y-ny*8);
@@ -727,15 +721,11 @@ function drawDivisionFlags(war,paths,strength,borderPaths=paths){
    for(const candidate of paths){const len=polyLength(candidate);if(remaining<=len){path=candidate;break}remaining-=len}
    const p=pointAlong(path,Math.max(0,Math.min(1,remaining/(polyLength(path)||1))));
    let px=-p.ty,py=p.tx,plen=Math.hypot(px,py)||1;px/=plen;py/=plen;
-   const offset=normalSide*(17+(i%2)*3),x=p.x+px*offset,y=p.y+py*offset;
+   const offset=normalSide*12,x=p.x+px*offset,y=p.y+py*offset;
    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
-   ctx.font='24px "Noto Color Emoji", "Apple Color Emoji", Arial';
-   const flag=countryFlag(entry.name);
-   ctx.lineWidth=3.5;ctx.strokeStyle='rgba(248,246,232,.96)';ctx.strokeText(flag,x,y);
-   ctx.fillStyle='#17252d';ctx.font='900 10px Arial, sans-serif';
-   const label=fmt(sizes[i]);
-   ctx.lineWidth=2.5;ctx.strokeStyle='rgba(248,246,232,.98)';ctx.strokeText(label,x,y+16);
-   ctx.fillText(label,x,y+16);
+   ctx.font='14px "Noto Color Emoji", "Apple Color Emoji", Arial';
+   ctx.lineWidth=1.5;ctx.strokeStyle='rgba(248,246,232,.92)';
+   ctx.strokeText(countryFlag(entry.name),x,y);
    ctx.restore();
   }
  });
