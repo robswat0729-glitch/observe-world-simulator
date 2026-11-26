@@ -168,6 +168,7 @@ function registerCountries(){
  worldFeatures.forEach(f=>{const name=countryName(f);if(name){if(!countries.has(name))countries.set(name,countryRecord(name));countryHitData.push({name,geometry:f.geometry})}});
  const names=[...countries.keys()].sort((a,b)=>a.localeCompare(b));
  ['war-attacker','war-defender'].forEach((id,i)=>{const el=$(id),old=el.value;el.innerHTML='<option value="">'+(i?'Target country':'Attacker')+'</option>';names.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;el.appendChild(o)});if(names.includes(old))el.value=old});
+ if(countries.size&&!populationLoaded&&!populationLoading)load1936PopulationReference();
 }
 function atWar(name){return activeWars.some(w=>w.a===name||w.b===name)}
 function showCountry(name){
@@ -214,6 +215,7 @@ function hitCountry(x,y){
 const dependentTerritories=new Set(['Algeria (France)','Angola (Portugal)','Belgian Congo','British Raj','British Somaliland','Dutch East Indies','Ceylon','French Cameroons','French Equatorial Africa','French Guiana','French Indo-China','French Somaliland','French West Africa','Gold Coast','Hong Kong','Italian Somaliland','Kenya','Libya (Italy)','Madagascar (France)','Mandatory Palestine (GB)','Mesopotamia (GB)','Morocco (France)','Mozambique (Portugal)','Nigeria','Northern Rhodesia','Southern Rhodesia','Eritrea (Italy)','Ethiopia (Italy)','Jamaica','Kuwait','Laos','Malaya','Martinique','New Caledonia','Puerto Rico','Sudan','Togo','Tunisia','Uganda']);
 function isSovereign(name){return !name.includes('(')&&!dependentTerritories.has(name)}
 async function load1936PopulationReference(){
+ if(populationLoaded||populationLoading||!countries.size)return;populationLoading=true;
  try{
   const response=await fetch('https://ourworldindata.org/grapher/population.csv?time=1936',{mode:'cors',cache:'force-cache'});
   if(!response.ok)throw new Error('Population reference unavailable');
@@ -227,8 +229,8 @@ async function load1936PopulationReference(){
    const key=name.toLowerCase(),match=values.get(aliases[key]||key);
    if(match){rec.population=match;if(rec.estimated)rec.soldiers=Math.round(match*.005)}
   });
-  if(selectedCountry)showCountry(selectedCountry);
- }catch(error){console.warn('1936 population reference not loaded; using built-in historical estimates.',error)}
+  if(selectedCountry)showCountry(selectedCountry);populationLoaded=true;
+ }catch(error){console.warn('1936 population reference not loaded; using built-in historical estimates.',error)}finally{populationLoading=false}
 }
 
 function naturalDiplomacy(){
