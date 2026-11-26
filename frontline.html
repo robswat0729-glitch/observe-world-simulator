@@ -1199,7 +1199,7 @@ function startCivilWar(country,rebelTroops,rebelReserve,territory){
  activeWars.push(war);updateWarDeployments();renderWars();return true;
 }
 function syncCivilWarFactions(){
- activeWars.filter(w=>w.civilWar).forEach(w=>{const gov=countries.get(w.a),reb=countries.get(w.b);if(!gov?.civilWar||!reb)return;gov.civilWar.troops=Math.max(0,reb.soldiers||0);gov.civilWar.reserve=Math.max(0,reb.reserve||0);gov.civilWar.divisions=Math.max(0,Math.round(gov.civilWar.troops/12000));w.front=civilWarFront(gov,gov.civilWar);});
+ activeWars.filter(w=>w.civilWar).forEach(w=>{const gov=countries.get(w.a),reb=countries.get(w.b);if(!gov?.civilWar||!reb)return;gov.civilWar.troops=Math.max(0,reb.soldiers||0);gov.civilWar.reserve=Math.max(0,reb.reserve||0);gov.civilWar.divisions=Math.max(0,Math.round(gov.civilWar.troops/12000));gov.civilWar.progress=w.progress||0;w.front=civilWarFront(gov,gov.civilWar);});
 }
 function finishCivilWar(war,winnerSide){
  const gov=countries.get(war.a),reb=countries.get(war.b);if(!gov||!reb)return;
@@ -1229,24 +1229,10 @@ function draw(now){
 function drawCivilWarTerritory(country){
  const cw=country.civilWar,region=cw?.territory;if(!cw||!region)return;
  const feature=worldFeatures[region.featureIndex];if(!feature)return;
- const growth=Math.max(.72,Math.min(1.65,1+(cw.progress||0)/150));
+ const growth=Math.max(.52,Math.min(1.55,1-(cw.progress||0)*.95));
  ctx.save();ctx.beginPath();traceGeometry(ctx,feature.geometry);ctx.clip();
  ctx.beginPath();region.points.forEach((p,i)=>{const x=region.center[0]+(p[0]-region.center[0])*growth,y=region.center[1]+(p[1]-region.center[1])*growth;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});ctx.closePath();
  ctx.fillStyle='rgba(38,168,83,.78)';ctx.fill();ctx.strokeStyle='rgba(113,245,151,.98)';ctx.lineWidth=2;ctx.setLineDash([5,3]);ctx.stroke();ctx.setLineDash([]);
- const center=countryMapCenter(country.name);if(center){
-  const dx=center[0]-region.center[0],dy=center[1]-region.center[1],len=Math.hypot(dx,dy)||1;
-  const nx=-dy/len,ny=dx/len,half=Math.max(5,Math.min(18,Math.hypot(region.rx,region.ry)*.32));
-  const front=[[region.center[0]-nx*half,region.center[1]-ny*half],[region.center[0]-nx*half*.35+dx*.12,region.center[1]-ny*half*.35+dy*.12],[region.center[0]+nx*half*.35+dx*.22,region.center[1]+ny*half*.35+dy*.22],[region.center[0]+nx*half,region.center[1]+ny*half]];
-  ctx.beginPath();front.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
-  ctx.strokeStyle='rgba(235,220,180,.98)';ctx.lineWidth=3;ctx.setLineDash([]);ctx.stroke();
-  ctx.beginPath();front.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
-  ctx.strokeStyle='rgba(30,40,42,.9)';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
-  const drawForce=(x,y,color,label,value)=>{
-   ctx.save();ctx.translate(x,y);ctx.fillStyle='rgba(10,18,22,.92)';ctx.fillRect(-27,-17,54,34);
-   ctx.fillStyle=color;ctx.fillRect(-23,-13,10,26);ctx.fillStyle='#fff';ctx.font='bold 9px Arial';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(label,-9,-5);ctx.font='bold 9px Arial';ctx.fillText(fmt(value),-9,7);ctx.restore();
-  };
-  const mid=front[1];drawForce(mid[0]+nx*14,mid[1]+ny*14,'#d65b55','GOV',country.soldiers);drawForce(mid[0]-nx*14,mid[1]-ny*14,'#38b66b','REB',cw.troops);
- }
  ctx.restore();
 }
  // Green marks only the rebel-held pocket, clipped to the country's real map polygon.
