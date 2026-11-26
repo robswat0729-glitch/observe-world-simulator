@@ -374,7 +374,10 @@ function countryBorderEdges(name){
 // Match overlapping border portions, even when one country's GeoJSON edge is
 // split into several points and the neighbouring country's edge is not.
 function sharedBorderPieces(edgesA,edgesB){
- const pieces=[],seen=new Set(),tol=.003,parallel=.005,minLength=.002;
+ // Historical GeoJSON often simplifies the two sides of a political border
+ // independently. Exact coordinate matching therefore misses real borders.
+ // Match collinear overlapping segments with a small geographic tolerance.
+ const pieces=[],seen=new Set(),tol=.035,parallel=.035,minLength=.002;
  for(const a of edgesA){
   const ux=a.b[0]-a.a[0],uy=a.b[1]-a.a[1],len2=ux*ux+uy*uy,len=Math.sqrt(len2);
   if(len<minLength)continue;
@@ -394,6 +397,7 @@ function sharedBorderPieces(edgesA,edgesB){
    if(!seen.has(key)){seen.add(key);pieces.push({a:p,b:q})}
   }
  }
+ // Merge near-identical overlaps produced by different vertex subdivisions.
  return pieces;
 }
 function buildWarFront(a,b){
@@ -470,20 +474,24 @@ function pointAlong(points,fraction){
 }
 function drawFrontCount(value,points,fraction,side,color){
  const mid=pointAlong(points,fraction);
- // Put the troop number directly ON the frontline, not beside it.
- // The text baseline follows the local border tangent, so vertical fronts
- // receive vertical labels and diagonal fronts receive diagonal labels.
+ if(!Number.isFinite(mid.x)||!Number.isFinite(mid.y))return;
+ // Position the count on the front itself and align it with the border.
  let angle=Math.atan2(mid.ty,mid.tx);
  if(angle>Math.PI/2||angle< -Math.PI/2)angle+=Math.PI;
  const rect=canvas.getBoundingClientRect();
- const displayScale=Math.max(.2,Math.min(rect.width/W,rect.height/H)*viewScale);
- const fontSize=Math.max(12,Math.min(42,15/displayScale));
- ctx.save();ctx.translate(mid.x,mid.y);ctx.rotate(angle);
+ const displayScale=Math.max(.18,Math.min(rect.width/W,rect.height/H)*viewScale);
+ const fontSize=Math.max(18,Math.min(54,21/displayScale));
+ ctx.save();
+ ctx.translate(mid.x,mid.y);
+ ctx.rotate(angle);
  ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
  ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
- // Outline only for contrast; no label background, badge, or box.
- ctx.lineWidth=Math.max(3,3/displayScale);ctx.strokeStyle='rgba(255,255,255,.98)';ctx.strokeText(value,0,0);
- ctx.fillStyle=color;ctx.fillText(value,0,0);ctx.restore();
+ ctx.lineWidth=Math.max(4,4/displayScale);
+ ctx.strokeStyle='rgba(255,255,255,.98)';
+ ctx.strokeText(value,0,0);
+ ctx.fillStyle=color;
+ ctx.fillText(value,0,0);
+ ctx.restore();
 }
 function drawFrontline(points,now){
  ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
