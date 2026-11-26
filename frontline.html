@@ -430,12 +430,29 @@ function fallbackAdjacentFront(a,b){
    if(score<bestScore){bestScore=score;best={...hit,lx,ly,parallel}}
   }
  }
- if(!best||best.gap>Math.max(18,Math.max(W,H)*.025)||best.parallel>.35)return null;
+ if(!best){
+  // Even when a dataset omits a usable shared boundary, never leave an active
+  // war without a visible engagement line and its two front-strength labels.
+  const center=name=>{
+   const features=worldFeatures.filter(f=>countryName(f)===name),pts=[];
+   features.forEach(f=>geometryRings(f.geometry).forEach(ring=>ring.forEach(ll=>{const p=project(ll);if(Number.isFinite(p[0])&&Number.isFinite(p[1]))pts.push(p)})));
+   if(!pts.length)return null;
+   return [pts.reduce((v,p)=>v+p[0],0)/pts.length,pts.reduce((v,p)=>v+p[1],0)/pts.length];
+  };
+  const ca=center(a),cb=center(b);if(!ca||!cb)return null;
+  const dx=cb[0]-ca[0],dy=cb[1]-ca[1],d=Math.hypot(dx,dy)||1;
+  const tx=-dy/d,ty=dx/d,cx=(ca[0]+cb[0])/2,cy=(ca[1]+cb[1])/2;
+  const half=Math.max(42,Math.min(125,Math.max(W,H)*.075));
+  return [[cx-tx*half,cy-ty*half],[cx+tx*half,cy+ty*half]];
+ }
+ // Keep the engagement line anchored to the closest actual border segments.
+ // Do not reject it just because the map's two country outlines are simplified
+ // differently or the countries are separated by water.
  let tx=best.u[0]/best.lx+best.v[0]/best.ly,ty=best.u[1]/best.lx+best.v[1]/best.ly;
- let len=Math.hypot(tx,ty);if(len<.05){tx=best.u[0]/best.lx;ty=best.u[1]/best.lx;len=1}
+ let len=Math.hypot(tx,ty);
+ if(len<.05){tx=best.u[0]/best.lx;ty=best.u[1]/best.ly;len=1}
  tx/=len;ty/=len;
  const cx=(best.p[0]+best.q[0])/2,cy=(best.p[1]+best.q[1])/2;
- // Keep a visible front segment centered on the actual closest border location.
  const half=Math.max(42,Math.min(125,Math.max(W,H)*.075));
  return [[cx-tx*half,cy-ty*half],[cx+tx*half,cy+ty*half]];
 }
@@ -550,16 +567,20 @@ function draw(now){
  if(selectedCountry){const f=worldFeatures.find(x=>countryName(x)===selectedCountry);if(f){ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.strokeStyle='#ffe59a';ctx.lineWidth=4;ctx.stroke()}}
  if(activeWars.length){
   activeWars.forEach((war,index)=>{
-    if(!war.front||!war.front.length)war.front=buildWarFront(war.a,war.b);
+    if(!war.front||!war.front.length)war.front=buildWarFront(war.a,war.b)||fallbackAdjacentFront(war.a,war.b);
     const front=war.front;
+    // Every active war gets a drawable engagement line, even if the source map
+    // has no exact shared-border match for that pair of countries.
     if(!front||!front.length)return;
     const paths=Array.isArray(front[0]?.[0])?front:[front];
-    paths.forEach((path,pathIndex)=>{if(path.length>1)drawFrontline(path,now+index*173+pathIndex*61)});
-    const mainFront=paths.slice().sort((a,b)=>polyLength(b)-polyLength(a))[0];
-    if(mainFront&&mainFront.length>1&&polyLength(mainFront)>2){
+    const drawable=paths.filter(path=>Array.isArray(path)&&path.length>1&&polyLength(path)>2);
+    drawable.forEach((path,pathIndex)=>drawFrontline(path,now+index*173+pathIndex*61));
+    const mainFront=drawable.slice().sort((a,b)=>polyLength(b)-polyLength(a))[0];
+    if(mainFront){
      const strength=activeWarStrength(war);
-     drawFrontCount(fmt(strength.attackers),mainFront,.34,'red','#8f171b');
-     drawFrontCount(fmt(strength.defenders),mainFront,.66,'blue','#07538b');
+     // The two bare counts sit on the actual front stroke and rotate with it.
+     drawFrontCount(fmt(strength.attackers),mainFront,.32,'red','#8f171b');
+     drawFrontCount(fmt(strength.defenders),mainFront,.68,'blue','#07538b');
     }
    });
  }else{
