@@ -438,10 +438,27 @@ function fallbackAdjacentFront(a,b){
  const half=Math.max(9,Math.min(64,Math.min(best.lx,best.ly)*.38));
  return [[cx-tx*half,cy-ty*half],[cx+tx*half,cy+ty*half]];
 }
+function knownHistoricalFront(a,b){
+ // The 1938 source polygons can simplify the short Franco-German border
+ // differently on each side. Keep this surveyed border trace as a deterministic
+ // fallback so this major land front never silently disappears.
+ const pair=new Set([a,b]);
+ if(pair.has('Germany')&&pair.has('France')&&pair.size===2){
+  const border=[
+   [6.37,49.45],[6.48,49.48],[6.60,49.52],[6.73,49.55],
+   [6.88,49.56],[7.02,49.55],[7.14,49.50],[7.24,49.39],
+   [7.34,49.25],[7.43,49.08],[7.51,48.91],[7.57,48.73],
+   [7.59,48.55],[7.58,48.36],[7.58,48.17],[7.59,47.98],
+   [7.59,47.80],[7.59,47.59]
+  ];
+  return [border.map(project)];
+ }
+ return null;
+}
 function buildWarFront(a,b){
  if(!mapReady||!a||!b)return null;
  const shared=sharedBorderPieces(countryBorderEdges(a),countryBorderEdges(b));
- if(!shared.length)return fallbackAdjacentFront(a,b);
+ if(!shared.length){const known=knownHistoricalFront(a,b);return known||(()=>{const fallback=fallbackAdjacentFront(a,b);return fallback?[fallback]:null})()}
  // Merge only degree-two joins. At corners/junctions stop instead of arbitrarily
  // choosing an edge and accidentally drawing a line across unrelated borders.
  const nodes=new Map();
@@ -473,7 +490,7 @@ function buildWarFront(a,b){
   return true;
  });
  projected.sort((x,y)=>polyLength(y)-polyLength(x));
- if(projected.length)return projected;const fallback=fallbackAdjacentFront(a,b);return fallback?[fallback]:null;
+ if(projected.length)return projected;const known=knownHistoricalFront(a,b);if(known)return known;const fallback=fallbackAdjacentFront(a,b);return fallback?[fallback]:null;
 }
 
 function updateWarDeployments(){
