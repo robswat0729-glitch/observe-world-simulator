@@ -412,31 +412,32 @@ function closestSegmentPoints(p1,p2,q1,q2){
  return {p:[p1[0]+sc*ux,p1[1]+sc*uy],q:[q1[0]+tc*vx,q1[1]+tc*vy],u:[ux,uy],v:[vx,vy],gap:Math.hypot((p1[0]+sc*ux)-(q1[0]+tc*vx),(p1[1]+sc*uy)-(q1[1]+tc*vy))};
 }
 function fallbackAdjacentFront(a,b){
- // Recover shared borders missed by independently simplified polygon edges.
- // Find the nearest pair of boundary segments in projected map space.
- const ea=countryBorderEdges(a),eb=countryBorderEdges(b);
- let best=null,bestScore=Infinity;
+ // Build a continuous-looking local frontline from ALL close, parallel
+ // boundary segment pairs, rather than returning only the single closest pair.
+ const ea=countryBorderEdges(a),eb=countryBorderEdges(b),pieces=[];
  for(const x of ea){
   const p1=project(x.a),p2=project(x.b),lx=Math.hypot(p2[0]-p1[0],p2[1]-p1[1]);
-  if(lx<1.2)continue;
+  if(lx<1.5)continue;
   for(const y of eb){
    const q1=project(y.a),q2=project(y.b),ly=Math.hypot(q2[0]-q1[0],q2[1]-q1[1]);
-   if(ly<1.2)continue;
+   if(ly<1.5)continue;
    const hit=closestSegmentPoints(p1,p2,q1,q2);
    const parallel=Math.abs(hit.u[0]*hit.v[1]-hit.u[1]*hit.v[0])/(lx*ly);
-   const score=hit.gap+parallel*16+8/Math.min(lx,ly);
-   if(score<bestScore){bestScore=score;best={...hit,lx,ly,parallel}}
+   // A modest gap is allowed for simplified historical coast/border data,
+   // but distant or crossing edges are never joined into a false front.
+   if(hit.gap>20||parallel>.32)continue;
+   let tx=hit.u[0]/lx+hit.v[0]/ly,ty=hit.u[1]/lx+hit.v[1]/ly;
+   let len=Math.hypot(tx,ty);
+   if(len<.05){tx=hit.u[0]/lx;ty=hit.u[1]/lx;len=1}
+   tx/=len;ty/=len;
+   const cx=(hit.p[0]+hit.q[0])/2,cy=(hit.p[1]+hit.q[1])/2;
+   const half=Math.max(4,Math.min(32,Math.min(lx,ly)*.42));
+   const line=[[cx-tx*half,cy-ty*half],[cx+tx*half,cy+ty*half]];
+   if(!pieces.some(p=>Math.hypot(p[0][0]-line[0][0],p[0][1]-line[0][1])<5&&Math.hypot(p[1][0]-line[1][0],p[1][1]-line[1][1])<5))pieces.push(line);
   }
  }
- // Keep this strictly local: no made-up front through the middle of a country.
- if(!best||best.gap>16||best.parallel>.30)return null;
- let tx=best.u[0]/best.lx+best.v[0]/best.ly,ty=best.u[1]/best.lx+best.v[1]/best.ly;
- let len=Math.hypot(tx,ty);
- if(len<.05){tx=best.u[0]/best.lx;ty=best.u[1]/best.lx;len=1}
- tx/=len;ty/=len;
- const cx=(best.p[0]+best.q[0])/2,cy=(best.p[1]+best.q[1])/2;
- const half=Math.max(9,Math.min(64,Math.min(best.lx,best.ly)*.38));
- return [[cx-tx*half,cy-ty*half],[cx+tx*half,cy+ty*half]];
+ if(!pieces.length)return null;
+ return pieces;
 }
 function knownHistoricalFront(a,b){
  // The 1938 source polygons can simplify the short Franco-German border
@@ -453,6 +454,13 @@ function knownHistoricalFront(a,b){
   ];
   return [border.map(project)];
  }
+ // Germany–Denmark: the narrow Jutland land border is frequently simplified
+ // inconsistently in the 1938 polygons, which previously left this war with
+ // no drawable front and therefore no troop labels.
+ if(pair.has('Germany')&&pair.has('Denmark')&&pair.size===2){
+  const border=[[8.65,54.90],[8.82,54.89],[9.00,54.88],[9.18,54.86],[9.36,54.84],[9.55,54.83]];
+  return [border.map(project)];
+ }
  return null;
 }
 function buildWarFront(a,b){
@@ -463,7 +471,7 @@ function buildWarFront(a,b){
  const knownFront=knownHistoricalFront(a,b);
  if(knownFront)return knownFront;
  const shared=sharedBorderPieces(countryBorderEdges(a),countryBorderEdges(b));
- if(!shared.length){const fallback=fallbackAdjacentFront(a,b);return fallback?[fallback]:null}
+ if(!shared.length){const fallback=fallbackAdjacentFront(a,b);return fallback||null}
  // Merge only degree-two joins. At corners/junctions stop instead of arbitrarily
  // choosing an edge and accidentally drawing a line across unrelated borders.
  const nodes=new Map();
@@ -495,7 +503,7 @@ function buildWarFront(a,b){
   return true;
  });
  projected.sort((x,y)=>polyLength(y)-polyLength(x));
- if(projected.length)return projected;const known=knownHistoricalFront(a,b);if(known)return known;const fallback=fallbackAdjacentFront(a,b);return fallback?[fallback]:null;
+ if(projected.length)return projected;const known=knownHistoricalFront(a,b);if(known)return known;const fallback=fallbackAdjacentFront(a,b);return fallback||null;
 }
 
 function updateWarDeployments(){
