@@ -1013,8 +1013,8 @@ function drawFrontCounts(war,points,strength,borderPoints=points){
  const displayScale=Math.max(.22,Math.min(rect.width/W,rect.height/H)*viewScale);
  const fontSize=Math.max(14,Math.min(22,18/displayScale));
  const offset=Math.max(16,Math.min(34,23/displayScale));
- // Derive the tangent AND the two country sides from the same real border.
- let tx=borderMid.tx,ty=borderMid.ty,tlen=Math.hypot(borderMid.tx,borderMid.ty)||1;
+ // Use the shared border as the common axis so the two force labels mirror one another.
+ let tx=borderMid.tx,ty=borderMid.ty,tlen=Math.hypot(tx,ty)||1;
  tx/=tlen;ty/=tlen;
  const nx=-ty,ny=tx;
  let sideA=frontSideForCountry(war.a,borderPoints,.5);
@@ -1023,18 +1023,20 @@ function drawFrontCounts(war,points,strength,borderPoints=points){
  else if(!sideA)sideA=-sideB;
  else if(!sideB)sideB=-sideA;
  else if(sideA===sideB)sideB=-sideA;
- let angle=Math.atan2(ty,tx);
- if(angle>Math.PI/2||angle< -Math.PI/2)angle+=Math.PI;
+ let angleA=Math.atan2(ty,tx);
+ if(angleA>Math.PI/2||angleA< -Math.PI/2)angleA+=Math.PI;
+ const angleB=angleA+Math.PI;
  const candidates=[0,.12,-.12,.24,-.24,.36,-.36];
  const entries=[
-  {value:fmt(strength.attackers),side:sideA,color:'#a52f2a'},
-  {value:fmt(strength.defenders),side:sideB,color:'#245d91'}
+  {value:fmt(strength.attackers),side:sideA,color:'#a52f2a',angle:angleA},
+  {value:fmt(strength.defenders),side:sideB,color:'#245d91',angle:angleB}
  ];
  entries.forEach(entry=>{
   if(!entry.value||entry.value==='0')return;
   ctx.save();
   ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
   const textWidth=ctx.measureText(entry.value).width;
+  const angle=entry.angle;
   const halfW=(Math.abs(Math.cos(angle))*textWidth+Math.abs(Math.sin(angle))*fontSize*1.25)/2+5;
   const halfH=(Math.abs(Math.sin(angle))*textWidth+Math.abs(Math.cos(angle))*fontSize*1.25)/2+4;
   const length=polyLength(points);
