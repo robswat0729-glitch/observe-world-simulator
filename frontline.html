@@ -247,22 +247,25 @@ function registerCountries(){
  initialize1936Alliances();
  if(countries.size&&!populationLoaded&&!populationLoading)load1936PopulationReference();
 }
+function isPuppet(name){return !!countries.get(name)?.puppetOf&&!countries.get(name)?.annexedTo}
+function puppetsOf(name){return [...countries.values()].filter(c=>c.puppetOf===name&&!c.annexedTo).map(c=>c.name)}
 function atWar(name){return activeWars.some(w=>w.a===name||w.b===name)}
 function committedToWar(name){return atWar(name)||activeWars.some(w=>[...(w.supportA||[]),...(w.supportB||[])].some(x=>x.name===name))}
 function warsForCountry(name){return activeWars.filter(w=>w.a===name||w.b===name)}
 function showCountry(name){
  name=sovereignOwner(name);const c=countries.get(name);if(!c||c.annexedTo)return;selectedCountry=name;
  $('country-name').textContent=name.toUpperCase();
-  $('force-civil-war').disabled=!!c.civilWar||c.soldiers<2000;
+  $('force-civil-war').disabled=!!c.civilWar||c.soldiers<2000||isPuppet(name);
+ $('declare-war').disabled=isPuppet(name);$('manage-alliance').disabled=isPuppet(name);
   $('manage-alliance').textContent=alliesOf(name).length?'ALLY / BREAK ALLIANCE':'ALLY WITH COUNTRY';
  $('country-hint').textContent=(atWar(name)?'CURRENT STATUS: AT WAR':'CURRENT STATUS: PEACE')+(c.estimated?' · SOME FIGURES ESTIMATED':' · 1936 ESTIMATES');
- const alliedNames=alliesOf(name);$('country-alliances').textContent=alliedNames.length?'1936 DEFENSIVE ALLIANCES: '+alliedNames.join(', '):'1936 DEFENSIVE ALLIANCES: NONE';$('country-supply').textContent=supplyStatusFor(name);$('country-defenses').textContent=borderDefenseStatus(name);
+ const alliedNames=alliesOf(name);$('country-alliances').textContent=alliedNames.length?'1936 DEFENSIVE ALLIANCES: '+alliedNames.join(', '):'1936 DEFENSIVE ALLIANCES: NONE';const subjects=puppetsOf(name);const authority=isPuppet(name)?'SUZERAINTY: SUBJECT OF '+c.puppetOf.toUpperCase()+' · FOREIGN POLICY CONTROLLED BY OVERLORD':subjects.length?'SUZERAINTY: '+subjects.join(', ')+' · '+subjects.length+' SUBJECT STATE(S)':'SUZERAINTY: INDEPENDENT';$('country-alliances').textContent+=' · '+authority;$('country-supply').textContent=supplyStatusFor(name);$('country-defenses').textContent=borderDefenseStatus(name);
  $('country-pop').textContent=fmt(c.population);$('country-army').textContent=fmt(c.soldiers);$('country-reserve').textContent=fmt(c.reserve||0);
  $('country-stability').textContent=Math.round(Math.max(0,Math.min(100,c.stability??75)))+'%';$('country-tech-level').textContent=(c.techLevel||1)+'/40';$('country-science').textContent=(c.scientificRate||1).toFixed(2)+'/SEC';
  const rebelBox=$('country-rebels');
  if(c.civilWar){rebelBox.hidden=false;rebelBox.textContent='CIVIL WAR · REBELS: '+fmt(c.civilWar.troops)+' SOLDIERS · '+c.civilWar.divisions+' DIVISIONS';}
  else{rebelBox.hidden=true;rebelBox.textContent='';}
- $('war-status').textContent='Press DECLARE WAR, then tap the country you want to attack.';
+ $('war-status').textContent=isPuppet(name)?'PUPPET STATE: '+c.puppetOf+' controls foreign policy. This country cannot declare wars or sign alliances independently.':subjects.length?'SUZERAIN AUTHORITY: You control the foreign policy of '+subjects.join(', ')+'. They will join your wars.':'Press DECLARE WAR, then tap the country you want to attack.';
  $('country-tech-level').textContent=(c.techLevel||1)+'/40';$('country-science').textContent=(c.scientificRate||1).toFixed(2)+'/SEC';$('country-panel').hidden=false;
 }
 function assetProfile(name,personnel){
@@ -424,6 +427,7 @@ function canAllyReachHost(ally,host){
  return true;
 }
 function declareWar(a,b,natural,allianceResponse=false){
+ if(isPuppet(a)){$('war-status').textContent=a+' is a puppet of '+countries.get(a).puppetOf+' and cannot declare war independently.';return false;}
  a=sovereignOwner(a);b=sovereignOwner(b);
  if(!a||!b||a===b||countries.get(a)?.annexedTo||countries.get(b)?.annexedTo){$('war-status').textContent='Choose two different countries.';return false}
  if(!countries.has(a)||!countries.has(b)){ $('war-status').textContent='Choose countries shown on the map.';return false}
@@ -457,8 +461,8 @@ function declareWar(a,b,natural,allianceResponse=false){
   if(!canAllyReachHost(puppet.name,host))return;
   const enemyCountry=countries.get(enemy);
   const relativePower=puppet.soldiers/Math.max(1,enemyCountry?.soldiers||1);
-  const chance=Math.max(.35,Math.min(.85,.55+relativePower*.12));
-  if(Math.random()<chance)(side==='A'?war.supportA:war.supportB).push(createSupportTransfer(puppet.name,host,war,.22));
+  // A puppet is obligated to support its suzerain: no random refusal.
+  (side==='A'?war.supportA:war.supportB).push(createSupportTransfer(puppet.name,host,war,.45));
  });
  updateWarDeployments();
  $('war-status').textContent=(natural?'A diplomatic crisis escalated: ':'War declared: ')+a+' vs '+b+'.'+(war.front?'':' No shared land border, so no land frontline is shown.');
@@ -531,7 +535,7 @@ function naturalDiplomacy(){
  if(countries.size<2||activeWars.length>countries.size/5)return;
  if(Math.random()>.000025*countries.size)return;
  // Countries already fighting can open another front, but the AI avoids unlimited wars.
- const eligible=[...countries.keys()].filter(n=>isSovereign(n)&&warsForCountry(n).length<3);
+ const eligible=[...countries.keys()].filter(n=>isSovereign(n)&&!isPuppet(n)&&warsForCountry(n).length<3);
  if(eligible.length<2)return;
  const a=eligible[Math.floor(Math.random()*eligible.length)];
  const neighbors=eligible.filter(n=>n!==a&&!areAllied(a,n)&&!activeWars.some(w=>(w.a===a&&w.b===n)||(w.a===n&&w.b===a))&&buildWarFront(a,n));
@@ -1650,6 +1654,7 @@ function handleCountryTap(name){
   const countryA=pendingAllianceFrom,countryB=sovereignOwner(name);
   pendingAllianceFrom=null;$('target-prompt').hidden=true;
   if(countryA===countryB){$('war-status').textContent='Choose a different country.';showCountry(countryA);return;}
+  if(isPuppet(countryA)||isPuppet(countryB)){$('war-status').textContent='Puppet states cannot sign independent alliances. Their suzerain controls their foreign policy.';showCountry(countryA);return;}
   if(activeWars.some(w=>(w.a===countryA&&w.b===countryB)||(w.a===countryB&&w.b===countryA))){
    $('war-status').textContent='Countries already at war cannot form an alliance.';showCountry(countryA);return;
   }
@@ -1673,12 +1678,14 @@ function handleCountryTap(name){
 canvas.addEventListener('click',e=>{if(suppressClick){suppressClick=false;return}const r=canvas.getBoundingClientRect(),scale=Math.min(r.width/W,r.height/H),drawW=W*scale,drawH=H*scale,ox=(r.width-drawW)/2,oy=(r.height-drawH)/2;const sx=(e.clientX-r.left-ox)/scale,sy=(e.clientY-r.top-oy)/scale;const x=(sx-viewX)/viewScale,y=(sy-viewY)/viewScale;if(x<0||x>W||y<0||y>H)return;handleCountryTap(hitCountry(x,y))});
 $('declare-war').addEventListener('click',()=>{
  if(!selectedCountry)return;
+ if(isPuppet(selectedCountry)){$('war-status').textContent=selectedCountry+' is a puppet of '+countries.get(selectedCountry).puppetOf+' and cannot declare war independently.';return;}
  pendingWarFrom=selectedCountry;$('country-panel').hidden=true;
  $('target-prompt').textContent='SELECT A TARGET COUNTRY · '+pendingWarFrom;
  $('target-prompt').hidden=false;
 });
 $('manage-alliance').addEventListener('click',()=>{
  if(!selectedCountry)return;
+ if(isPuppet(selectedCountry)){$('war-status').textContent=selectedCountry+' cannot conduct independent diplomacy while under suzerainty.';return;}
  pendingAllianceFrom=selectedCountry;pendingWarFrom=null;$('country-panel').hidden=true;
  $('target-prompt').textContent='SELECT A COUNTRY TO FORM OR BREAK AN ALLIANCE WITH · '+pendingAllianceFrom;
  $('target-prompt').hidden=false;
