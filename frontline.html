@@ -1296,12 +1296,15 @@ function tick(dt){
  if(simDt>0){
   const elapsedDays=simDt/2;
   countries.forEach(country=>{
-   const birthRate=country.birthRate??.010;
-   const deathRate=country.deathRate??.009;
+   // Keep demographic growth deliberately slow so accelerated game time
+   // does not make national populations balloon unrealistically.
+   const birthRate=Math.max(.0065,Math.min(.009,country.birthRate??.0085));
+   const deathRate=Math.max(.0083,Math.min(.0105,country.deathRate??.0083));
    const births=Math.max(0,country.population*birthRate*elapsedDays/365);
    const naturalDeaths=Math.min(Math.max(0,country.citizens||0),Math.max(0,country.population*deathRate*elapsedDays/365));
-   country.population+=births-naturalDeaths;
-   country.citizens=Math.max(0,(country.citizens||0)+births-naturalDeaths);
+   const netChange=Math.max(-.002,Math.min(.00025,births-naturalDeaths));
+   country.population=Math.max(0,country.population+netChange);
+   country.citizens=Math.max(0,(country.citizens||0)+netChange);
   });
  }
  // Stability changes gradually with war pressure and recovers during peace.
