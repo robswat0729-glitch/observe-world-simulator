@@ -1155,25 +1155,6 @@ function drawSupplyTrains(war,paths,now){
   const label=city.name+' → FRONT · '+Math.round(war[key]??70)+'%';ctx.save();ctx.font='900 9px Arial';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='rgba(245,242,225,.96)';ctx.strokeText(label,city.x+dx*.38,city.y+dy*.38-10);ctx.fillStyle=color;ctx.fillText(label,city.x+dx*.38,city.y+dy*.38-10);ctx.restore();
  });
 }
-function draw(now){
- if(!mapReady){ctx.fillStyle='#b9c4c0';ctx.fillRect(0,0,W,H);ctx.fillStyle='#24353a';ctx.font='bold 28px Arial';ctx.textAlign='center';ctx.fillText(loadMessage,W/2,H/2);return}
- ctx.fillStyle='#b9c5c4';ctx.fillRect(0,0,W,H);
- ctx.save();ctx.translate(viewX,viewY);ctx.scale(viewScale,viewScale);
- ctx.drawImage(baseCanvas,0,0);
- frontCountBoxes=[];
- const belligerents=new Map();activeWars.forEach(w=>{belligerents.set(w.a,'attacker');belligerents.set(w.b,'defender')});
- // Former country polygons now belong to their annexing sovereign. Paint
- // over the old internal border so the annexed state no longer appears independent.
- worldFeatures.forEach(f=>{
-  const original=countryName(f),owner=sovereignOwner(original);
-  if(owner!==original){
-   // Paint over the old internal country border. The wider land-colour stroke
-   // erases the old boundary beneath the annexed territory.
-   ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle='#d2d0bd';ctx.fill();
-   ctx.strokeStyle='#d2d0bd';ctx.lineWidth=4;ctx.stroke();
-  }
- });
- worldFeatures.forEach(f=>{const name=sovereignOwner(countryName(f)),side=belligerents.get(name);if(!side)return;ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle=side==='attacker'?'rgba(190,71,67,.48)':'rgba(55,139,202,.48)';ctx.fill()});
 function createCivilWarTerritory(name){
  const candidates=[];
  worldFeatures.forEach((feature,index)=>{
@@ -1200,6 +1181,25 @@ function createCivilWarTerritory(name){
  const points=[];for(let i=0;i<18;i++){const a=i*Math.PI*2/18,variation=.78+((i*7+chosen.index*3)%9)/30;points.push([center[0]+Math.cos(a)*rx*variation,center[1]+Math.sin(a)*ry*variation]);}
  return {featureIndex:chosen.index,center,rx,ry,points,progress:0};
 }
+function draw(now){
+ if(!mapReady){ctx.fillStyle='#b9c4c0';ctx.fillRect(0,0,W,H);ctx.fillStyle='#24353a';ctx.font='bold 28px Arial';ctx.textAlign='center';ctx.fillText(loadMessage,W/2,H/2);return}
+ ctx.fillStyle='#b9c5c4';ctx.fillRect(0,0,W,H);
+ ctx.save();ctx.translate(viewX,viewY);ctx.scale(viewScale,viewScale);
+ ctx.drawImage(baseCanvas,0,0);
+ frontCountBoxes=[];
+ const belligerents=new Map();activeWars.forEach(w=>{belligerents.set(w.a,'attacker');belligerents.set(w.b,'defender')});
+ // Former country polygons now belong to their annexing sovereign. Paint
+ // over the old internal border so the annexed state no longer appears independent.
+ worldFeatures.forEach(f=>{
+  const original=countryName(f),owner=sovereignOwner(original);
+  if(owner!==original){
+   // Paint over the old internal country border. The wider land-colour stroke
+   // erases the old boundary beneath the annexed territory.
+   ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle='#d2d0bd';ctx.fill();
+   ctx.strokeStyle='#d2d0bd';ctx.lineWidth=4;ctx.stroke();
+  }
+ });
+ worldFeatures.forEach(f=>{const name=sovereignOwner(countryName(f)),side=belligerents.get(name);if(!side)return;ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle=side==='attacker'?'rgba(190,71,67,.48)':'rgba(55,139,202,.48)';ctx.fill()});
 function drawCivilWarTerritory(country){
  const cw=country.civilWar,region=cw?.territory;if(!cw||!region)return;
  const feature=worldFeatures[region.featureIndex];if(!feature)return;
