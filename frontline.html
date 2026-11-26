@@ -248,7 +248,7 @@ function resolveCountryName(candidates){
  return null;
 }
 function historicalEvents(){
- const date=simDate.toISOString().slice(0,10);
+ const date=simDate.getFullYear()+'-'+String(simDate.getMonth()+1).padStart(2,'0')+'-'+String(simDate.getDate()).padStart(2,'0');
  const events=[
   ['1939-09-01',['Germany'],['Poland']],
   ['1939-09-03',['United Kingdom','United Kingdom of Great Britain and Northern Ireland'],['Germany']],
