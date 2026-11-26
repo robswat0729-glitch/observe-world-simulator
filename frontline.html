@@ -353,6 +353,7 @@ function tick(dt){
  const intensity=Number($('intensity').value),simDt=dt*speed,lossRate=.00012*intensity;let losses=0;
  activeWars.forEach(w=>{const a=countries.get(w.a),b=countries.get(w.b);if(!a||!b)return;const al=a.soldiers*lossRate*simDt,bl=b.soldiers*lossRate*simDt;a.soldiers=Math.max(0,a.soldiers-al);b.soldiers=Math.max(0,b.soldiers-bl);losses+=al+bl});
  casualties+=losses;
+ if(selectedCountry&&countries.has(selectedCountry))$('country-army').textContent=fmt(countries.get(selectedCountry).soldiers);
 }
 function nextDay(){
  day++;simDate.setDate(simDate.getDate()+1);naturalDiplomacy();renderHud();renderWars();
