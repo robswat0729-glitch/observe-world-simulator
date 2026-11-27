@@ -901,8 +901,10 @@ function assignDivisionMarchRoute(war,side,name,division,index=0,count=1){
  division.travelDays=0;
 }
 function updateWarDeployments(){
- const engagements=new Map();
+ const engagements=new Map(),frontLengths=new Map();
  activeWars.forEach(w=>{
+  const length=w.front?.reduce((sum,path)=>sum+polyLength(path),0)||0;
+  frontLengths.set(w,length);
   const participants=[
    {name:w.a,enemy:w.b,side:'A'},
    {name:w.b,enemy:w.a,side:'B'},
@@ -912,7 +914,6 @@ function updateWarDeployments(){
   participants.forEach(p=>{
    const country=countries.get(p.name),enemy=countries.get(p.enemy);if(!country||!enemy)return;
    if(!engagements.has(p.name))engagements.set(p.name,[]);
-   const length=w.front?.reduce((sum,path)=>sum+polyLength(path),0)||0;
    const threat=Math.max(1,enemy.soldiers)*(1+Math.min(length/700,.8));
    engagements.get(p.name).push({war:w,side:p.side,support:p.support,threat});
   });
@@ -928,60 +929,55 @@ function updateWarDeployments(){
    const committed=item.support?Math.min(allocation,available*Math.max(0,Math.min(.8,item.support.commitRatio??.30))):allocation;
    const divisions=divisionList(item.war,item.side);
    if(!item.war['garrisonReady'+item.side]){
-    // Only the peacetime garrison assigned to this exact border enters combat.
-    // Other land-border and sea garrisons remain stationed at their posts.
     const enemyName=item.war.a===name?item.war.b:item.war.a;
     const stationed=item.support?Math.floor(committed*.35):
-      (item.war.civilWar?Math.floor(committed*.55):
-       (item.war.front?.length?(country.borderGarrisons[enemyName]||0):(country.borderGarrisons.SEA||0)));
-    const arriving=createDivisionUnits(stationed,'front');
-    divisions.push(...arriving);
+     (item.war.civilWar?Math.floor(committed*.55):
+      (frontLengths.get(item.war)>0?(country.borderGarrisons[enemyName]||0):(country.borderGarrisons.SEA||0)));
+    divisions.push(...createDivisionUnits(stationed,'front'));
     item.war['garrisonReady'+item.side]=true;
     item.war['reinforcementClock'+item.side]=0;
-  }
-   const ready=divisions.filter(d=>d.status==='garrison'||d.status==='front');
-   let deployed=ready.reduce((sum,d)=>sum+d.troops,0);
-   // Losses reduce the actual field formations; a division cannot survive on paper
-   // after its country's remaining deployable manpower has been exhausted.
-   const fieldLimit=Math.max(0,available-(item.support?0:0));
-   let excess=deployed-fieldLimit;
+   }
+   let deployed=0;
+   for(const d of divisions)if(d.status==='garrison'||d.status==='front')deployed+=d.troops;
+   let excess=deployed-available;
    for(let i=divisions.length-1;i>=0&&excess>0;i--){
     const d=divisions[i];if(d.status!=='garrison'&&d.status!=='front')continue;
-    const cut=Math.min(d.troops,excess);d.troops-=cut;excess-=cut;
+    const cut=Math.min(d.troops,excess);d.troops-=cut;excess-=cut;deployed-=cut;
     if(d.troops<1)divisions.splice(i,1);
    }
-   deployed=divisions.filter(d=>d.status==='garrison'||d.status==='front').reduce((sum,d)=>sum+d.troops,0);
    if(item.support){item.support.targetTroops=deployed;item.support.troops=deployed;}
    else item.war['troops'+item.side]=deployed;
   });
  });
  activeWars.forEach(w=>{
-  w.troopsA=divisionList(w,'A').filter(d=>d.status==='garrison'||d.status==='front').reduce((n,d)=>n+d.troops,0);
-  w.troopsB=divisionList(w,'B').filter(d=>d.status==='garrison'||d.status==='front').reduce((n,d)=>n+d.troops,0);
+  w.troopsA=divisionList(w,'A').reduce((n,d)=>n+((d.status==='garrison'||d.status==='front')?d.troops:0),0);
+  w.troopsB=divisionList(w,'B').reduce((n,d)=>n+((d.status==='garrison'||d.status==='front')?d.troops:0),0);
  });
 }
-function tickDivisionReinforcements(simDt){
- const elapsedDays=Math.max(0,simDt/2);
+ function tickDivisionReinforcements(simDt){
+ const elapsedDays=Math.max(0,simDt/2),warCounts=new Map();
+ // Count each country's active commitments once rather than rescanning all wars for every side.
+ activeWars.forEach(w=>{
+  [w.a,w.b].forEach(name=>warCounts.set(name,(warCounts.get(name)||0)+1));
+  (w.supportA||[]).forEach(x=>warCounts.set(x.name,(warCounts.get(x.name)||0)+1));
+  (w.supportB||[]).forEach(x=>warCounts.set(x.name,(warCounts.get(x.name)||0)+1));
+ });
  activeWars.forEach(w=>{
   [['A',w.a],['B',w.b]].forEach(([side,name])=>{
    const country=countries.get(name);if(!country)return;
    const divisions=divisionList(w,side);
-   // No training or marching phase: every dispatched formation joins the front immediately.
    divisions.forEach(d=>{
     if(d.status==='training'||d.status==='marching'){
-     d.status='front';
-     d.routeStart=null;d.routeEnd=null;
-     d.travel=0;d.travelDays=0;
+     d.status='front';d.routeStart=null;d.routeEnd=null;d.travel=0;d.travelDays=0;
     }
    });
    w['reinforcementClock'+side]=(w['reinforcementClock'+side]||0)+elapsedDays;
    const reserve=Math.max(0,country.reserve||0);
-   const otherWars=activeWars.filter(x=>x!==w&&(x.a===name||x.b===name||[...(x.supportA||[]),...(x.supportB||[])].some(y=>y.name===name))).length;
+   const otherWars=Math.max(0,(warCounts.get(name)||1)-1);
    const interval=2.4+otherWars*1.5;
    const batch=Math.min(reserve,Math.max(1000,Math.round(divisionUnitTarget(country.soldiers||reserve)*(.72+Math.random()*.56)/100)*100));
    if(w['reinforcementClock'+side]>=interval&&reserve>=1000&&batch>=1000){
-    const unit=createDivisionUnits(batch,'front');
-    divisions.push(...unit);
+    divisions.push(...createDivisionUnits(batch,'front'));
     country.reserve=Math.max(0,reserve-batch);
     w['reinforcementClock'+side]=0;
    }
@@ -989,7 +985,7 @@ function tickDivisionReinforcements(simDt){
  });
  updateWarDeployments();
 }
-function activeWarStrength(w){
+ function activeWarStrength(w){
  const alliesA=(w.supportA||[]).reduce((n,x)=>n+(x.troops||0),0),alliesB=(w.supportB||[]).reduce((n,x)=>n+(x.troops||0),0);
  const supplyA=Math.max(0,Math.min(100,w.supplyA??70)),supplyB=Math.max(0,Math.min(100,w.supplyB??70));
   const countryA=countries.get(w.a),countryB=countries.get(w.b),hasLandFront=!!(w.front&&w.front.length),defenderName=(w.progress||0)<0?w.a:w.b,attackerName=defenderName===w.a?w.b:w.a,fortLevel=hasLandFront?borderDefenseLevel(defenderName,attackerName):0,defenseFactor=hasLandFront?defensiveTerrainBonus(defenderName)*(1+fortLevel*.05):1,defenseA=defenderName===w.a?defenseFactor:1,defenseB=defenderName===w.b?defenseFactor:1,equipmentA=nationalCombatMultiplier(countryA)*frontOverstretch(w.a),equipmentB=nationalCombatMultiplier(countryB)*frontOverstretch(w.b);
