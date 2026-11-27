@@ -893,25 +893,12 @@ function reduceFrontDivisionStrength(war,side,loss){
  return target;
 }
 function assignDivisionMarchRoute(war,side,name,division,index=0,count=1){
- const paths=(war.front||[]).filter(p=>Array.isArray(p)&&p.length>=2);
- const path=paths.reduce((best,p)=>polyLength(p)>polyLength(best||[])?p:best,null);
- const city=nearestSupplyCity(name);
- if(!path||!city){division.status='front';return}
- const spread=Math.max(1,count);
- const fraction=Math.max(.025,Math.min(.975,(index+.5)/spread+(Math.random()-.5)*.035));
- const target=pointAlong(path,fraction);
- const sideSign=frontSideForCountry(name,path,fraction)||(side==='A'?1:-1);
- const nx=-target.ty,ny=target.tx;
- const startX=city.x+(Math.random()-.5)*2,startY=city.y+(Math.random()-.5)*2;
- const endX=target.x+nx*sideSign*4,endY=target.y+ny*sideSign*4;
- const distance=Math.hypot(endX-startX,endY-startY);
- const travelDays=Math.max(.65,Math.min(7.5,distance/82));
- division.routeStart={x:startX,y:startY};
- division.routeEnd={x:endX,y:endY};
- division.origin=city.name||'LOCAL DEPOT';
- division.travelDays=travelDays;
- division.travel=travelDays;
- division.status='marching';
+ // Legacy behavior: formations appear directly on the frontline.
+ division.status='front';
+ division.routeStart=null;
+ division.routeEnd=null;
+ division.travel=0;
+ division.travelDays=0;
 }
 function updateWarDeployments(){
  const engagements=new Map();
@@ -947,8 +934,7 @@ function updateWarDeployments(){
     const stationed=item.support?Math.floor(committed*.35):
       (item.war.civilWar?Math.floor(committed*.55):
        (item.war.front?.length?(country.borderGarrisons[enemyName]||0):(country.borderGarrisons.SEA||0)));
-    const arriving=createDivisionUnits(stationed,'marching');
-    arriving.forEach((d,i)=>assignDivisionMarchRoute(item.war,item.side,name,d,i,arriving.length));
+    const arriving=createDivisionUnits(stationed,'front');
     divisions.push(...arriving);
     item.war['garrisonReady'+item.side]=true;
     item.war['reinforcementClock'+item.side]=0;
@@ -977,17 +963,15 @@ function updateWarDeployments(){
 function tickDivisionReinforcements(simDt){
  const elapsedDays=Math.max(0,simDt/2);
  activeWars.forEach(w=>{
-  [['A',w.a,w.b],['B',w.b,w.a]].forEach(([side,name,enemy])=>{
+  [['A',w.a],['B',w.b]].forEach(([side,name])=>{
    const country=countries.get(name);if(!country)return;
    const divisions=divisionList(w,side);
-   // Train and move previously mobilised divisions. They cannot fight until they arrive.
-   divisions.forEach((d,i)=>{
-    if(d.status==='training'){
-     d.training-=elapsedDays;
-     if(d.training<=0)assignDivisionMarchRoute(w,side,name,d,i,divisions.length);
-    }else if(d.status==='marching'){
-     d.travel=Math.max(0,(d.travel||0)-elapsedDays);
-     if(d.travel<=0){d.status='front';d.routeStart=null;d.routeEnd=null;}
+   // No training or marching phase: every dispatched formation joins the front immediately.
+   divisions.forEach(d=>{
+    if(d.status==='training'||d.status==='marching'){
+     d.status='front';
+     d.routeStart=null;d.routeEnd=null;
+     d.travel=0;d.travelDays=0;
     }
    });
    w['reinforcementClock'+side]=(w['reinforcementClock'+side]||0)+elapsedDays;
@@ -996,11 +980,7 @@ function tickDivisionReinforcements(simDt){
    const interval=2.4+otherWars*1.5;
    const batch=Math.min(reserve,Math.max(1000,Math.round(divisionUnitTarget(country.soldiers||reserve)*(.72+Math.random()*.56)/100)*100));
    if(w['reinforcementClock'+side]>=interval&&reserve>=1000&&batch>=1000){
-    const city=nearestSupplyCity(name),front=w.front?.length?pointAlong(w.front.reduce((a,b)=>polyLength(a)>polyLength(b)?a:b),.5):null;
-    const distance=city&&front?Math.hypot(city.x-front.x,city.y-front.y):45;
-    const travelDays=Math.max(.5,Math.min(4.5,distance/110));
-    const unit=createDivisionUnits(batch,'training');
-    unit.forEach(d=>{d.training=1.1+(Math.random()*.7);d.travelDays=travelDays;d.origin=city?.name||'LOCAL DEPOT'});
+    const unit=createDivisionUnits(batch,'front');
     divisions.push(...unit);
     country.reserve=Math.max(0,reserve-batch);
     w['reinforcementClock'+side]=0;
