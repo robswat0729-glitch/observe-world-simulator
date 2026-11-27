@@ -735,7 +735,7 @@ function generateDailyNews(){
 }
 $('open-details').addEventListener('click',()=>{renderMilitaryDetails();$('military-details').hidden=false});
 $('close-details').addEventListener('click',()=>{$('military-details').hidden=true});$('open-tech').addEventListener('click',()=>{if(selectedCountry){renderTechnology();$('tech-details').hidden=false}});$('close-tech').addEventListener('click',()=>{$('tech-details').hidden=true});$('research-funding').addEventListener('change',e=>{if(!selectedCountry)return;const c=countries.get(selectedCountry);if(!c)return;ensureTech(c);c.researchShare=Math.max(.003,Math.min(.03,Number(e.target.value)||.003));c.researchPolicyOverrideDays=180;updateResearchRate(c);renderTechnology();publishNews(selectedCountry.toUpperCase()+' ADJUSTS RESEARCH FUNDING',selectedCountry+' manually set its research budget to '+(c.researchShare*100).toFixed(1)+'% of annual GDP; the AI will reassess the policy after 180 simulated days.','RESEARCH POLICY');});
-document.addEventListener('keydown',e=>{if(e.key==='Escape')$('military-details').hidden=true});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('military-details').hidden=true;$('command-center').hidden=true;$('tech-details').hidden=true}});
 function renderWars(){
  $('war-list').textContent=activeWars.length?'ACTIVE WARS: '+activeWars.map(w=>{
   const encA=w.encircledA||0,encB=w.encircledB||0,divA=w.encircledDivisionsA||0,divB=w.encircledDivisionsB||0;
@@ -803,6 +803,7 @@ function declareWar(a,b,natural,allianceResponse=false){
  if(!a||!b||a===b||countries.get(a)?.annexedTo||countries.get(b)?.annexedTo){$('war-status').textContent='Choose two different countries.';return false}
  if(!countries.has(a)||!countries.has(b)){ $('war-status').textContent='Choose countries shown on the map.';return false}
  if(areAllied(a,b)){$('war-status').textContent=a+' and '+b+' are bound by a defensive alliance.';return false}
+ const pactExpiry=nonAggressionPacts.get(allianceKey(a,b));if(pactExpiry&&pactExpiry>day){$('war-status').textContent=a+' and '+b+' have a non-aggression pact until day '+pactExpiry+'.';return false}else if(pactExpiry)nonAggressionPacts.delete(allianceKey(a,b));
  if(activeWars.some(w=>(w.a===a&&w.b===b)||(w.a===b&&w.b===a))){$('war-status').textContent='Those countries are already at war.';return false}
  const war={a,b,day,started:simDate.toISOString().slice(0,10),natural:!!natural,front:buildWarFront(a,b),troopsA:0,troopsB:0,progress:0,seed:Math.random()*6.28,settlementPending:false,encirclements:[],encircledA:0,encircledB:0,encircledDivisionsA:0,encircledDivisionsB:0,supplyA:70,supplyB:70,supportA:[],supportB:[]};
  ensureNavalWar(war);
@@ -1318,7 +1319,12 @@ function updateWarDeployments(){
  function activeWarStrength(w){
  const alliesA=(w.supportA||[]).reduce((n,x)=>n+(x.troops||0),0),alliesB=(w.supportB||[]).reduce((n,x)=>n+(x.troops||0),0);
  const supplyA=Math.max(0,Math.min(100,w.supplyA??70)),supplyB=Math.max(0,Math.min(100,w.supplyB??70));
-  const countryA=countries.get(w.a),countryB=countries.get(w.b),hasLandFront=!!(w.front&&w.front.length),defenderName=(w.progress||0)<0?w.a:w.b,attackerName=defenderName===w.a?w.b:w.a,fortLevel=hasLandFront?borderDefenseLevel(defenderName,attackerName):0,defenseFactor=hasLandFront?defensiveTerrainBonus(defenderName)*(1+fortLevel*.05):1,defenseA=defenderName===w.a?defenseFactor:1,defenseB=defenderName===w.b?defenseFactor:1,equipmentA=nationalCombatMultiplier(countryA)*frontOverstretch(w.a),equipmentB=nationalCombatMultiplier(countryB)*frontOverstretch(w.b);
+  const countryA=countries.get(w.a),countryB=countries.get(w.b),hasLandFront=!!(w.front&&w.front.length),defenderName=(w.progress||0)<0?w.a:w.b,attackerName=defenderName===w.a?w.b:w.a,fortLevel=hasLandFront?borderDefenseLevel(defenderName,attackerName):0,defenseFactor=hasLandFront?defensiveTerrainBonus(defenderName)*(1+fortLevel*.05):1,defenseA=defenderName===w.a?defenseFactor:1,defenseB=defenderName===w.b?defenseFactor:1;
+ const airA=countryAirPower(countryA),airB=countryAirPower(countryB),airScale=Math.max(1,airA+airB),airBonusA=.96+(airA/airScale)*.08,airBonusB=.96+(airB/airScale)*.08;
+ const attackingA=defenderName!==w.a,attackingB=defenderName!==w.b;
+ const stanceA=countryA?.commandStance==='offensive'?(attackingA?1.055:.975):countryA?.commandStance==='defensive'?(attackingA?.955:1.045):1;
+ const stanceB=countryB?.commandStance==='offensive'?(attackingB?1.055:.975):countryB?.commandStance==='defensive'?(attackingB?.955:1.045):1;
+ const equipmentA=nationalCombatMultiplier(countryA)*frontOverstretch(w.a)*weatherCombatMultiplier(countryA,attackingA)*stanceA*airBonusA,equipmentB=nationalCombatMultiplier(countryB)*frontOverstretch(w.b)*weatherCombatMultiplier(countryB,attackingB)*stanceB*airBonusB;
  const alliedEquipmentA=(w.supportA||[]).length?(w.supportA.reduce((n,x)=>n+nationalCombatMultiplier(countries.get(x.name))*Math.max(0,x.troops||0),0)/Math.max(1,alliesA)):equipmentA;
  const alliedEquipmentB=(w.supportB||[]).length?(w.supportB.reduce((n,x)=>n+nationalCombatMultiplier(countries.get(x.name))*Math.max(0,x.troops||0),0)/Math.max(1,alliesB)):equipmentB;
  ensureNavalWar(w);
@@ -1688,7 +1694,10 @@ function supplyTargetFor(war,side,path){
  const contact=pointAlong(path,.5),distance=Math.hypot(contact.x-city.x,contact.y-city.y);
  const deployed=Math.max(0,war[field]||0),load=Math.max(0,deployed/160000);
  const damage=Math.max(0,side==='A'?(war.progress||0):-(war.progress||0))*(side==='A'?1:.65);
- return Math.max(12,Math.min(96,94-distance*.055-load*8-damage*13));
+ const country=countries.get(name);ensureNationalSystems(country);
+ const fuelPenalty=(country.resources.oil<400?12:country.resources.oil<1200?6:0),logisticsBaseline=Math.max(1,country.equipmentBaseline?.['TRUCKS & LOGISTICS VEHICLES']||1),logisticsCurrent=country.equipment?.['TRUCKS & LOGISTICS VEHICLES']||0,truckPenalty=Math.max(0,1-logisticsCurrent/logisticsBaseline)*5;
+ const weatherPenalty=({storm:10,snow:7,rain:4,fog:2,clear:0})[country.weather?.type||'clear']||0,rationBonus=country.rationing?2:0;
+ return Math.max(8,Math.min(98,94-distance*.055-load*8-damage*13-fuelPenalty-truckPenalty-weatherPenalty+rationBonus));
 }
 function drawSupplyTrains(war,paths,now){
  if(!paths?.length)return;
@@ -1788,6 +1797,7 @@ function draw(now){
   }
  });
  worldFeatures.forEach(f=>{const name=sovereignOwner(countryName(f)),side=belligerents.get(name);if(!side)return;ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle=side==='attacker'?'rgba(190,71,67,.48)':'rgba(55,139,202,.48)';ctx.fill()});
+ drawStrategicMapLayer();
 function drawCivilWarDivisions(war,paths){
  const sides=[{name:war.a,side:'A',offset:-1},{name:war.b,side:'B',offset:1}];
  sides.forEach(entry=>{
@@ -1895,28 +1905,60 @@ function resolveSettlement(choice){
  const war=pendingSettlement;if(!war)return;
  const winnerName=war.winnerSide==='B'?war.b:war.a,loserName=war.winnerSide==='B'?war.a:war.b;
  const winner=countries.get(winnerName),loser=countries.get(loserName);if(!winner||!loser)return;
+ ensureNationalSystems(winner);ensureNationalSystems(loser);
+ let outcome='';
  if(choice==='annex'){
-  // Annexed land adds civilians, but its defeated armed forces are disbanded.
-  // The conqueror receives no soldiers or reserves from the annexed country.
   const absorbedPopulation=Math.max(0,loser.population||0),absorbedCitizens=Math.max(0,loser.citizens||0);
   winner.population+=absorbedPopulation;winner.citizens+=absorbedCitizens;
+  nationalResourceKeys.forEach(k=>{winner.resources[k]+=loser.resources[k]||0});
   if(!populationLoaded)winner.pendingAnnexPopulation=(winner.pendingAnnexPopulation||0)+absorbedPopulation;
   winner.stability=Math.max(0,Math.min(100,(winner.stability??75)-12));
-  loser.population=0;loser.citizens=0;loser.soldiers=0;loser.reserve=0;loser.pendingAnnexSoldiers=0;loser.pendingAnnexReserve=0;loser.annexedTo=winnerName;loser.puppetOf=null;if(loser.civilWar){loser.civilWar.progress=0;loser.civilWar.troops=Math.max(500,loser.civilWar.troops);}
-  // Remove the defeated state as a selectable sovereign and redraw its
-  // former territory as part of the annexing country's map color.
+  loser.population=0;loser.citizens=0;loser.soldiers=0;loser.reserve=0;loser.pendingAnnexSoldiers=0;loser.pendingAnnexReserve=0;loser.annexedTo=winnerName;loser.puppetOf=null;
+  if(loser.civilWar){loser.civilWar.progress=0;loser.civilWar.troops=Math.max(500,loser.civilWar.troops)}
   if(selectedCountry===loserName)selectedCountry=winnerName;
+  outcome=winnerName+' annexed '+loserName+'. Territory, civilians and strategic stockpiles were absorbed; its defeated army was disbanded.';
   buildBase();
- }else{loser.puppetOf=winnerName;loser.annexedTo=null;}
+ }else if(choice==='puppet'){
+  loser.puppetOf=winnerName;loser.annexedTo=null;loser.stability=Math.max(20,Math.min(100,(loser.stability||50)-8));
+  const transfer=Math.min(loser.treasury*.08,loser.gdp*.025);loser.treasury-=transfer;winner.treasury+=transfer;
+  outcome=loserName+' became a puppet government under '+winnerName+'. Its domestic administration remains, but foreign policy is controlled by its overlord.';
+ }else if(choice==='reparations'){
+  const cash=Math.min(loser.treasury*.35,loser.gdp*.08);loser.treasury-=cash;winner.treasury+=cash;
+  nationalResourceKeys.forEach(k=>{const amount=Math.min(loser.resources[k]*.18,Math.max(0,loser.resources[k]));loser.resources[k]-=amount;winner.resources[k]+=amount});
+  loser.stability=Math.max(0,loser.stability-5);winner.stability=Math.max(0,Math.min(100,winner.stability-2));
+  outcome=loserName+' accepted a reparations settlement. '+winnerName+' received '+fmtMoney(cash)+' and a share of strategic materials; no territory was annexed.';
+ }else{
+  winner.stability=Math.max(0,Math.min(100,winner.stability+5));loser.stability=Math.max(0,Math.min(100,loser.stability+5));
+  outcome=winnerName+' and '+loserName+' signed a white peace. The front was frozen and both governments retained their territory.';
+ }
  activeWars=activeWars.filter(w=>w!==war&&w.a!==loserName&&w.b!==loserName);
  pendingSettlement=null;$('peace-settlement').style.display='none';
  updateWarDeployments();renderWars();if(selectedCountry)showCountry(selectedCountry);
- $('war-status').textContent=choice==='annex'?winnerName+' annexed '+loserName+'. Civilian population absorbed; the defeated army was disbanded.':loserName+' became a puppet of '+winnerName+'. It will contribute troops to its overlord\'s wars.';
- publishNews(choice==='annex'?winnerName.toUpperCase()+' ANNEXES '+loserName.toUpperCase():loserName.toUpperCase()+' FALLS UNDER '+winnerName.toUpperCase(),choice==='annex'?winnerName+' has absorbed '+loserName+' territory and civilian population. Its remaining military manpower was disbanded.':'A new puppet government has been installed in '+loserName+'.','MAJOR DEVELOPMENT');
- if(!$('military-details').hidden)renderMilitaryDetails();if(!$('tech-details').hidden)renderTechnology();
+ $('war-status').textContent=outcome;
+ publishNews(choice==='annex'?winnerName.toUpperCase()+' ANNEXES '+loserName.toUpperCase():choice==='puppet'?loserName.toUpperCase()+' BECOMES A PUPPET':choice==='reparations'?'PEACE TERMS: REPARATIONS':'WHITE PEACE SIGNED',outcome,'PEACE CONFERENCE');
+ if(!$('military-details').hidden)renderMilitaryDetails();if(!$('tech-details').hidden)renderTechnology();if(!$('command-center').hidden)renderCommandCenter();
 }
+
+$('open-command').addEventListener('click',()=>{if(selectedCountry){renderCommandCenter();activateCommandTab('industry');$('command-center').hidden=false}});
+$('close-command').addEventListener('click',()=>{$('command-center').hidden=true});
+$('command-center').addEventListener('click',e=>{if(e.target===$('command-center'))$('command-center').hidden=true});
+document.querySelectorAll('[data-command-tab]').forEach(button=>button.addEventListener('click',()=>activateCommandTab(button.dataset.commandTab)));
+$('production-focus').addEventListener('change',e=>{
+ const c=countries.get(selectedCountry);if(!c||isPuppet(selectedCountry))return;
+ ensureNationalSystems(c);c.productionFocus=productionPlans[e.target.value]?e.target.value:'balanced';c.aiPolicyLockDays=150;
+ publishNews(c.name.toUpperCase()+' REVISES ARMS PRODUCTION',c.name+' shifted its industrial priority to '+c.productionFocus+'.','INDUSTRIAL POLICY');
+ renderCommandCenter();
+});
+$('build-factory').addEventListener('click',()=>buildNationalIndustry('factory'));
+$('build-infrastructure').addEventListener('click',()=>buildNationalIndustry('infrastructure'));
+$('apply-command-policy').addEventListener('click',applyCommandPolicy);
+$('issue-ultimatum').addEventListener('click',issueDiplomaticPressure);
+$('map-layer').addEventListener('change',e=>{mapLayer=e.target.value;draw(performance.now())});
+
 $('annex-country').addEventListener('click',()=>resolveSettlement('annex'));
 $('puppet-country').addEventListener('click',()=>resolveSettlement('puppet'));
+$('reparations-country').addEventListener('click',()=>resolveSettlement('reparations'));
+$('white-peace-country').addEventListener('click',()=>resolveSettlement('whitepeace'));
 function tick(dt){
  const intensity=Number($('intensity').value),simDt=dt*speed,lossRate=.00105*intensity,lossesByCountry=new Map();
  researchTick(simDt);countries.forEach(c=>{ensureTech(c);c.nuclearCooldown=Math.max(0,c.nuclearCooldown-simDt/2)});
@@ -1927,6 +1969,7 @@ function tick(dt){
   [...(w.supportA||[]),...(w.supportB||[])].forEach(x=>{x.troops=Math.max(0,x.targetTroops||0)});
  });
  updateBorderDefenseConstruction(elapsedSupplyDays);
+ processNationalSystems(elapsedSupplyDays);
  activeWars.forEach(w=>{
   const adjustment=Math.min(1,Math.max(.002,elapsedSupplyDays*.16));
   if(w.civilWar){
@@ -1995,8 +2038,10 @@ function tick(dt){
    const atWarNow=atWar(name);
    const warWear=atWarNow?.055:0;
    const recovery=atWarNow?0:.018;
+   const mobilizationStress=country.mobilization==='total'?.012:country.mobilization==='partial'?.005:country.mobilization==='limited'?.002:0;
+   const rationStress=country.rationing&&atWarNow?.003:0;
    const casualtyPressure=Math.min(.04,(lossesByCountry.get(name)||0)/Math.max(1,country.population)*260);
-   country.stability=Math.max(0,Math.min(100,(country.stability??70)+(recovery-warWear-casualtyPressure)*elapsedDays));
+   country.stability=Math.max(0,Math.min(100,(country.stability??70)+(recovery-warWear-mobilizationStress-rationStress-casualtyPressure)*elapsedDays));
    country.warExhaustion=Math.max(0,Math.min(100,(country.warExhaustion||0)+(atWarNow?.025:-.06)*elapsedDays+casualtyPressure*.35*elapsedDays));
    if(!country.isCivilWarFaction&&country.stability<20&&!country.civilWar){
     const rebelTroops=Math.min(Math.max(0,country.soldiers-1000),Math.round(country.soldiers*.24));
@@ -2016,7 +2061,8 @@ function tick(dt){
  if(activeWars.length&&simDt>0){
   countries.forEach((country,name)=>{
    if(!atWar(name))return;
-   const civilianDeaths=Math.min(Math.max(0,country.citizens||0),Math.max(0,country.population*.0000008*simDt/2));
+   const civilDefenseFactor=(country.civilDefenseDays||0)>0?.72:1;
+   const civilianDeaths=Math.min(Math.max(0,country.citizens||0),Math.max(0,country.population*.0000008*simDt/2*civilDefenseFactor));
    if(civilianDeaths>0){country.citizens=Math.max(0,country.citizens-civilianDeaths);country.population=Math.max(0,country.population-civilianDeaths);}
   });
  }
@@ -2027,7 +2073,7 @@ function tick(dt){
    if(country.isCivilWarFaction)return;
    const civilianPool=Math.max(0,country.citizens??(country.population-country.soldiers));
    if(!civilianPool)return;
-   const dailyRate=atWar(country.name)?.000003:.0000008;
+   const dailyRate=(atWar(country.name)?.000003:.0000008)*mobilizationMultiplier(country);
    const recruits=Math.min(civilianPool,Math.max(0,country.population*dailyRate*simDt/2));
    if(recruits>0){country.citizens=civilianPool-recruits;country.soldiers+=recruits;country.reserve=(country.reserve||0)+recruits;}
   });
@@ -2090,8 +2136,9 @@ function tick(dt){
   else{rebelBox.hidden=true;rebelBox.textContent='';}
  }
 }
-function nextDay(){
- day++;simDate.setDate(simDate.getDate()+1);if(mode==='historical')historicalEvents();else naturalDiplomacy();generateDailyNews();renderHud();renderWars();
+function nextDay(manual=false){
+ day++;simDate.setDate(simDate.getDate()+1);if(manual)processNationalSystems(1);if(mode==='historical')historicalEvents();else naturalDiplomacy();generateDailyNews();renderHud();renderWars();
+ if(!$('command-center').hidden)renderCommandCenter();
  if(!$('military-details').hidden)renderMilitaryDetails();
 }
 let simulationRuntimeError='';
@@ -2125,7 +2172,7 @@ function frame(now){
 function setPause(v){paused=v;$('pause').textContent=v?'▶ RESUME':'Ⅱ PAUSE'}
 $('pause').addEventListener('click',()=>setPause(!paused));
  $('close-country-panel').addEventListener('click',()=>{$('country-panel').hidden=true;selectedCountry=null;});
-$('next').addEventListener('click',()=>{setPause(true);nextDay()});
+$('next').addEventListener('click',()=>{setPause(true);nextDay(true)});
 $('speed').addEventListener('click',()=>{const speeds=[1,2,4,8,16,32];speed=speeds[(speeds.indexOf(speed)+1)%speeds.length];$('speed').textContent=speed+'× SPEED'});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)last=0});
 syncHistoricalForces();renderHud();publishNews('EUROPEAN WAR DESK OPENS','The simulation has begun. The AI desk will monitor diplomatic crises, military movements, battles and political upheaval.','INITIAL BRIEFING');
@@ -2286,7 +2333,7 @@ function tryHistoricalSource(sources,index){
   .catch(error=>{console.warn('Historical map source failed:',error);tryHistoricalSource(sources,index+1)});
 }
 $('mode').addEventListener('change',e=>{
- mode=e.target.value;simDate=new Date(1936,0,1);day=1;territory=50;casualties=0;activeWars=[];historicalEventsTriggered.clear();selectedCountry=null;syncHistoricalForces();renderHud();renderWars();loadGeography();
+ mode=e.target.value;simDate=new Date(1936,0,1);day=1;territory=50;casualties=0;activeWars=[];historicalEventsTriggered.clear();nonAggressionPacts.clear();diplomacyRelations.clear();alliancesInitialized=false;alliances.clear();aiManagementClock=0;aiDiplomacyClock=0;weatherClock=0;nationalSystemsClock=0;mapLayer='political';$('map-layer').value='political';selectedCountry=null;syncHistoricalForces();renderHud();renderWars();loadGeography();
 });
 loadMap();
 })();
