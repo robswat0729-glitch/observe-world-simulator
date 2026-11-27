@@ -1582,7 +1582,7 @@ function drawCapturedStrip(war,points){
 }
 function drawFrontCounts(war,points,strength,borderPoints=points){
  if(!Array.isArray(points)||points.length<2||polyLength(points)<.5)return;
- if(!Array.isArray(borderPoints)||borderPoints.length<2)return;
+ if(!Array.isArray(borderPoints)||borderPoints.length<2)borderPoints=points;
  const rect=canvas.getBoundingClientRect();
  const displayScale=Math.max(.22,Math.min(rect.width/W,rect.height/H)*viewScale);
  const fontSize=Math.max(14,Math.min(22,18/displayScale));
@@ -1593,7 +1593,7 @@ function drawFrontCounts(war,points,strength,borderPoints=points){
   {value:fmt(strength.defenders),country:war.b,color:'#245d91'}
  ];
  entries.forEach(entry=>{
-  if(!entry.value||entry.value==='0')return;
+   if(entry.value==null)return;
   ctx.save();
   ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
   const textWidth=ctx.measureText(entry.value).width;
@@ -1618,8 +1618,9 @@ function drawFrontCounts(war,points,strength,borderPoints=points){
    const halfH=(Math.abs(Math.sin(angle))*textWidth+Math.abs(Math.cos(angle))*fontSize*1.25)/2+4;
    if(!Number.isFinite(x)||!Number.isFinite(y)||x<halfW+5||x>W-halfW-5||y<halfH+5||y>H-halfH-5)continue;
    const box={left:x-halfW,right:x+halfW,top:y-halfH,bottom:y+halfH};
-   if(frontCountBoxes.some(o=>!(box.right<o.left||box.left>o.right||box.bottom<o.top||box.top>o.bottom)))continue;
-   frontCountBoxes.push(box);
+    const overlaps=frontCountBoxes.some(o=>!(box.right<o.left||box.left>o.right||box.bottom<o.top||box.top>o.bottom));
+    if(overlaps&&alongOffset!==candidates[candidates.length-1])continue;
+    frontCountBoxes.push(box);
    ctx.translate(x,y);ctx.rotate(angle);
    ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
    ctx.lineWidth=Math.max(3,3/displayScale);ctx.strokeStyle='rgba(250,248,235,1)';
@@ -1879,7 +1880,11 @@ function draw(now){
  ctx.save();ctx.translate(viewX,viewY);ctx.scale(viewScale,viewScale);
  ctx.drawImage(baseCanvas,0,0);
  frontCountBoxes=[];
- const belligerents=new Map();activeWars.forEach(w=>{belligerents.set(w.a,'attacker');belligerents.set(w.b,'defender')});
+ const belligerents=new Map();
+  // Distinct country tints avoid role overwrites when a nation fights on multiple fronts.
+  const warPalette=['#c64d43','#347fba','#c18a32','#299b86','#9867b8','#b65f91','#718d3d','#557f9b','#c16c36','#6470b8'];
+  const warCountries=[...new Set(activeWars.flatMap(w=>[w.a,w.b]))];
+  warCountries.forEach((name,i)=>belligerents.set(name,warPalette[i%warPalette.length]));
  // Former country polygons now belong to their annexing sovereign. Paint
  // over the old internal border so the annexed state no longer appears independent.
  worldFeatures.forEach(f=>{
@@ -1891,7 +1896,7 @@ function draw(now){
    ctx.strokeStyle='#d2d0bd';ctx.lineWidth=4;ctx.stroke();
   }
  });
- worldFeatures.forEach(f=>{const name=sovereignOwner(countryName(f)),side=belligerents.get(name);if(!side)return;ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle=side==='attacker'?'rgba(190,71,67,.48)':'rgba(55,139,202,.48)';ctx.fill()});
+ worldFeatures.forEach(f=>{const name=sovereignOwner(countryName(f)),color=belligerents.get(name);if(!color)return;ctx.beginPath();traceGeometry(ctx,f.geometry);ctx.fillStyle=color+'B8';ctx.fill()});
  drawStrategicMapLayer();
 function drawCivilWarDivisions(war,paths){
  const sides=[{name:war.a,side:'A',offset:-1},{name:war.b,side:'B',offset:1}];
@@ -1964,8 +1969,13 @@ function drawCivilWarTerritory(country){
     // Keep front lines visible, but only label meaningful segments. This
     // prevents dense Benelux micro-borders from creating dozens of labels.
     const countSegments=drawable.map((path,i)=>({path:movingPaths[i],border:drawable[i],length:polyLength(drawable[i])}))
-     .filter(x=>x.length>=Math.max(7,totalFrontLength*.07))
+      .filter(x=>x.length>=3)
      .sort((a,b)=>b.length-a.length).slice(0,2);
+     // Keep a label even for tiny or fragmented borders.
+     if(!countSegments.length&&drawable.length){
+      const i=drawable.reduce((best,path,index)=>polyLength(path)>polyLength(drawable[best])?index:best,0);
+      countSegments.push({path:movingPaths[i],border:drawable[i],length:polyLength(drawable[i])});
+     }
     countSegments.forEach(segment=>{
      const share=segment.length/totalFrontLength;
      drawFrontCounts(war,segment.path,{attackers:Math.round(((war.troopsA||0)+(strength.alliesA||0))*share),defenders:Math.round(((war.troopsB||0)+(strength.alliesB||0))*share)},segment.border);
