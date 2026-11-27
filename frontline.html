@@ -562,7 +562,7 @@ function renderCommandCenter(){
  $('command-mobilization').value=c.mobilization;$('command-rationing').value=c.rationing?'on':'off';$('command-stance').value=c.commandStance;
  $('command-policy-status').innerHTML='CURRENT MOBILIZATION: <strong>'+c.mobilization.toUpperCase()+'</strong><br>RATIONING: <strong>'+(c.rationing?'ACTIVE':'INACTIVE')+'</strong><br>DOCTRINE: <strong>'+c.commandStance.toUpperCase()+'</strong><br>INDUSTRIAL DRIVE: <strong>'+Math.ceil(c.industry.driveDays)+' DAYS REMAINING</strong><br>CIVIL DEFENSE: <strong>'+Math.ceil(c.civilDefenseDays||0)+' DAYS REMAINING</strong>';
  const targetSelect=$('diplomacy-target'),previousTarget=targetSelect.value;targetSelect.innerHTML='';
- [...countries.keys()].filter(n=>n!==selectedCountry&&isSovereign(n)&&!countries.get(n)?.annexedTo).sort().forEach(n=>{const option=document.createElement('option');option.value=n;option.textContent=n;targetSelect.appendChild(option)});
+ [...countries.keys()].filter(n=>n!==selectedCountry&&isSovereign(n)&&!countries.get(n)?.annexedTo&&!isPuppet(n)).sort().forEach(n=>{const option=document.createElement('option');option.value=n;option.textContent=n;targetSelect.appendChild(option)});
  if([...targetSelect.options].some(o=>o.value===previousTarget))targetSelect.value=previousTarget;
  $('command-personality').innerHTML='NATIONAL AI PERSONALITY: <strong>'+aiPersonalityNames[c.aiPersonality]+'</strong><br>FOREIGN POLICY: <strong>'+(c.aiPersonality==='diplomat'?'PREFERS NEGOTIATION':c.aiPersonality==='defender'?'SEEKS SECURITY GUARANTEES':c.aiPersonality==='expansionist'?'ASSERTIVE AND EXPANSIONIST':c.aiPersonality==='militarist'?'MILITARY READINESS FIRST':'INDUSTRIAL DEVELOPMENT FIRST')+'</strong><br>AI POLICY OVERRIDE: <strong>'+Math.ceil(c.aiPolicyLockDays||0)+' DAYS</strong>';
  const weather=c.weather||{type:'clear'};$('command-weather').innerHTML='CURRENT CONDITIONS: <strong>'+weatherLabel(weather.type)+'</strong><br>FORECAST WINDOW: <strong>'+Math.ceil(weather.daysLeft||0)+' DAYS</strong><br>COMBAT EFFECT: <strong>'+Math.round((weatherCombatMultiplier(c,true)-1)*100)+'%</strong><br>SEASON: <strong>'+simDate.toLocaleDateString('en-GB',{month:'long'}).toUpperCase()+'</strong>';
@@ -608,7 +608,7 @@ function buildNationalIndustry(kind){
 function issueDiplomaticPressure(){
  const c=countries.get(selectedCountry),targetName=$('diplomacy-target').value,demand=$('diplomacy-demand').value;
  if(!c||isPuppet(selectedCountry))return;const target=countries.get(targetName);
- if(!target||targetName===selectedCountry||target.annexedTo){$('command-diplomacy-status').textContent='Choose a valid independent target.';return}
+ if(!target||targetName===selectedCountry||target.annexedTo||isPuppet(targetName)){$('command-diplomacy-status').textContent='Choose a valid independent target. Puppet governments cannot conduct independent diplomacy.';return}
  if(areAllied(c.name,targetName)||activeWars.some(w=>(w.a===c.name&&w.b===targetName)||(w.a===targetName&&w.b===c.name))){$('command-diplomacy-status').textContent='Diplomatic pressure cannot be used against an ally or active enemy.';return}
  const key=allianceKey(c.name,targetName),tension=diplomacyRelations.get(key)||0,ratio=(c.soldiers||0)/Math.max(1,target.soldiers||0);
  const personalityBonus=target.aiPersonality==='diplomat'?.10:target.aiPersonality==='expansionist'?.03:-.04;
