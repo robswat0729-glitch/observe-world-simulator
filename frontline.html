@@ -502,10 +502,32 @@ function aiDiplomacyTick(days){
   }
  });
 }
+function updateOperationalPlans(days){
+ if(days<=0)return;
+ activeWars.forEach(w=>{
+  if(w.civilWar)return;
+  [['A',w.a,w.b],['B',w.b,w.a]].forEach(([side,name,target])=>{
+   const country=countries.get(name);if(!country||country.annexedTo)return;
+   const key='operation'+side;let plan=w[key];
+   if(!plan||plan.targetCountry!==target){
+    const objective=nearestSupplyCity(target);
+    plan=w[key]={targetCountry:target,target:objective?.name||target+' capital',preparation:0,days:0,launched:false};
+   }
+   const supply=Math.max(0,Math.min(100,side==='A'?(w.supplyA??70):(w.supplyB??70)));
+   const stance=country.commandStance||'balanced';
+   const rate=stance==='offensive'?.025:stance==='defensive'?.006:.012;
+   const stability=Math.max(0,Math.min(100,country.stability??70));
+   const readiness=.45+stability/180,logistics=(country.resources?.oil??1000)>400?1:.65;
+   plan.days+=days;
+   plan.preparation=Math.min(1,plan.preparation+days*rate*readiness*(.45+supply/180)*logistics);
+   plan.launched=plan.preparation>=1;
+  });
+ });
+}
 function processNationalSystems(days){
  if(days<=0)return;nationalSystemsClock+=days;if(nationalSystemsClock<1)return;
  const elapsed=Math.floor(nationalSystemsClock);nationalSystemsClock-=elapsed;
- weatherUpdate(elapsed);updateNationalEconomy(elapsed);productionTick(elapsed);aiCountryManagementTick(elapsed);aiDiplomacyTick(elapsed);
+ weatherUpdate(elapsed);updateNationalEconomy(elapsed);productionTick(elapsed);aiCountryManagementTick(elapsed);aiDiplomacyTick(elapsed);updateOperationalPlans(elapsed);
 }
 function averageSupplyFor(name){
  const wars=warsForCountry(name);if(!wars.length)return null;
@@ -546,7 +568,7 @@ function renderCommandCenter(){
  const weather=c.weather||{type:'clear'};$('command-weather').innerHTML='CURRENT CONDITIONS: <strong>'+weatherLabel(weather.type)+'</strong><br>FORECAST WINDOW: <strong>'+Math.ceil(weather.daysLeft||0)+' DAYS</strong><br>COMBAT EFFECT: <strong>'+Math.round((weatherCombatMultiplier(c,true)-1)*100)+'%</strong><br>SEASON: <strong>'+simDate.toLocaleDateString('en-GB',{month:'long'}).toUpperCase()+'</strong>';
  $('command-air').innerHTML='AIR POWER INDEX: <strong>'+fmt(countryAirPower(c))+'</strong><br>FIGHTERS: <strong>'+fmt(eq['FIGHTER AIRCRAFT']||0)+'</strong> · BOMBERS: <strong>'+fmt(eq['BOMBERS / ATTACK AIRCRAFT']||0)+'</strong><br>AIR OPERATIONS ARE AFFECTED BY WEATHER AND TECHNOLOGY.';
  const wars=warsForCountry(selectedCountry);
- $('command-front').innerHTML=wars.length?wars.map(w=>'FRONT WITH '+escapeNationalText(w.a===selectedCountry?w.b:w.a)+': <strong>'+fmt(w.a===selectedCountry?w.troopsA:w.troopsB)+'</strong> FIELD TROOPS · SUPPLY <strong>'+Math.round(w.a===selectedCountry?w.supplyA:w.supplyB)+'%</strong>').join('<br>'):'NO ACTIVE LAND CAMPAIGN. BORDER DEFENSES: '+escapeNationalText(borderDefenseStatus(selectedCountry));
+ $('command-front').innerHTML=wars.length?wars.map(w=>{const side=w.a===selectedCountry?'A':'B',plan=w['operation'+side];return 'FRONT WITH '+escapeNationalText(w.a===selectedCountry?w.b:w.a)+': <strong>'+fmt(w.a===selectedCountry?w.troopsA:w.troopsB)+'</strong> FIELD TROOPS · SUPPLY <strong>'+Math.round(w.a===selectedCountry?w.supplyA:w.supplyB)+'%</strong><br>OPERATION: <strong>'+escapeNationalText(plan?.target||'ASSESSING OBJECTIVE')+'</strong> · PREPARATION <strong>'+Math.round((plan?.preparation||0)*100)+'%</strong>'}).join('<br>'):'NO ACTIVE LAND CAMPAIGN. BORDER DEFENSES: '+escapeNationalText(borderDefenseStatus(selectedCountry));
  $('command-diplomacy-status').textContent=isPuppet(selectedCountry)?'This government is not permitted to conduct independent foreign policy.':'Select a government and apply diplomatic pressure. Active defensive alliances and non-aggression agreements are respected.';
  const restricted=isPuppet(selectedCountry);
  ['build-factory','build-infrastructure','production-focus','command-mobilization','command-rationing','command-stance','command-decision','apply-command-policy','issue-ultimatum'].forEach(id=>{$(id).disabled=restricted});
@@ -1329,7 +1351,9 @@ function updateWarDeployments(){
  const attackingA=defenderName!==w.a,attackingB=defenderName!==w.b;
  const stanceA=countryA?.commandStance==='offensive'?(attackingA?1.055:.975):countryA?.commandStance==='defensive'?(attackingA?.955:1.045):1;
  const stanceB=countryB?.commandStance==='offensive'?(attackingB?1.055:.975):countryB?.commandStance==='defensive'?(attackingB?.955:1.045):1;
- const equipmentA=nationalCombatMultiplier(countryA)*frontOverstretch(w.a)*weatherCombatMultiplier(countryA,attackingA)*stanceA*airBonusA,equipmentB=nationalCombatMultiplier(countryB)*frontOverstretch(w.b)*weatherCombatMultiplier(countryB,attackingB)*stanceB*airBonusB;
+ const operationA=w.operationA?.preparation??0,operationB=w.operationB?.preparation??0;
+ const operationBonusA=attackingA?.97+operationA*.07:1,operationBonusB=attackingB?.97+operationB*.07:1;
+ const equipmentA=nationalCombatMultiplier(countryA)*frontOverstretch(w.a)*weatherCombatMultiplier(countryA,attackingA)*stanceA*airBonusA*operationBonusA,equipmentB=nationalCombatMultiplier(countryB)*frontOverstretch(w.b)*weatherCombatMultiplier(countryB,attackingB)*stanceB*airBonusB*operationBonusB;
  const alliedEquipmentA=(w.supportA||[]).length?(w.supportA.reduce((n,x)=>n+nationalCombatMultiplier(countries.get(x.name))*Math.max(0,x.troops||0),0)/Math.max(1,alliesA)):equipmentA;
  const alliedEquipmentB=(w.supportB||[]).length?(w.supportB.reduce((n,x)=>n+nationalCombatMultiplier(countries.get(x.name))*Math.max(0,x.troops||0),0)/Math.max(1,alliesB)):equipmentB;
  ensureNavalWar(w);
