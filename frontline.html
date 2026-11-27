@@ -1796,7 +1796,7 @@ function frame(now){
   const dt=Math.min(.08,(now-last)/1000);last=now;
   if(!paused){
    acc+=dt;dayAcc+=dt*speed;
-   const tickStep=.05;
+   const tickStep=.2;
    let stepped=false;
    while(acc>=tickStep){tick(tickStep);acc-=tickStep;stepped=true}
    if(stepped)renderHud();
@@ -1804,7 +1804,7 @@ function frame(now){
   }
   // Cap expensive canvas redraws at 30 FPS. Simulation ticks remain independent,
   // so combat timing and game speed are unchanged while mobile rendering has room to breathe.
-  if(now-lastDrawAt>=1000/30){draw(now);lastDrawAt=now}
+  if(now-lastDrawAt>=1000/12){draw(now);lastDrawAt=now}
  }catch(error){showRuntimeError(error)}
  finally{requestAnimationFrame(frame)}
 }
