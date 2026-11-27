@@ -487,14 +487,19 @@ function aiCountryManagementTick(days){
 }
 function aiDiplomacyTick(days){
  aiDiplomacyClock+=days;if(aiDiplomacyClock<30)return;aiDiplomacyClock=0;
+ for(const [key,expiry] of nonAggressionPacts){if(expiry<=day)nonAggressionPacts.delete(key)}
  countries.forEach(c=>{
   if(c.annexedTo||c.isCivilWarFaction||isPuppet(c.name)||atWar(c.name)||alliesOf(c.name).length>=3)return;
-  ensureNationalSystems(c);const neighbors=getBorderNeighbors(c.name);if(!neighbors.length)return;
-  const candidates=neighbors.filter(n=>!areAllied(c.name,n)&&!isPuppet(n)&&!atWar(n)&&!nonAggressionPacts.has(allianceKey(c.name,n)));
+  ensureNationalSystems(c);const neighbors=getBorderNeighbors(c.name);
+  const candidates=[...countries.keys()].filter(n=>n!==c.name&&isSovereign(n)&&!countries.get(n)?.annexedTo&&!isPuppet(n)&&!areAllied(c.name,n)&&!atWar(n)&&!nonAggressionPacts.has(allianceKey(c.name,n)));
   if(!candidates.length)return;
   const threatened=neighbors.some(n=>warsForCountry(n).length>0&&!areAllied(c.name,n));
   const personalityBonus=c.aiPersonality==='diplomat'?.055:c.aiPersonality==='defender'?.035:.008,chance=Math.min(.28,personalityBonus+(threatened?.15:0));
-  if(Math.random()<chance){const target=candidates.sort((a,b)=>(countries.get(b)?.stability||0)-(countries.get(a)?.stability||0))[0];if(target){alliances.add(allianceKey(c.name,target));publishNews('DYNAMIC ALLIANCE FORMED',c.name+' and '+target+' signed a defensive agreement after reassessing the balance of power in Europe.','AI DIPLOMACY')}}
+  if(Math.random()<chance){
+   const nearby=candidates.filter(n=>neighbors.includes(n)),pool=nearby.length?nearby:candidates;
+   const target=pool.slice().sort((a,b)=>((countries.get(b)?.stability||0)-(countries.get(a)?.stability||0))+(c.aiPersonality==='diplomat'?0:(nationalHash(a)%7-nationalHash(b)%7)))[0];
+   if(target){alliances.add(allianceKey(c.name,target));publishNews('DYNAMIC ALLIANCE FORMED',c.name+' and '+target+' signed a defensive agreement after reassessing the balance of power in Europe.','AI DIPLOMACY')}
+  }
  });
 }
 function processNationalSystems(days){
@@ -1320,7 +1325,7 @@ function updateWarDeployments(){
  const alliesA=(w.supportA||[]).reduce((n,x)=>n+(x.troops||0),0),alliesB=(w.supportB||[]).reduce((n,x)=>n+(x.troops||0),0);
  const supplyA=Math.max(0,Math.min(100,w.supplyA??70)),supplyB=Math.max(0,Math.min(100,w.supplyB??70));
   const countryA=countries.get(w.a),countryB=countries.get(w.b),hasLandFront=!!(w.front&&w.front.length),defenderName=(w.progress||0)<0?w.a:w.b,attackerName=defenderName===w.a?w.b:w.a,fortLevel=hasLandFront?borderDefenseLevel(defenderName,attackerName):0,defenseFactor=hasLandFront?defensiveTerrainBonus(defenderName)*(1+fortLevel*.05):1,defenseA=defenderName===w.a?defenseFactor:1,defenseB=defenderName===w.b?defenseFactor:1;
- const airA=countryAirPower(countryA),airB=countryAirPower(countryB),airScale=Math.max(1,airA+airB),airBonusA=.96+(airA/airScale)*.08,airBonusB=.96+(airB/airScale)*.08;
+ const airA=countryAirPower(countryA),airB=countryAirPower(countryB),airScale=Math.max(1,airA+airB),airBonusA=.92+(airA/airScale)*.16,airBonusB=.92+(airB/airScale)*.16;
  const attackingA=defenderName!==w.a,attackingB=defenderName!==w.b;
  const stanceA=countryA?.commandStance==='offensive'?(attackingA?1.055:.975):countryA?.commandStance==='defensive'?(attackingA?.955:1.045):1;
  const stanceB=countryB?.commandStance==='offensive'?(attackingB?1.055:.975):countryB?.commandStance==='defensive'?(attackingB?.955:1.045):1;
@@ -1931,7 +1936,7 @@ function resolveSettlement(choice){
   winner.stability=Math.max(0,Math.min(100,winner.stability+5));loser.stability=Math.max(0,Math.min(100,loser.stability+5));
   outcome=winnerName+' and '+loserName+' signed a white peace. The front was frozen and both governments retained their territory.';
  }
- activeWars=activeWars.filter(w=>w!==war&&w.a!==loserName&&w.b!==loserName);
+ activeWars=choice==='annex'||choice==='puppet'?activeWars.filter(w=>w!==war&&w.a!==loserName&&w.b!==loserName):activeWars.filter(w=>w!==war);
  pendingSettlement=null;$('peace-settlement').style.display='none';
  updateWarDeployments();renderWars();if(selectedCountry)showCountry(selectedCountry);
  $('war-status').textContent=outcome;
