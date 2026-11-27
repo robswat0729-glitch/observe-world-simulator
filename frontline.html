@@ -230,7 +230,31 @@ function frontOverstretch(name){const fronts=Math.max(1,warsForCountry(name).len
 function techCost(l){return 100+Math.max(0,l-1)*50}function ensureTech(c){if(!Number.isFinite(c.techLevel))c.techLevel=1;if(!Number.isFinite(c.scientificPoints))c.scientificPoints=0;if(!Number.isFinite(c.researchShare))c.researchShare=.01;if(!Number.isFinite(c.scientificRate))c.scientificRate=1;if(!Number.isFinite(c.nuclearCooldown))c.nuclearCooldown=0;if(!Number.isFinite(c.warExhaustion))c.warExhaustion=0}function updateResearchRate(c){ensureTech(c);c.scientificRate=(c.researchShare/.01)*(c.ideology==='DEMOCRACY'?1.05:1);return c.scientificRate}function researchAnnualCost(c){return Math.max(0,c.gdp||0)*c.researchShare}function techCombatMultiplier(c){return c?1+Math.pow(Math.max(0,Math.min(39,(c.techLevel||1)-1))/39,.82)*.60:1}
 const techMilestones=[[1,'Interwar foundations','Bolt-action rifles · interwar tanks · early radios'],[5,'Infantry modernization','Improved rifles · submachine guns · stronger infantry coordination'],[10,'Mechanization','Modern medium tanks · motor transport · artillery coordination'],[15,'Combined arms','Semi-automatic rifles · improved armour · integrated battlefield tactics'],[20,'Advanced engineering','Radar · improved aircraft · heavier armour · logistics'],[25,'Guided systems','Advanced electronics · precision systems · command networks'],[30,'STRATEGIC NUCLEAR AGE','Strategic nuclear capability unlocked · major conventional efficiency gains'],[35,'Advanced military systems','Next-generation aircraft · integrated command networks · advanced doctrine'],[40,'Peak doctrine','Maximum conventional military technology · up to +60% technology combat bonus']];
 function currentTechMilestone(l){return techMilestones.filter(x=>x[0]<=l).slice(-1)[0]}function renderTechnology(){if(!selectedCountry)return;const c=countries.get(selectedCountry);if(!c)return;ensureTech(c);updateResearchRate(c);const l=c.techLevel,cost=l>=40?0:techCost(l),pct=l>=40?100:Math.min(100,c.scientificPoints/cost*100),m=currentTechMilestone(l),n=l>=30?Math.max(1,Math.floor((l-28)/2)):0;$('research-funding').value=String(c.researchShare);$('research-budget').innerHTML='ANNUAL RESEARCH EXPENDITURE: <strong>'+fmtMoney(researchAnnualCost(c))+'</strong><br>RESEARCH RATE: <strong>'+c.scientificRate.toFixed(2)+' points / second</strong><br>GDP remaining after this allocation: <strong>'+fmtMoney(Math.max(0,c.gdp-researchAnnualCost(c)))+'</strong>';$('tech-country').textContent=selectedCountry.toUpperCase()+' · TECHNOLOGY';$('tech-summary').innerHTML='<h3>TECH LEVEL '+l+' / 40</h3><div class="tech-copy">TECH COMBAT BONUS: <strong>+'+Math.round((techCombatMultiplier(c)-1)*100)+'%</strong> · OVERALL COMBAT EFFICIENCY: <strong>'+techCombatMultiplier(c).toFixed(2)+'×</strong><br>SCIENTIFIC EFFORTS: <strong>'+c.scientificRate.toFixed(2)+' POINTS / SECOND</strong><br>RESEARCH: <strong>'+fmt(c.scientificPoints)+' / '+(l>=40?'MAX LEVEL':fmt(cost)+' POINTS')+'</strong><br>NUCLEAR STATUS: <strong>'+(l>=30?n+' strategic warheads':'LOCKED · LEVEL 30')+'</strong></div><div class="tech-bar"><i style="width:'+pct.toFixed(1)+'%"></i></div><div class="tech-copy">'+(l>=40?'Maximum technology reached.':fmt(Math.max(0,cost-c.scientificPoints))+' points to next level.')+'<br>CURRENT DOCTRINE: <strong>'+m[1]+'</strong><br>'+m[2]+'</div>';$('tech-unlocks').innerHTML=techMilestones.map(x=>'<div class="tech-unlock"><strong>LEVEL '+x[0]+' · '+(l>=x[0]?'UNLOCKED':'LOCKED')+'</strong>'+x[1]+'<br>'+x[2]+'</div>').join('')}
-function researchTick(dt){if(dt<=0)return;countries.forEach(c=>{ensureTech(c);updateResearchRate(c);if(c.techLevel>=40||c.scientificRate<=0)return;c.scientificPoints+=c.scientificRate*dt;let g=0;while(c.techLevel<40&&c.scientificPoints>=techCost(c.techLevel)&&g++<40){c.scientificPoints-=techCost(c.techLevel);c.techLevel++;if([5,10,15,20,25,30,35,40].includes(c.techLevel)){const m=currentTechMilestone(c.techLevel);publishNews(c.name.toUpperCase()+' REACHES TECH LEVEL '+c.techLevel,c.name+' enters '+m[1]+'. '+m[2],'SCIENTIFIC BREAKTHROUGH')}}})}
+function updateAiResearchBudgets(days){
+ if(days<=0)return;
+ countries.forEach(c=>{
+  if(c.annexedTo)return;
+  ensureTech(c);
+  if((c.researchPolicyOverrideDays||0)>0){
+   c.researchPolicyOverrideDays=Math.max(0,c.researchPolicyOverrideDays-days);
+   return;
+  }
+  const population=Math.max(1,c.population||1);
+  const incomePerPerson=Math.max(0,(c.gdp||0)/population);
+  const prosperity=Math.max(0,Math.min(1,(incomePerPerson-300)/900));
+  const technologyGap=Math.max(0,Math.min(1,(40-(c.techLevel||1))/39));
+  const wartime=atWar(c.name)?1:0;
+  const instability=Math.max(0,Math.min(1,(45-(c.stability??70))/45));
+  // National governments weigh prosperity, the remaining technology gap,
+  // wartime pressure and domestic stability when setting annual R&D budgets.
+  const targetShare=Math.max(.003,Math.min(.03,
+   .004+prosperity*.006+technologyGap*.009+wartime*.003-instability*.002
+  ));
+  const response=1-Math.exp(-days/75);
+  c.researchShare=Math.max(.003,Math.min(.03,(c.researchShare??.01)+(targetShare-(c.researchShare??.01))*response));
+ });
+}
+function researchTick(dt){if(dt<=0)return;updateAiResearchBudgets(dt/2);countries.forEach(c=>{ensureTech(c);updateResearchRate(c);if(c.techLevel>=40||c.scientificRate<=0)return;c.scientificPoints+=c.scientificRate*dt;let g=0;while(c.techLevel<40&&c.scientificPoints>=techCost(c.techLevel)&&g++<40){c.scientificPoints-=techCost(c.techLevel);c.techLevel++;if([5,10,15,20,25,30,35,40].includes(c.techLevel)){const m=currentTechMilestone(c.techLevel);publishNews(c.name.toUpperCase()+' REACHES TECH LEVEL '+c.techLevel,c.name+' enters '+m[1]+'. '+m[2],'SCIENTIFIC BREAKTHROUGH')}}})}
 function attemptNuclearStrike(w,dt){[{name:w.a,target:w.b},{name:w.b,target:w.a}].forEach(q=>{const a=countries.get(q.name),t=countries.get(q.target);if(!a||!t)return;ensureTech(a);if(a.techLevel<30||a.nuclearCooldown>0)return;if(Math.random()>=.0004*(dt/2))return;const n=Math.max(1,Math.floor((a.techLevel-28)/2)),mil=Math.min(t.soldiers,Math.round((90000+Math.random()*150000)*Math.min(2.2,n*.45))),civ=Math.min(t.citizens,Math.round((150000+Math.random()*300000)*Math.min(2.2,n*.5)));t.soldiers=Math.max(0,t.soldiers-mil);t.reserve=Math.min(t.soldiers,Math.max(0,(t.reserve||0)-mil*.35));t.citizens=Math.max(0,t.citizens-civ);t.population=Math.max(0,t.population-civ);if(!t.equipment)t.equipment=assetProfile(t.name,t.soldiers);Object.keys(t.equipment).forEach(k=>t.equipment[k]*=.78);casualties+=mil+civ;a.nuclearCooldown=360;t.stability=Math.max(0,(t.stability||50)-18);publishNews('NUCLEAR STRIKE DEVASTATES '+t.name.toUpperCase(),a.name+' used a strategic nuclear weapon. '+fmt(mil)+' soldiers and '+fmt(civ)+' civilians killed; military assets severely damaged.','NUCLEAR EMERGENCY')})}
 function countryRecord(name){
  const k=Object.keys(country1936).find(x=>x.toLowerCase()===name.toLowerCase());
@@ -371,7 +395,7 @@ function generateDailyNews(){
  lastNewsCasualties=casualties;
 }
 $('open-details').addEventListener('click',()=>{renderMilitaryDetails();$('military-details').hidden=false});
-$('close-details').addEventListener('click',()=>{$('military-details').hidden=true});$('open-tech').addEventListener('click',()=>{if(selectedCountry){renderTechnology();$('tech-details').hidden=false}});$('close-tech').addEventListener('click',()=>{$('tech-details').hidden=true});$('research-funding').addEventListener('change',e=>{if(!selectedCountry)return;const c=countries.get(selectedCountry);if(!c)return;ensureTech(c);c.researchShare=Math.max(0,Math.min(.05,Number(e.target.value)||0));updateResearchRate(c);renderTechnology();publishNews(selectedCountry.toUpperCase()+' ADJUSTS RESEARCH FUNDING',selectedCountry+' now allocates '+(c.researchShare*100).toFixed(1)+'% of annual GDP to scientific research.','RESEARCH POLICY');});
+$('close-details').addEventListener('click',()=>{$('military-details').hidden=true});$('open-tech').addEventListener('click',()=>{if(selectedCountry){renderTechnology();$('tech-details').hidden=false}});$('close-tech').addEventListener('click',()=>{$('tech-details').hidden=true});$('research-funding').addEventListener('change',e=>{if(!selectedCountry)return;const c=countries.get(selectedCountry);if(!c)return;ensureTech(c);c.researchShare=Math.max(.003,Math.min(.03,Number(e.target.value)||.003));c.researchPolicyOverrideDays=180;updateResearchRate(c);renderTechnology();publishNews(selectedCountry.toUpperCase()+' ADJUSTS RESEARCH FUNDING',selectedCountry+' manually set its research budget to '+(c.researchShare*100).toFixed(1)+'% of annual GDP; the AI will reassess the policy after 180 simulated days.','RESEARCH POLICY');});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')$('military-details').hidden=true});
 function renderWars(){
  $('war-list').textContent=activeWars.length?'ACTIVE WARS: '+activeWars.map(w=>{
@@ -1119,76 +1143,48 @@ function drawCapturedStrip(war,points){
 function drawFrontCounts(war,points,strength,borderPoints=points){
  if(!Array.isArray(points)||points.length<2||polyLength(points)<.5)return;
  if(!Array.isArray(borderPoints)||borderPoints.length<2)return;
- const mid=pointAlong(points,.5),borderMid=pointAlong(borderPoints,.5);
- if(!Number.isFinite(mid.x)||!Number.isFinite(mid.y)||!Number.isFinite(borderMid.x)||!Number.isFinite(borderMid.y))return;
  const rect=canvas.getBoundingClientRect();
  const displayScale=Math.max(.22,Math.min(rect.width/W,rect.height/H)*viewScale);
  const fontSize=Math.max(14,Math.min(22,18/displayScale));
  const offset=Math.max(16,Math.min(34,23/displayScale));
- // Find the dominant direction of the actual frontline near the label.
- // Use local point covariance instead of a distant chord that can flatten
- // a curved or near-vertical section into an apparently horizontal angle.
- const totalLength=polyLength(points),windowRadius=Math.max(7,totalLength*.075);
- const midDistance=totalLength*.5,local=[];
- let walked=0;
- for(let i=1;i<points.length;i++){
-  const a=points[i-1],b=points[i],seg=Math.hypot(b[0]-a[0],b[1]-a[1]);
-  if(!seg)continue;
-  const lo=Math.max(0,(midDistance-windowRadius-walked)/seg),hi=Math.min(1,(midDistance+windowRadius-walked)/seg);
-  if(hi>=lo){local.push([a[0]+(b[0]-a[0])*lo,a[1]+(b[1]-a[1])*lo]);local.push([a[0]+(b[0]-a[0])*hi,a[1]+(b[1]-a[1])*hi]);}
-  walked+=seg;
- }
- if(local.length<2)local.push(points[0],points[points.length-1]);
- const cx=local.reduce((v,p)=>v+p[0],0)/local.length,cy=local.reduce((v,p)=>v+p[1],0)/local.length;
- let xx=0,xy=0,yy=0;local.forEach(p=>{const dx=p[0]-cx,dy=p[1]-cy;xx+=dx*dx;xy+=dx*dy;yy+=dy*dy});
- const axisAngle=.5*Math.atan2(2*xy,xx-yy);
- let tx=Math.cos(axisAngle),ty=Math.sin(axisAngle);
- const progression=pointAlong(points,.52),prior=pointAlong(points,.48);
- if(tx*(progression.x-prior.x)+ty*(progression.y-prior.y)<0){tx=-tx;ty=-ty;}
- const nx=-ty,ny=tx;
- let sideA=frontSideForCountry(war.a,borderPoints,.5);
- let sideB=frontSideForCountry(war.b,borderPoints,.5);
- if(!sideA&&!sideB){sideA=1;sideB=-1}
- else if(!sideA)sideA=-sideB;
- else if(!sideB)sideB=-sideA;
- else if(sideA===sideB)sideB=-sideA;
- let lineAngle=Math.atan2(ty,tx);
- // Both labels share exactly the frontline's orientation. They differ only
- // in which side of the line they occupy; neither is rotated 180 degrees.
- if(lineAngle>Math.PI/2)lineAngle-=Math.PI;
- if(lineAngle< -Math.PI/2)lineAngle+=Math.PI;
- const candidates=[0,.12,-.12,.24,-.24,.36,-.36];
+ const totalLength=polyLength(points),candidates=[0,.12,-.12,.24,-.24,.36,-.36];
  const entries=[
-  {value:fmt(strength.attackers),side:sideA,color:'#a52f2a',angle:lineAngle},
-  {value:fmt(strength.defenders),side:sideB,color:'#245d91',angle:lineAngle}
+  {value:fmt(strength.attackers),country:war.a,color:'#a52f2a'},
+  {value:fmt(strength.defenders),country:war.b,color:'#245d91'}
  ];
  entries.forEach(entry=>{
   if(!entry.value||entry.value==='0')return;
   ctx.save();
   ctx.font='900 '+fontSize+'px Arial, Helvetica, sans-serif';
   const textWidth=ctx.measureText(entry.value).width;
-  const angle=entry.angle;
-  const halfW=(Math.abs(Math.cos(angle))*textWidth+Math.abs(Math.sin(angle))*fontSize*1.25)/2+5;
-  const halfH=(Math.abs(Math.sin(angle))*textWidth+Math.abs(Math.cos(angle))*fontSize*1.25)/2+4;
-  const length=polyLength(points);
-  for(const along of candidates){
-   const x=mid.x+tx*length*along+nx*offset*entry.side;
-   const y=mid.y+ty*length*along+ny*offset*entry.side;
-   if(x<halfW+5||x>W-halfW-5||y<halfH+5||y>H-halfH-5)continue;
+  let placed=false;
+  for(const alongOffset of candidates){
+   const fraction=Math.max(.04,Math.min(.96,.5+alongOffset));
+   const mid=pointAlong(points,fraction);
+   const before=pointAlong(points,Math.max(0,fraction-.012));
+   const after=pointAlong(points,Math.min(1,fraction+.012));
+   let dx=after.x-before.x,dy=after.y-before.y,len=Math.hypot(dx,dy);
+   if(!Number.isFinite(len)||len<.001){dx=mid.tx||1;dy=mid.ty||0;len=Math.hypot(dx,dy)||1;}
+   let tx=dx/len,ty=dy/len;
+   if(tx<0||(Math.abs(tx)<.001&&ty<0)){tx=-tx;ty=-ty;}
+   const nx=-ty,ny=tx;
+   let side=frontSideForCountry(entry.country,borderPoints,fraction);
+   if(!side)side=entry.country===war.a?1:-1;
+   const x=mid.x+nx*offset*side,y=mid.y+ny*offset*side;
+   let angle=Math.atan2(ty,tx);
+   if(angle>Math.PI/2)angle-=Math.PI;
+   if(angle< -Math.PI/2)angle+=Math.PI;
+   const halfW=(Math.abs(Math.cos(angle))*textWidth+Math.abs(Math.sin(angle))*fontSize*1.25)/2+5;
+   const halfH=(Math.abs(Math.sin(angle))*textWidth+Math.abs(Math.cos(angle))*fontSize*1.25)/2+4;
+   if(!Number.isFinite(x)||!Number.isFinite(y)||x<halfW+5||x>W-halfW-5||y<halfH+5||y>H-halfH-5)continue;
    const box={left:x-halfW,right:x+halfW,top:y-halfH,bottom:y+halfH};
    if(frontCountBoxes.some(o=>!(box.right<o.left||box.left>o.right||box.bottom<o.top||box.top>o.bottom)))continue;
    frontCountBoxes.push(box);
-   ctx.translate(x,y);
-   ctx.rotate(angle);
-   ctx.textAlign='center';
-   ctx.textBaseline='middle';
-   ctx.lineJoin='round';
-   ctx.lineWidth=Math.max(3,3/displayScale);
-   ctx.strokeStyle='rgba(250,248,235,1)';
-   ctx.strokeText(entry.value,0,0);
-   ctx.fillStyle=entry.color;
-   ctx.fillText(entry.value,0,0);
-   break;
+   ctx.translate(x,y);ctx.rotate(angle);
+   ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
+   ctx.lineWidth=Math.max(3,3/displayScale);ctx.strokeStyle='rgba(250,248,235,1)';
+   ctx.strokeText(entry.value,0,0);ctx.fillStyle=entry.color;ctx.fillText(entry.value,0,0);
+   placed=true;break;
   }
   ctx.restore();
  });
@@ -1644,9 +1640,11 @@ function tick(dt){
    const deathRate=Math.max(.0083,Math.min(.0105,country.deathRate??.0083));
    const births=Math.max(0,country.population*birthRate*elapsedDays/365);
    const naturalDeaths=Math.min(Math.max(0,country.citizens||0),Math.max(0,country.population*deathRate*elapsedDays/365));
-   const netChange=Math.max(-.002,Math.min(.00025,births-naturalDeaths));
+   // Apply the actual annual birth/death balance. The previous clamp capped
+   // growth at 0.00025 people per simulated day, making population look frozen.
+   const netChange=births-naturalDeaths;
    country.population=Math.max(0,country.population+netChange);
-   country.citizens=Math.max(0,(country.citizens||0)+netChange);
+   country.citizens=Math.max(0,Math.min(country.population,(country.citizens||0)+netChange));
   });
  }
  // Stability changes gradually with war pressure and recovers during peace.
