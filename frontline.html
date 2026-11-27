@@ -61,6 +61,33 @@ button:active{transform:translateY(1px)}
  .note{display:none}
  button,select{padding:8px 8px;font-size:10px}
 }
+
+.command-overlay{position:fixed;z-index:40;inset:0;display:flex;align-items:center;justify-content:center;padding:calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom));background:rgba(3,9,13,.88);backdrop-filter:blur(9px);overflow:auto}
+.command-overlay[hidden],.command-view[hidden]{display:none!important}
+.command-shell{width:min(980px,100%);max-height:100%;overflow:auto;padding:15px;background:linear-gradient(155deg,#1b3039,#101b22);border:1px solid rgba(188,211,210,.42);box-shadow:0 20px 65px rgba(0,0,0,.55);border-radius:7px}
+.command-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.command-top h2{margin:0;font-size:clamp(19px,4vw,27px);letter-spacing:1.5px}
+.command-subtitle{margin-top:5px;color:#aebfc0;font-size:10px;line-height:1.4;letter-spacing:.7px}
+.command-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 13px;padding-bottom:10px;border-bottom:1px solid #52656b}
+.command-tabs button{flex:1 1 120px}
+.command-tabs button.active{background:#8a7140;border-color:#e6cf91;color:#fff4ce}
+.command-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.command-card{padding:12px;background:rgba(9,18,23,.65);border:1px solid rgba(172,198,198,.23);border-radius:4px;min-width:0}
+.command-card h3{margin:0 0 9px;color:#e4d29d;font-size:12px;letter-spacing:1px}
+.command-card p{margin:6px 0;color:#bdcdcc;font-size:10px;line-height:1.45}
+.command-readout{color:#d6e0dc;font-size:11px;line-height:1.65;overflow-wrap:anywhere}
+.command-readout strong{color:#fff2c8}
+.command-resource-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:8px 0}
+.command-resource{padding:7px;background:#1c3038;border-left:2px solid #8eaa9c;font-size:10px}
+.command-resource strong{display:block;margin-top:3px;font-size:13px;font-variant-numeric:tabular-nums}
+.command-field{display:block;margin:9px 0 5px;color:#becdca;font-size:9px;font-weight:800;letter-spacing:.8px}
+.command-card select{width:100%;min-height:37px}
+.command-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+.command-actions button{flex:1 1 150px}
+.command-note{color:#91a8ab;font-size:9px;line-height:1.45;margin-top:8px}
+.command-close{min-width:42px;min-height:42px;font-size:21px;background:#6d302e;border-color:#c27c76}
+#map-layer{max-width:175px}
+@media(max-width:650px){.command-shell{padding:10px}.command-grid{grid-template-columns:1fr}.command-tabs button{flex:1 1 42%;padding:8px 5px;font-size:9px}.command-card{padding:10px}.command-top h2{font-size:18px}}
 </style>
 </head>
 <body>
@@ -80,10 +107,39 @@ button:active{transform:translateY(1px)}
   <div class="legend"><i style="background:#c65e59"></i>WAR DECLARER <i style="background:#5a9ed4;margin-left:10px"></i>DEFENDER</div>
   <div class="hud hud-bottom"><span>TOTAL CASUALTIES</span><strong id="casualties">0</strong></div>
  </div>
- <div id="peace-settlement" style="display:none;position:fixed;z-index:20;inset:0;background:rgba(4,10,14,.82);align-items:center;justify-content:center;padding:18px"><div style="width:min(420px,100%);background:#17252d;border:1px solid #aab8b8;padding:20px;color:#f2f4ef"><h2 id="settlement-title" style="margin:0 0 8px;font-size:20px">COUNTRY DEFEATED</h2><p id="settlement-copy" style="line-height:1.5;color:#cbd6d5">Choose the fate of the defeated country.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button id="annex-country">ANNEX TERRITORY</button><button id="puppet-country">INSTALL PUPPET</button></div></div></div><section class="country-panel" id="country-panel" hidden><div class="country-panel-head"><h3 id="country-name">COUNTRY</h3><button id="close-country-panel" class="country-close" aria-label="Close country menu">×</button></div><div id="country-hint">1936 national statistics</div><div id="country-alliances" class="war-status">1936 DEFENSIVE ALLIANCES: NONE</div><div id="country-supply" class="war-status">FRONT SUPPLY: NO ACTIVE FRONT</div><div id="country-defenses" class="war-status">BORDER DEFENSES: NONE BUILT YET</div><div class="country-stats"><div class="country-stat"><span>POPULATION</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>LOYAL SOLDIERS</span><strong id="country-army">—</strong></div><div class="country-stat"><span>RESERVES</span><strong id="country-reserve">—</strong></div><div class="country-stat"><span>STABILITY</span><strong id="country-stability">—</strong></div><div class="country-stat"><span>GDP</span><strong id="country-gdp">—</strong></div><div class="country-stat"><span>GDP PER CAPITA</span><strong id="country-gdp-pc">—</strong></div><div class="country-stat"><span>MILITARY SPENDING / YEAR</span><strong id="country-mil-spend">—</strong></div><div class="country-stat"><span>IDEOLOGY</span><strong id="country-ideology">—</strong></div><div class="country-stat"><span>TECH LEVEL</span><strong id="country-tech-level">1/40</strong></div><div class="country-stat"><span>SCIENTIFIC EFFORTS</span><strong id="country-science">1.00/SEC</strong></div></div><div id="country-ideology-effect" class="war-status"></div><div id="country-rebels" class="war-status" hidden></div><div class="war-tools"><button id="declare-war">DECLARE WAR</button><button id="force-civil-war" class="details-button">FORCE CIVIL WAR</button><button id="manage-alliance" class="details-button">ALLY / BREAK ALLIANCE</button><button id="open-details" class="details-button">DETAILS</button><button id="open-tech" class="details-button">TECHNOLOGY</button></div><div class="war-status" id="war-status">Choose this country as the attacker, then tap the target country on the map.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section><section id="military-details" hidden aria-label="Country military details"><div class="details-top"><div><h2 id="details-country">COUNTRY MILITARY</h2><div class="details-sub">NATIONAL MILITARY INVENTORY · LIVE SIMULATION ESTIMATES</div></div><button id="close-details" class="details-close" aria-label="Close details">X</button></div><div id="asset-grid" class="asset-grid"></div><div class="asset-note">Inventory figures are modeled estimates based on the country’s simulated armed forces and national profile. They are not verified historical equipment records. Personnel losses and annexations affect the displayed inventory.</div></section><section id="tech-details" hidden style="position:fixed;z-index:31;inset:0;background:rgba(5,11,15,.98);padding:calc(18px + env(safe-area-inset-top)) 16px;overflow:auto;color:#edf3f0"><div class="details-top"><div><h2 id="tech-country">NATIONAL RESEARCH COMMAND</h2><div class="details-sub">SCIENCE, DOCTRINE & MILITARY MODERNIZATION</div></div><button id="close-tech" class="details-close">X</button></div><div id="tech-summary" class="tech-panel"></div><div class="tech-panel"><h3>RESEARCH FUNDING</h3><div class="tech-copy">Allocate a share of annual national GDP to scientific research. Higher funding produces research points faster; zero funding stops research.</div><label for="research-funding" class="tech-copy" style="display:block;margin:10px 0 5px">ANNUAL GDP ALLOCATION</label><select id="research-funding" style="width:100%;padding:10px;background:#233942;color:#f3f5ef;border:1px solid #71858b"><option value="0">0% · No funding</option><option value="0.005">0.5% · Limited</option><option value="0.01">1% · Standard</option><option value="0.015">1.5% · Increased</option><option value="0.02">2% · High priority</option><option value="0.03">3% · Intensive</option><option value="0.05">5% · Maximum effort</option></select><div id="research-budget" class="tech-copy" style="margin-top:8px"></div></div><div class="tech-panel"><h3>TECHNOLOGY MILESTONES</h3><div id="tech-unlocks" class="tech-unlocks"></div></div><div class="asset-note">Nuclear effects are abstract strategy-game mechanics, not real-world weapon instructions.</div></section><aside id="ai-news" aria-live="polite"><div class="news-heading">AI WAR DESK · LIVE REPORTS</div><div id="news-feed"></div></aside><div class="target-prompt" id="target-prompt" hidden></div>
+ <div id="peace-settlement" style="display:none;position:fixed;z-index:20;inset:0;background:rgba(4,10,14,.82);align-items:center;justify-content:center;padding:18px"><div style="width:min(420px,100%);background:#17252d;border:1px solid #aab8b8;padding:20px;color:#f2f4ef"><h2 id="settlement-title" style="margin:0 0 8px;font-size:20px">COUNTRY DEFEATED</h2><p id="settlement-copy" style="line-height:1.5;color:#cbd6d5">Choose the fate of the defeated country.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button id="annex-country">ANNEX TERRITORY</button><button id="puppet-country">INSTALL PUPPET</button><button id="reparations-country">WAR REPARATIONS</button><button id="white-peace-country">WHITE PEACE</button></div></div></div><section class="country-panel" id="country-panel" hidden><div class="country-panel-head"><h3 id="country-name">COUNTRY</h3><button id="close-country-panel" class="country-close" aria-label="Close country menu">×</button></div><div id="country-hint">1936 national statistics</div><div id="country-alliances" class="war-status">1936 DEFENSIVE ALLIANCES: NONE</div><div id="country-supply" class="war-status">FRONT SUPPLY: NO ACTIVE FRONT</div><div id="country-defenses" class="war-status">BORDER DEFENSES: NONE BUILT YET</div><div class="country-stats"><div class="country-stat"><span>POPULATION</span><strong id="country-pop">—</strong></div><div class="country-stat"><span>LOYAL SOLDIERS</span><strong id="country-army">—</strong></div><div class="country-stat"><span>RESERVES</span><strong id="country-reserve">—</strong></div><div class="country-stat"><span>STABILITY</span><strong id="country-stability">—</strong></div><div class="country-stat"><span>GDP</span><strong id="country-gdp">—</strong></div><div class="country-stat"><span>GDP PER CAPITA</span><strong id="country-gdp-pc">—</strong></div><div class="country-stat"><span>MILITARY SPENDING / YEAR</span><strong id="country-mil-spend">—</strong></div><div class="country-stat"><span>IDEOLOGY</span><strong id="country-ideology">—</strong></div><div class="country-stat"><span>TECH LEVEL</span><strong id="country-tech-level">1/40</strong></div><div class="country-stat"><span>SCIENTIFIC EFFORTS</span><strong id="country-science">1.00/SEC</strong></div></div><div id="country-ideology-effect" class="war-status"></div><div id="country-rebels" class="war-status" hidden></div><div class="war-tools"><button id="declare-war">DECLARE WAR</button><button id="force-civil-war" class="details-button">FORCE CIVIL WAR</button><button id="manage-alliance" class="details-button">ALLY / BREAK ALLIANCE</button><button id="open-details" class="details-button">DETAILS</button><button id="open-tech" class="details-button">TECHNOLOGY</button><button id="open-command" class="details-button">NATIONAL COMMAND</button></div><div class="war-status" id="war-status">Choose this country as the attacker, then tap the target country on the map.</div><div class="war-list" id="war-list">ACTIVE WARS: NONE</div></section><section id="military-details" hidden aria-label="Country military details"><div class="details-top"><div><h2 id="details-country">COUNTRY MILITARY</h2><div class="details-sub">NATIONAL MILITARY INVENTORY · LIVE SIMULATION ESTIMATES</div></div><button id="close-details" class="details-close" aria-label="Close details">X</button></div><div id="asset-grid" class="asset-grid"></div><div class="asset-note">Inventory figures are modeled estimates based on the country’s simulated armed forces and national profile. They are not verified historical equipment records. Personnel losses and annexations affect the displayed inventory.</div></section><section id="tech-details" hidden style="position:fixed;z-index:31;inset:0;background:rgba(5,11,15,.98);padding:calc(18px + env(safe-area-inset-top)) 16px;overflow:auto;color:#edf3f0"><div class="details-top"><div><h2 id="tech-country">NATIONAL RESEARCH COMMAND</h2><div class="details-sub">SCIENCE, DOCTRINE & MILITARY MODERNIZATION</div></div><button id="close-tech" class="details-close">X</button></div><div id="tech-summary" class="tech-panel"></div><div class="tech-panel"><h3>RESEARCH FUNDING</h3><div class="tech-copy">Allocate a share of annual national GDP to scientific research. Higher funding produces research points faster; zero funding stops research.</div><label for="research-funding" class="tech-copy" style="display:block;margin:10px 0 5px">ANNUAL GDP ALLOCATION</label><select id="research-funding" style="width:100%;padding:10px;background:#233942;color:#f3f5ef;border:1px solid #71858b"><option value="0">0% · No funding</option><option value="0.005">0.5% · Limited</option><option value="0.01">1% · Standard</option><option value="0.015">1.5% · Increased</option><option value="0.02">2% · High priority</option><option value="0.03">3% · Intensive</option><option value="0.05">5% · Maximum effort</option></select><div id="research-budget" class="tech-copy" style="margin-top:8px"></div></div><div class="tech-panel"><h3>TECHNOLOGY MILESTONES</h3><div id="tech-unlocks" class="tech-unlocks"></div></div><div class="asset-note">Nuclear effects are abstract strategy-game mechanics, not real-world weapon instructions.</div></section><section id="command-center" class="command-overlay" hidden aria-label="National command center">
+ <div class="command-shell">
+  <div class="command-top"><div><h2 id="command-title">NATIONAL COMMAND</h2><div id="command-subtitle" class="command-subtitle">ECONOMY · PRODUCTION · GOVERNMENT · FOREIGN POLICY</div></div><button id="close-command" class="command-close" aria-label="Close national command">×</button></div>
+  <div class="command-tabs"><button class="active" data-command-tab="industry">INDUSTRY</button><button data-command-tab="government">GOVERNMENT</button><button data-command-tab="diplomacy">DIPLOMACY</button><button data-command-tab="intelligence">INTELLIGENCE</button></div>
+  <div id="command-industry" class="command-view">
+   <div class="command-grid">
+    <article class="command-card"><h3>ECONOMY & STRATEGIC MATERIALS</h3><div id="command-resources" class="command-resource-grid"></div><div id="command-economy" class="command-readout"></div><div class="command-actions"><button id="build-factory">CONSTRUCT INDUSTRIAL COMPLEX</button><button id="build-infrastructure">UPGRADE INFRASTRUCTURE</button></div><div class="command-note">Resources are finite national stockpiles. Industrial production consumes steel, oil, coal, rubber and aluminum; extraction replenishes them gradually.</div></article>
+    <article class="command-card"><h3>ARMAMENT PRODUCTION</h3><label class="command-field" for="production-focus">NATIONAL PRODUCTION PRIORITY</label><select id="production-focus"><option value="balanced">BALANCED PRODUCTION</option><option value="armour">ARMOURED FORCES</option><option value="aircraft">AIRCRAFT PRODUCTION</option><option value="artillery">ARTILLERY & SUPPORT WEAPONS</option><option value="logistics">TRUCKS & LOGISTICS</option></select><div id="production-status" class="command-readout" style="margin-top:9px"></div><div id="command-inventory" class="command-readout" style="margin-top:8px"></div><div class="command-note">Production uses a share of the national military budget and available factory capacity. Damaged or depleted equipment can be replaced over time.</div></article>
+   </div>
+  </div>
+  <div id="command-government" class="command-view" hidden>
+   <div class="command-grid">
+    <article class="command-card"><h3>NATIONAL MOBILIZATION</h3><label class="command-field" for="command-mobilization">MANPOWER POLICY</label><select id="command-mobilization"><option value="standard">STANDARD READINESS</option><option value="limited">LIMITED MOBILIZATION</option><option value="partial">PARTIAL MOBILIZATION</option><option value="total">TOTAL WAR MOBILIZATION</option></select><label class="command-field" for="command-rationing">CIVILIAN RATIONING</label><select id="command-rationing"><option value="off">NO RATIONING</option><option value="on">ENFORCE RATIONING</option></select><label class="command-field" for="command-stance">MILITARY DOCTRINE</label><select id="command-stance"><option value="balanced">BALANCED OPERATIONS</option><option value="offensive">OFFENSIVE OPERATIONS</option><option value="defensive">DEFENSIVE OPERATIONS</option></select><div class="command-note">Mobilization increases recruitment and military expenditure but places pressure on national stability. Doctrine changes how forces perform when attacking or defending.</div></article>
+    <article class="command-card"><h3>NATIONAL DECISIONS</h3><label class="command-field" for="command-decision">SELECT A DECISION</label><select id="command-decision"><option value="none">NO NEW DECISION</option><option value="industrial_drive">INDUSTRIAL DRIVE · 180 DAYS</option><option value="civil_defense">CIVIL DEFENSE PROGRAM · 365 DAYS</option><option value="infrastructure">INFRASTRUCTURE EXPANSION</option></select><div id="command-policy-status" class="command-readout"></div><div class="command-actions"><button id="apply-command-policy">ENACT NATIONAL POLICY</button></div><div class="command-note">Major decisions have treasury costs, duration, and stability or economic consequences. AI governments choose policies automatically unless a player has recently intervened.</div></article>
+   </div>
+  </div>
+  <div id="command-diplomacy" class="command-view" hidden>
+   <div class="command-grid">
+    <article class="command-card"><h3>FOREIGN MINISTRY</h3><label class="command-field" for="diplomacy-target">TARGET GOVERNMENT</label><select id="diplomacy-target"></select><label class="command-field" for="diplomacy-demand">DIPLOMATIC DEMAND</label><select id="diplomacy-demand"><option value="nonaggression">SIGN A NON-AGGRESSION PACT</option><option value="alliance">JOIN A DEFENSIVE ALLIANCE</option></select><div class="command-actions"><button id="issue-ultimatum">ISSUE DIPLOMATIC ULTIMATUM</button></div><div id="command-diplomacy-status" class="command-readout" style="margin-top:9px"></div><div class="command-note">The target weighs the request against military strength, political stability and its diplomatic disposition. Rejection damages relations and can increase regional tension.</div></article>
+    <article class="command-card"><h3>AI FOREIGN-POLICY PROFILE</h3><div id="command-personality" class="command-readout"></div><div class="command-note">AI personalities shape mobilization, industrial priorities, war posture and the likelihood of seeking alliances. Defensive alliances can form and dissolve as the diplomatic situation changes.</div></article>
+   </div>
+  </div>
+  <div id="command-intelligence" class="command-view" hidden>
+   <div class="command-grid">
+    <article class="command-card"><h3>WEATHER & OPERATIONAL CONDITIONS</h3><div id="command-weather" class="command-readout"></div><div class="command-note">Seasonal snow, rain, storms and fog affect supply and combat efficiency. Use the map-layer selector to view weather across Europe.</div></article>
+    <article class="command-card"><h3>AIR SUPERIORITY & FRONT INTELLIGENCE</h3><div id="command-air" class="command-readout"></div><div id="command-front" class="command-readout" style="margin-top:9px"></div><div class="command-note">Fighters, bombers, technology, weather and enemy air strength determine local air advantage. Air power contributes a bounded modifier to land operations.</div></article>
+   </div>
+  </div>
+ </div>
+</section><aside id="ai-news" aria-live="polite"><div class="news-heading">AI WAR DESK · LIVE REPORTS</div><div id="news-feed"></div></aside><div class="target-prompt" id="target-prompt" hidden></div>
  <div class="controls">
   <div class="control-group"><button id="pause">Ⅱ PAUSE</button><button id="next">NEXT DAY ▶</button><button id="speed">1× SPEED</button></div><div class="control-group zoom-tools"><button id="zoom-out" aria-label="Zoom out">−</button><button id="zoom-in" aria-label="Zoom in">＋</button><button id="zoom-reset">RESET VIEW</button></div>
-  <div class="control-group"><select id="mode" aria-label="Simulation mode"><option value="historical">HISTORICAL</option><option value="nonhistorical">NON-HISTORICAL</option></select><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
+  <div class="control-group"><select id="map-layer" aria-label="Strategic map layer"><option value="political">POLITICAL MAP</option><option value="supply">SUPPLY NETWORK</option><option value="resources">RESOURCES</option><option value="industry">INDUSTRY</option><option value="air">AIR SUPERIORITY</option><option value="weather">WEATHER</option></select><select id="mode" aria-label="Simulation mode"><option value="historical">HISTORICAL</option><option value="nonhistorical">NON-HISTORICAL</option></select><select id="intensity" aria-label="Combat intensity"><option value="1">NORMAL COMBAT</option><option value="1.7">HEAVY COMBAT</option><option value=".55">LOW COMBAT</option></select></div>
   <button id="sound-toggle" type="button" aria-pressed="false">🔊 SOUND: OFF</button><span class="note" style="font-size:10px">Music: <a href="https://www.scottbuckley.com.au/library/goliath/" target="_blank" rel="noopener">Goliath — Scott Buckley (CC BY 4.0)</a></span><div class="note">EUROPE MAP · 1936 START · POPULATION & ARMED FORCES ESTIMATES</div>
  </div>
 </main>
@@ -111,6 +167,8 @@ let peaceDivisionMarkers=[],frontCountBoxes=[];
 let newsItems=[],lastNewsCasualties=0;
 const countries=new Map();let selectedCountry=null,pendingWarFrom=null,pendingAllianceFrom=null,activeWars=[],countryHitData=[],populationLoading=false,populationLoaded=false;
 const alliances=new Set();
+let mapLayer="political",alliancesInitialized=false,aiManagementClock=0,aiDiplomacyClock=0,weatherClock=0,nationalSystemsClock=0;
+const nonAggressionPacts=new Map(),diplomacyRelations=new Map();
 function allianceKey(a,b){return [a,b].sort((x,y)=>x.localeCompare(y)).join('::')}
 function areAllied(a,b){return !!a&&!!b&&alliances.has(allianceKey(a,b))}
 function alliesOf(name){return [...alliances].map(k=>k.split('::')).filter(pair=>pair.includes(name)).map(pair=>pair[0]===name?pair[1]:pair[0]).filter(n=>countries.has(n)&&isSovereign(n))}
@@ -261,6 +319,286 @@ function countryRecord(name){
  const population=k?country1936[k][0]:1000000,soldiers=k?country1936[k][1]:5000;
  const economy=countryEconomicProfile(name,population);return {name,population,citizens:Math.max(0,population-soldiers),soldiers,reserve:soldiers*.35,stability:72+Math.random()*18,civilWar:null,estimated:!k,equipment:assetProfile(name,soldiers),equipmentBaseline:assetProfile(name,soldiers),initialSoldiers:soldiers,borderDefenses:initialBorderDefenses(name),defenseProgress:{},techLevel:1,scientificPoints:0,researchShare:.01,scientificRate:economy.ideology==='DEMOCRACY'?1.05:1,nuclearCooldown:0,...economy};
 }
+
+const nationalResourceKeys=['oil','steel','coal','rubber','aluminum'];
+const nationalResourceProfiles={
+ oil:[/soviet|ussr|russia/i,1.65],steel:[/germany|france|ussr|soviet|sweden/i,1.35],coal:[/germany|united kingdom|britain|poland/i,1.45],
+ rubber:[/netherlands|united kingdom|britain/i,1.35],aluminum:[/norway|germany|ussr|soviet/i,1.25]
+};
+const extractionRates={oil:.22,steel:.62,coal:.72,rubber:.22,aluminum:.12};
+const productionPlans={
+ balanced:{armour:.18,artillery:.28,aircraft:.18,logistics:.36},
+ armour:{armour:.58,artillery:.18,aircraft:.12,logistics:.12},
+ aircraft:{armour:.12,artillery:.17,aircraft:.58,logistics:.13},
+ artillery:{armour:.15,artillery:.58,aircraft:.12,logistics:.15},
+ logistics:{armour:.12,artillery:.18,aircraft:.12,logistics:.58}
+};
+const productionSpecs={
+ armour:{work:1.5,cost:1300000,resources:{steel:2.8,oil:.9}},
+ artillery:{work:.32,cost:240000,resources:{steel:1.3,coal:.25}},
+ aircraft:{work:.82,cost:1000000,resources:{steel:.9,oil:.65,aluminum:1.2}},
+ logistics:{work:.13,cost:130000,resources:{steel:.32,oil:.16,rubber:.16}}
+};
+const aiPersonalityNames={
+ industrialist:'INDUSTRIAL PLANNER',militarist:'MILITARY MODERNIZER',diplomat:'DIPLOMATIC PRAGMATIST',
+ defender:'DEFENSIVE STRATEGIST',expansionist:'AGGRESSIVE EXPANSIONIST'
+};
+function nationalHash(value){
+ let h=2166136261;for(let i=0;i<String(value||'').length;i++){h^=String(value).charCodeAt(i);h=Math.imul(h,16777619)}
+ return h>>>0;
+}
+function ensureNationalSystems(c){
+ if(!c)return null;
+ const gdp=Math.max(1,Number(c.gdp)||1000000),factories=Math.max(1,Math.min(500,Math.round(gdp/2800000000)));
+ if(!c.industry)c.industry={militaryFactories:factories,civilianFactories:Math.max(1,Math.round(factories*.9)),infrastructure:Math.max(1,Math.min(10,Math.round(2+Math.log10(gdp/1000000)*.7))),driveDays:0};
+ c.industry.militaryFactories=Math.max(1,Number(c.industry.militaryFactories)||factories);
+ c.industry.civilianFactories=Math.max(1,Number(c.industry.civilianFactories)||Math.round(c.industry.militaryFactories*.9));
+ c.industry.infrastructure=Math.max(1,Math.min(10,Number(c.industry.infrastructure)||3));
+ c.industry.driveDays=Math.max(0,Number(c.industry.driveDays)||0);
+ const profile={oil:.72,steel:1,coal:1,rubber:.72,aluminum:.72};
+ for(const key of nationalResourceKeys){const item=nationalResourceProfiles[key];if(item&&item[0].test(c.name))profile[key]=item[1]}
+ if(/romania/i.test(c.name))profile.oil=1.85;
+ if(/norway/i.test(c.name))profile.oil=1.15;
+ if(/poland/i.test(c.name))profile.coal=1.35;
+ if(/sweden/i.test(c.name))profile.steel=1.65;
+ if(!c.resources){const scale=2100+c.industry.militaryFactories*310;c.resources={};nationalResourceKeys.forEach(key=>c.resources[key]=Math.round(scale*profile[key]))}
+ nationalResourceKeys.forEach(key=>{if(!Number.isFinite(c.resources[key]))c.resources[key]=1000});
+ if(!Number.isFinite(c.treasury))c.treasury=gdp*.10;
+ if(!Number.isFinite(c.baseMilitarySpending))c.baseMilitarySpending=Math.max(0,Number(c.militarySpending)||gdp*.045);
+ if(!Number.isFinite(c.aiPolicyLockDays))c.aiPolicyLockDays=0;
+ if(!c.productionFocus||!productionPlans[c.productionFocus])c.productionFocus='balanced';
+ if(!['standard','limited','partial','total'].includes(c.mobilization))c.mobilization='standard';
+ if(typeof c.rationing!=='boolean')c.rationing=false;
+ if(!['balanced','offensive','defensive'].includes(c.commandStance))c.commandStance='balanced';
+ if(!c.aiPersonality){const names=Object.keys(aiPersonalityNames);c.aiPersonality=names[nationalHash(c.name)%names.length]}
+ if(!c.weather||!c.weather.type)c.weather={type:'clear',daysLeft:0};
+ if(!c.industry.lastOutput)c.industry.lastOutput={armour:0,artillery:0,aircraft:0,logistics:0};
+ if(!Number.isFinite(c.civilDefenseDays))c.civilDefenseDays=0;
+ return c;
+}
+function mobilizationMultiplier(c){return ({standard:1,limited:1.12,partial:1.28,total:1.48})[c?.mobilization]||1}
+function weatherCombatMultiplier(c,attacking=false){
+ const values={clear:1,fog:.97,rain:.95,snow:.92,storm:.88},base=values[c?.weather?.type||'clear']??1;
+ return attacking?Math.max(.82,base-.035):base;
+}
+function weatherLabel(type){return ({clear:'CLEAR',fog:'FOG',rain:'RAIN',snow:'SNOW',storm:'STORM'})[type]||'CLEAR'}
+function countryAirPower(c){
+ if(!c)return 0;if(!c.equipment)c.equipment=assetProfile(c.name,c.soldiers||0);
+ const eq=c.equipment,fighters=Math.max(0,eq['FIGHTER AIRCRAFT']||0),bombers=Math.max(0,eq['BOMBERS / ATTACK AIRCRAFT']||0),transports=Math.max(0,eq['TRANSPORT AIRCRAFT']||0);
+ const tech=1+Math.max(0,(c.techLevel||1)-1)*.004,weather=(c.weather?.type==='storm'?.78:c.weather?.type==='fog'?.86:c.weather?.type==='rain'?.92:1);
+ return (fighters+bombers*.38+transports*.06)*tech*weather;
+}
+function escapeNationalText(value){return String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function updateNationalEconomy(days){
+ if(days<=0)return;
+ countries.forEach(c=>{
+  if(c.annexedTo||c.isCivilWarFaction)return;ensureNationalSystems(c);
+  const oldGDP=Math.max(1,c.gdp||1),war=atWar(c.name),stability=Math.max(0,Math.min(100,c.stability??70));
+  const profile={oil:.72,steel:1,coal:1,rubber:.72,aluminum:.72};
+  for(const key of nationalResourceKeys){const item=nationalResourceProfiles[key];if(item&&item[0].test(c.name))profile[key]=item[1]}
+  if(/romania/i.test(c.name))profile.oil=1.85;
+  if(/norway/i.test(c.name))profile.oil=1.15;
+  if(/poland/i.test(c.name))profile.coal=1.35;
+  if(/sweden/i.test(c.name))profile.steel=1.65;
+  const extraction=c.rationing?1.06:1;
+  nationalResourceKeys.forEach(key=>{const amount=c.industry.militaryFactories*extractionRates[key]*profile[key]*extraction*days;c.resources[key]=Math.max(0,Math.min(200000,(c.resources[key]||0)+amount))});
+  c.resources.coal=Math.max(0,c.resources.coal-c.industry.militaryFactories*.075*days);
+  const annualGrowth=.011+Math.min(.007,c.industry.civilianFactories*.00022)+(stability-65)*.00007-(war?.014:0)-(c.warExhaustion||0)*.00011+(c.industry.driveDays>0?.003:0)-(c.rationing&&war?.002:0);
+  const growth=Math.max(-.06,Math.min(.045,annualGrowth));
+  c.gdp=Math.max(1,oldGDP*Math.pow(1+growth,days/365));
+  c.baseMilitarySpending=Math.max(0,c.baseMilitarySpending*(c.gdp/oldGDP));
+  c.militarySpending=c.baseMilitarySpending*mobilizationMultiplier(c);
+  const taxIncome=c.gdp*.16/365*days,governmentCosts=(c.militarySpending+researchAnnualCost(c)+c.gdp*.045)/365*days;
+  c.treasury=Math.max(0,Math.min(c.gdp*.4,(c.treasury||0)+taxIncome-governmentCosts));
+  c.industry.driveDays=Math.max(0,c.industry.driveDays-days);c.civilDefenseDays=Math.max(0,(c.civilDefenseDays||0)-days);
+ });
+}
+function produceEquipment(country,key,amount){
+ if(!country.equipment)country.equipment=assetProfile(country.name,country.soldiers||0);
+ if(key==='armour')country.equipment['MAIN BATTLE TANKS']=(country.equipment['MAIN BATTLE TANKS']||0)+amount;
+ if(key==='artillery'){
+  country.equipment['FIELD ARTILLERY']=(country.equipment['FIELD ARTILLERY']||0)+amount*.65;
+  country.equipment['ANTI-TANK GUNS']=(country.equipment['ANTI-TANK GUNS']||0)+amount*.22;
+  country.equipment['ANTI-AIRCRAFT GUNS']=(country.equipment['ANTI-AIRCRAFT GUNS']||0)+amount*.13;
+ }
+ if(key==='aircraft'){
+  country.equipment['FIGHTER AIRCRAFT']=(country.equipment['FIGHTER AIRCRAFT']||0)+amount*.60;
+  country.equipment['BOMBERS / ATTACK AIRCRAFT']=(country.equipment['BOMBERS / ATTACK AIRCRAFT']||0)+amount*.30;
+  country.equipment['TRANSPORT AIRCRAFT']=(country.equipment['TRANSPORT AIRCRAFT']||0)+amount*.10;
+  country.equipment['AIRCRAFT TOTAL']=(country.equipment['AIRCRAFT TOTAL']||0)+amount;
+ }
+ if(key==='logistics'){
+  country.equipment['TRUCKS & LOGISTICS VEHICLES']=(country.equipment['TRUCKS & LOGISTICS VEHICLES']||0)+amount*.72;
+  country.equipment['ENGINEER / SUPPORT EQUIPMENT']=(country.equipment['ENGINEER / SUPPORT EQUIPMENT']||0)+amount*.28;
+ }
+}
+function productionTick(days){
+ if(days<=0)return;
+ countries.forEach(c=>{
+  if(c.annexedTo||c.isCivilWarFaction)return;ensureNationalSystems(c);
+  const plan=productionPlans[c.productionFocus]||productionPlans.balanced,drive=c.industry.driveDays>0?1.18:1;
+  let work=c.industry.militaryFactories*.22*days*drive*(1+c.industry.infrastructure*.012);
+  let budget=Math.min(c.treasury||0,Math.max(0,c.militarySpending||0)/365*.82*days);
+  if(work<=0||budget<=0)return;
+  const output={armour:0,artillery:0,aircraft:0,logistics:0};let spent=0;
+  ['armour','artillery','aircraft','logistics'].forEach(key=>{
+   const spec=productionSpecs[key],candidate=work*(plan[key]||0)/spec.work;if(candidate<=0)return;
+   let amount=Math.min(candidate,budget/spec.cost);
+   Object.entries(spec.resources).forEach(([resource,cost])=>{amount=Math.min(amount,Math.max(0,c.resources[resource]||0)/cost)});
+   if(amount<=0)return;
+   Object.entries(spec.resources).forEach(([resource,cost])=>{c.resources[resource]=Math.max(0,c.resources[resource]-cost*amount)});
+   const expense=amount*spec.cost;budget-=expense;spent+=expense;output[key]=amount;produceEquipment(c,key,amount);
+  });
+  c.treasury=Math.max(0,c.treasury-spent);c.industry.lastOutput=output;
+ });
+}
+function weatherUpdate(days){
+ weatherClock+=days;if(weatherClock<5)return;const elapsed=weatherClock;weatherClock=0;
+ countries.forEach(c=>{
+  if(c.annexedTo||c.isCivilWarFaction)return;ensureNationalSystems(c);
+  c.weather.daysLeft=Math.max(0,(c.weather.daysLeft||0)-elapsed);if(c.weather.daysLeft>0)return;
+  const month=simDate.getMonth(),winter=month>=10||month<=2,summer=month>=5&&month<=7;
+  const northern=/norway|sweden|finland|denmark|estonia|latvia|lithuania|russia|ussr|soviet|belarus|poland/i.test(c.name),southern=/spain|portugal|italy|greece|albania|turkey/i.test(c.name);
+  const snowChance=winter?(northern?.48:.13):northern?.025:.005,roll=Math.random();let type='clear';
+  if(roll<snowChance)type='snow';else if(roll<snowChance+.13)type='storm';else if(roll<snowChance+.38)type='rain';else if(roll<snowChance+.51)type='fog';else if(summer&&southern&&roll>.88)type='storm';
+  c.weather={type,daysLeft:5+Math.random()*8};
+ });
+}
+function aiCountryManagementTick(days){
+ aiManagementClock+=days;if(aiManagementClock<14)return;const elapsed=aiManagementClock;aiManagementClock=0;
+ countries.forEach(c=>{
+  if(c.annexedTo||c.isCivilWarFaction)return;ensureNationalSystems(c);
+  c.aiPolicyLockDays=Math.max(0,(c.aiPolicyLockDays||0)-elapsed);
+  const war=atWar(c.name),personality=c.aiPersonality,profile=ideologyProfile(c.ideology||'AUTHORITARIAN');
+  if(c.aiPolicyLockDays<=0){
+   const enemy=war?warsForCountry(c.name).map(w=>countries.get(w.a===c.name?w.b:w.a)).find(Boolean):null;
+   if(war)c.mobilization=(personality==='militarist'||personality==='expansionist')&&c.stability>42?'partial':'limited';else c.mobilization='standard';
+   const tankEq=c.equipment?.['MAIN BATTLE TANKS']||0,tankBase=c.equipmentBaseline?.['MAIN BATTLE TANKS']||1,airEq=c.equipment?.['FIGHTER AIRCRAFT']||0,airBase=c.equipmentBaseline?.['FIGHTER AIRCRAFT']||1;
+   if(personality==='industrialist')c.productionFocus='balanced';
+   else if(personality==='militarist'||(war&&enemy&&tankEq/tankBase<.78))c.productionFocus='armour';
+   else if(personality==='expansionist'||airEq/airBase<.72)c.productionFocus='aircraft';
+   else if(personality==='defender')c.productionFocus='artillery';else c.productionFocus='logistics';
+   if(war&&enemy){const ratio=(c.soldiers||0)/Math.max(1,enemy.soldiers||0);c.commandStance=ratio<.82||c.stability<35?'defensive':(personality==='militarist'||personality==='expansionist')?'offensive':'balanced'}else c.commandStance='balanced';
+   const targetShare=Math.max(.025,Math.min(.105,profile.spending+(war?.014:0)+(personality==='militarist'?.012:0)));
+   c.baseMilitarySpending=c.gdp*targetShare;
+  }
+  c.militarySpending=c.baseMilitarySpending*mobilizationMultiplier(c);
+ });
+}
+function aiDiplomacyTick(days){
+ aiDiplomacyClock+=days;if(aiDiplomacyClock<30)return;aiDiplomacyClock=0;
+ countries.forEach(c=>{
+  if(c.annexedTo||c.isCivilWarFaction||isPuppet(c.name)||atWar(c.name)||alliesOf(c.name).length>=3)return;
+  ensureNationalSystems(c);const neighbors=getBorderNeighbors(c.name);if(!neighbors.length)return;
+  const candidates=neighbors.filter(n=>!areAllied(c.name,n)&&!isPuppet(n)&&!atWar(n)&&!nonAggressionPacts.has(allianceKey(c.name,n)));
+  if(!candidates.length)return;
+  const threatened=neighbors.some(n=>warsForCountry(n).length>0&&!areAllied(c.name,n));
+  const personalityBonus=c.aiPersonality==='diplomat'?.055:c.aiPersonality==='defender'?.035:.008,chance=Math.min(.28,personalityBonus+(threatened?.15:0));
+  if(Math.random()<chance){const target=candidates.sort((a,b)=>(countries.get(b)?.stability||0)-(countries.get(a)?.stability||0))[0];if(target){alliances.add(allianceKey(c.name,target));publishNews('DYNAMIC ALLIANCE FORMED',c.name+' and '+target+' signed a defensive agreement after reassessing the balance of power in Europe.','AI DIPLOMACY')}}
+ });
+}
+function processNationalSystems(days){
+ if(days<=0)return;nationalSystemsClock+=days;if(nationalSystemsClock<1)return;
+ const elapsed=Math.floor(nationalSystemsClock);nationalSystemsClock-=elapsed;
+ weatherUpdate(elapsed);updateNationalEconomy(elapsed);productionTick(elapsed);aiCountryManagementTick(elapsed);aiDiplomacyTick(elapsed);
+}
+function averageSupplyFor(name){
+ const wars=warsForCountry(name);if(!wars.length)return null;
+ return wars.reduce((sum,w)=>sum+(w.a===name?(w.supplyA??70):(w.supplyB??70)),0)/wars.length;
+}
+function drawStrategicMapLayer(){
+ if(mapLayer==='political')return;
+ let maxIndustry=1,maxAir=1,maxResources=1;
+ if(mapLayer==='industry')countries.forEach(c=>{ensureNationalSystems(c);maxIndustry=Math.max(maxIndustry,c.industry.militaryFactories+c.industry.civilianFactories)});
+ if(mapLayer==='air')countries.forEach(c=>{maxAir=Math.max(maxAir,countryAirPower(c))});
+ if(mapLayer==='resources')countries.forEach(c=>{ensureNationalSystems(c);maxResources=Math.max(maxResources,...nationalResourceKeys.map(k=>c.resources[k]||0))});
+ worldFeatures.forEach(feature=>{
+  const name=sovereignOwner(countryName(feature)),c=countries.get(name);if(!c||c.annexedTo)return;let fill='rgba(100,120,125,.18)';
+  if(mapLayer==='supply'){const level=averageSupplyFor(name);fill=level===null?'rgba(90,110,115,.12)':level>=75?'rgba(70,170,125,.42)':level>=45?'rgba(220,174,75,.42)':'rgba(205,77,65,.48)'}
+  else if(mapLayer==='resources'){ensureNationalSystems(c);const total=nationalResourceKeys.reduce((sum,k)=>sum+(c.resources[k]||0),0),ratio=total/(maxResources*5);fill='rgba('+(Math.round(55+ratio*45))+','+(Math.round(90+ratio*120))+','+(Math.round(115+ratio*90))+',.48)'}
+  else if(mapLayer==='industry'){ensureNationalSystems(c);const ratio=(c.industry.militaryFactories+c.industry.civilianFactories)/maxIndustry;fill='rgba('+(Math.round(65+ratio*80))+','+(Math.round(95+ratio*95))+','+(Math.round(130+ratio*70))+',.50)'}
+  else if(mapLayer==='air'){const ratio=countryAirPower(c)/maxAir;fill='rgba('+(Math.round(70+ratio*60))+','+(Math.round(105+ratio*90))+','+(Math.round(150+ratio*90))+',.5)'}
+  else if(mapLayer==='weather'){const weather=c.weather?.type||'clear';fill=({clear:'rgba(226,196,105,.27)',fog:'rgba(175,187,186,.48)',rain:'rgba(66,130,170,.42)',snow:'rgba(222,238,247,.58)',storm:'rgba(58,87,127,.58)'})[weather]||fill}
+  ctx.beginPath();traceGeometry(ctx,feature.geometry);ctx.fillStyle=fill;ctx.fill();
+ });
+}
+function renderCommandCenter(){
+ if(!selectedCountry)return;const c=countries.get(selectedCountry);if(!c)return;ensureNationalSystems(c);
+ $('command-title').textContent=selectedCountry.toUpperCase()+' · NATIONAL COMMAND';
+ $('command-subtitle').textContent=(isPuppet(selectedCountry)?'PUPPET GOVERNMENT · OVERLORD: '+c.puppetOf:'SOVEREIGN GOVERNMENT')+' · '+aiPersonalityNames[c.aiPersonality];
+ $('command-resources').innerHTML=nationalResourceKeys.map(key=>'<div class="command-resource">'+key.toUpperCase()+'<strong>'+fmt(c.resources[key])+'</strong></div>').join('');
+ $('command-economy').innerHTML='TREASURY: <strong>'+fmtMoney(c.treasury)+'</strong><br>GDP: <strong>'+fmtMoney(c.gdp)+'</strong><br>MILITARY INDUSTRY: <strong>'+fmt(c.industry.militaryFactories)+'</strong> FACTORIES · CIVIL INDUSTRY: <strong>'+fmt(c.industry.civilianFactories)+'</strong><br>INFRASTRUCTURE: <strong>'+c.industry.infrastructure+'/10</strong><br>STABILITY: <strong>'+Math.round(c.stability||0)+'%</strong>';
+ $('production-focus').value=c.productionFocus;const o=c.industry.lastOutput||{};
+ $('production-status').innerHTML='DAILY OUTPUT (LAST PRODUCTION CYCLE)<br>TANKS: <strong>'+fmt(o.armour||0)+'</strong> · ARTILLERY: <strong>'+fmt(o.artillery||0)+'</strong><br>AIRCRAFT: <strong>'+fmt(o.aircraft||0)+'</strong> · LOGISTICS: <strong>'+fmt(o.logistics||0)+'</strong><br>PRODUCTION BUDGET: <strong>'+fmtMoney(c.militarySpending*.82/365)+'/DAY</strong>';
+ const eq=c.equipment||assetProfile(c.name,c.soldiers||0);
+ $('command-inventory').innerHTML='AVAILABLE EQUIPMENT<br>TANKS: <strong>'+fmt(eq['MAIN BATTLE TANKS']||0)+'</strong> · FIGHTERS: <strong>'+fmt(eq['FIGHTER AIRCRAFT']||0)+'</strong><br>ARTILLERY: <strong>'+fmt(eq['FIELD ARTILLERY']||0)+'</strong> · TRUCKS: <strong>'+fmt(eq['TRUCKS & LOGISTICS VEHICLES']||0)+'</strong>';
+ $('command-mobilization').value=c.mobilization;$('command-rationing').value=c.rationing?'on':'off';$('command-stance').value=c.commandStance;
+ $('command-policy-status').innerHTML='CURRENT MOBILIZATION: <strong>'+c.mobilization.toUpperCase()+'</strong><br>RATIONING: <strong>'+(c.rationing?'ACTIVE':'INACTIVE')+'</strong><br>DOCTRINE: <strong>'+c.commandStance.toUpperCase()+'</strong><br>INDUSTRIAL DRIVE: <strong>'+Math.ceil(c.industry.driveDays)+' DAYS REMAINING</strong><br>CIVIL DEFENSE: <strong>'+Math.ceil(c.civilDefenseDays||0)+' DAYS REMAINING</strong>';
+ const targetSelect=$('diplomacy-target'),previousTarget=targetSelect.value;targetSelect.innerHTML='';
+ [...countries.keys()].filter(n=>n!==selectedCountry&&isSovereign(n)&&!countries.get(n)?.annexedTo).sort().forEach(n=>{const option=document.createElement('option');option.value=n;option.textContent=n;targetSelect.appendChild(option)});
+ if([...targetSelect.options].some(o=>o.value===previousTarget))targetSelect.value=previousTarget;
+ $('command-personality').innerHTML='NATIONAL AI PERSONALITY: <strong>'+aiPersonalityNames[c.aiPersonality]+'</strong><br>FOREIGN POLICY: <strong>'+(c.aiPersonality==='diplomat'?'PREFERS NEGOTIATION':c.aiPersonality==='defender'?'SEEKS SECURITY GUARANTEES':c.aiPersonality==='expansionist'?'ASSERTIVE AND EXPANSIONIST':c.aiPersonality==='militarist'?'MILITARY READINESS FIRST':'INDUSTRIAL DEVELOPMENT FIRST')+'</strong><br>AI POLICY OVERRIDE: <strong>'+Math.ceil(c.aiPolicyLockDays||0)+' DAYS</strong>';
+ const weather=c.weather||{type:'clear'};$('command-weather').innerHTML='CURRENT CONDITIONS: <strong>'+weatherLabel(weather.type)+'</strong><br>FORECAST WINDOW: <strong>'+Math.ceil(weather.daysLeft||0)+' DAYS</strong><br>COMBAT EFFECT: <strong>'+Math.round((weatherCombatMultiplier(c,true)-1)*100)+'%</strong><br>SEASON: <strong>'+simDate.toLocaleDateString('en-GB',{month:'long'}).toUpperCase()+'</strong>';
+ $('command-air').innerHTML='AIR POWER INDEX: <strong>'+fmt(countryAirPower(c))+'</strong><br>FIGHTERS: <strong>'+fmt(eq['FIGHTER AIRCRAFT']||0)+'</strong> · BOMBERS: <strong>'+fmt(eq['BOMBERS / ATTACK AIRCRAFT']||0)+'</strong><br>AIR OPERATIONS ARE AFFECTED BY WEATHER AND TECHNOLOGY.';
+ const wars=warsForCountry(selectedCountry);
+ $('command-front').innerHTML=wars.length?wars.map(w=>'FRONT WITH '+escapeNationalText(w.a===selectedCountry?w.b:w.a)+': <strong>'+fmt(w.a===selectedCountry?w.troopsA:w.troopsB)+'</strong> FIELD TROOPS · SUPPLY <strong>'+Math.round(w.a===selectedCountry?w.supplyA:w.supplyB)+'%</strong>').join('<br>'):'NO ACTIVE LAND CAMPAIGN. BORDER DEFENSES: '+escapeNationalText(borderDefenseStatus(selectedCountry));
+ $('command-diplomacy-status').textContent=isPuppet(selectedCountry)?'This government is not permitted to conduct independent foreign policy.':'Select a government and apply diplomatic pressure. Active defensive alliances and non-aggression agreements are respected.';
+ const restricted=isPuppet(selectedCountry);
+ ['build-factory','build-infrastructure','production-focus','command-mobilization','command-rationing','command-stance','command-decision','apply-command-policy','issue-ultimatum'].forEach(id=>{$(id).disabled=restricted});
+}
+function activateCommandTab(tab){
+ document.querySelectorAll('[data-command-tab]').forEach(button=>button.classList.toggle('active',button.dataset.commandTab===tab));
+ ['industry','government','diplomacy','intelligence'].forEach(name=>{$('command-'+name).hidden=name!==tab});
+}
+function applyCommandPolicy(){
+ const c=countries.get(selectedCountry);if(!c||isPuppet(selectedCountry))return;ensureNationalSystems(c);
+ c.mobilization=$('command-mobilization').value;c.rationing=$('command-rationing').value==='on';c.commandStance=$('command-stance').value;
+ const profile=ideologyProfile(c.ideology||'AUTHORITARIAN');c.baseMilitarySpending=c.gdp*Math.max(.025,Math.min(.11,profile.spending+(atWar(c.name)?.012:0)));
+ c.militarySpending=c.baseMilitarySpending*mobilizationMultiplier(c);c.aiPolicyLockDays=180;
+ const decision=$('command-decision').value;
+ if(decision==='industrial_drive'){
+  const cost=c.gdp*.005;if(c.treasury<cost){$('command-policy-status').textContent='INSUFFICIENT TREASURY FOR AN INDUSTRIAL DRIVE.';return}
+  c.treasury-=cost;c.industry.driveDays=180;c.stability=Math.max(0,c.stability-2);
+ }else if(decision==='civil_defense'){
+  const cost=c.gdp*.003;if(c.treasury<cost){$('command-policy-status').textContent='INSUFFICIENT TREASURY FOR CIVIL DEFENSE.';return}
+  c.treasury-=cost;c.civilDefenseDays=365;
+ }else if(decision==='infrastructure'){
+  const cost=c.gdp*.009;if(c.treasury<cost){$('command-policy-status').textContent='INSUFFICIENT TREASURY FOR INFRASTRUCTURE EXPANSION.';return}
+  c.treasury-=cost;c.industry.infrastructure=Math.min(10,c.industry.infrastructure+1);
+ }
+ publishNews(c.name.toUpperCase()+' ENACTS NATIONAL POLICY',c.name+' adopted '+c.mobilization+' mobilization, '+(c.rationing?'civilian rationing':'normal civilian supply')+' and '+c.commandStance+' military doctrine.','NATIONAL DECISION');
+ renderCommandCenter();showCountry(c.name);
+}
+function buildNationalIndustry(kind){
+ const c=countries.get(selectedCountry);if(!c||isPuppet(selectedCountry))return;ensureNationalSystems(c);
+ const factory=kind==='factory',cost=Math.max(350000,c.gdp*(factory?.012:.008));
+ if(c.treasury<cost){$('command-economy').textContent='INSUFFICIENT TREASURY. '+fmtMoney(cost)+' REQUIRED.';return}
+ c.treasury-=cost;if(factory){c.industry.militaryFactories++;c.industry.civilianFactories++}else c.industry.infrastructure=Math.min(10,c.industry.infrastructure+1);
+ c.aiPolicyLockDays=90;
+ publishNews(c.name.toUpperCase()+(factory?' EXPANDS INDUSTRIAL CAPACITY':' UPGRADES INFRASTRUCTURE'),c.name+' funded '+(factory?'a new military and civilian industrial complex':'an infrastructure improvement')+'.','ECONOMIC DEVELOPMENT');
+ renderCommandCenter();
+}
+function issueDiplomaticPressure(){
+ const c=countries.get(selectedCountry),targetName=$('diplomacy-target').value,demand=$('diplomacy-demand').value;
+ if(!c||isPuppet(selectedCountry))return;const target=countries.get(targetName);
+ if(!target||targetName===selectedCountry||target.annexedTo){$('command-diplomacy-status').textContent='Choose a valid independent target.';return}
+ if(areAllied(c.name,targetName)||activeWars.some(w=>(w.a===c.name&&w.b===targetName)||(w.a===targetName&&w.b===c.name))){$('command-diplomacy-status').textContent='Diplomatic pressure cannot be used against an ally or active enemy.';return}
+ const key=allianceKey(c.name,targetName),tension=diplomacyRelations.get(key)||0,ratio=(c.soldiers||0)/Math.max(1,target.soldiers||0);
+ const personalityBonus=target.aiPersonality==='diplomat'?.10:target.aiPersonality==='expansionist'?.03:-.04;
+ const chance=Math.max(.05,Math.min(.88,.34+(ratio-1)*.18+(target.stability-55)*.003+personalityBonus-tension*.12));
+ if(Math.random()<chance){
+  if(demand==='alliance')alliances.add(key);else nonAggressionPacts.set(key,day+240);
+  diplomacyRelations.set(key,Math.min(1,tension+.08));
+  $('command-diplomacy-status').textContent=targetName+' accepted the demand. '+(demand==='alliance'?'A defensive alliance is now active.':'A 240-day non-aggression pact was signed.');
+  publishNews('DIPLOMATIC SUCCESS',targetName+' accepted '+c.name+'’s demand for '+(demand==='alliance'?'a defensive alliance':'a non-aggression pact')+'.','FOREIGN MINISTRY');
+ }else{
+  diplomacyRelations.set(key,Math.min(1,tension+.22));target.stability=Math.max(0,target.stability-1.5);c.stability=Math.max(0,c.stability-.5);
+  $('command-diplomacy-status').textContent=targetName+' rejected the ultimatum. Diplomatic tension has increased.';
+  publishNews('ULTIMATUM REJECTED',targetName+' rejected diplomatic pressure from '+c.name+'. Relations have deteriorated and regional tension is rising.','DIPLOMATIC CRISIS');
+ }
+ renderCommandCenter();
+}
+
 function registerCountries(){
  // Rebuilding the map must not recreate national records. In particular,
  // buildBase() runs after an annexation; replacing every record here used to
@@ -273,10 +611,11 @@ function registerCountries(){
   if(name){
    if(!countries.has(name))countries.set(name,previousRecords.get(name)||countryRecord(name));
    ensureBorderDefenses(countries.get(name));
+   ensureNationalSystems(countries.get(name));
    countryHitData.push({name,geometry:f.geometry});
   }
  });
- initialize1936Alliances();
+ if(!alliancesInitialized){initialize1936Alliances();alliancesInitialized=true;}
  if(countries.size&&!populationLoaded&&!populationLoading)load1936PopulationReference();
 }
 function isPuppet(name){return !!countries.get(name)?.puppetOf&&!countries.get(name)?.annexedTo}
