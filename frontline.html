@@ -469,21 +469,52 @@ function aiCountryManagementTick(days){
  countries.forEach(c=>{
   if(c.annexedTo||c.isCivilWarFaction)return;ensureNationalSystems(c);
   c.aiPolicyLockDays=Math.max(0,(c.aiPolicyLockDays||0)-elapsed);
-  const war=atWar(c.name),personality=c.aiPersonality,profile=ideologyProfile(c.ideology||'AUTHORITARIAN');
+  const wars=warsForCountry(c.name),war=wars.length>0,personality=c.aiPersonality,profile=ideologyProfile(c.ideology||'AUTHORITARIAN');
   if(c.aiPolicyLockDays<=0){
-   const enemy=war?warsForCountry(c.name).map(w=>countries.get(w.a===c.name?w.b:w.a)).find(Boolean):null;
-   if(war)c.mobilization=(personality==='militarist'||personality==='expansionist')&&c.stability>42?'partial':'limited';else c.mobilization='standard';
-   const tankEq=c.equipment?.['MAIN BATTLE TANKS']||0,tankBase=c.equipmentBaseline?.['MAIN BATTLE TANKS']||1,airEq=c.equipment?.['FIGHTER AIRCRAFT']||0,airBase=c.equipmentBaseline?.['FIGHTER AIRCRAFT']||1;
-   if(personality==='industrialist')c.productionFocus='balanced';
-   else if(personality==='militarist'||(war&&enemy&&tankEq/tankBase<.78))c.productionFocus='armour';
-   else if(personality==='expansionist'||airEq/airBase<.72)c.productionFocus='aircraft';
-   else if(personality==='defender')c.productionFocus='artillery';else c.productionFocus='logistics';
-   if(war&&enemy){const ratio=(c.soldiers||0)/Math.max(1,enemy.soldiers||0);c.commandStance=ratio<.82||c.stability<35?'defensive':(personality==='militarist'||personality==='expansionist')?'offensive':'balanced'}else c.commandStance='balanced';
-   const targetShare=Math.max(.025,Math.min(.105,profile.spending+(war?.014:0)+(personality==='militarist'?.012:0)));
+   const enemies=wars.map(w=>countries.get(w.a===c.name?w.b:w.a)).filter(Boolean);
+   const strongestEnemy=enemies.sort((a,b)=>(b.soldiers||0)-(a.soldiers||0))[0]||null;
+   const ownField=Math.max(1,(c.soldiers||0)-(c.reserve||0));
+   const enemyField=Math.max(1,(strongestEnemy?.soldiers||0)-(strongestEnemy?.reserve||0));
+   const ratio=ownField/enemyField;
+   const stability=Math.max(0,Math.min(100,c.stability??70));
+   if(war)c.mobilization=(ratio<.8||personality==='militarist'||personality==='expansionist')&&stability>30?'partial':'limited';
+   else c.mobilization='standard';
+   const equipment=c.equipment||{},baseline=c.equipmentBaseline||{};
+   const readiness=(key)=>Math.max(0,Math.min(1.5,(equipment[key]||0)/Math.max(1,baseline[key]||1)));
+   const deficits={
+    armour:Math.max(.05,1-readiness('MAIN BATTLE TANKS')),
+    artillery:Math.max(.05,1-(readiness('FIELD ARTILLERY')*.7+readiness('ANTI-TANK GUNS')*.3)),
+    aircraft:Math.max(.05,1-readiness('FIGHTER AIRCRAFT')),
+    logistics:Math.max(.05,1-readiness('TRUCKS & LOGISTICS VEHICLES'))
+   };
+   // Production choices respond to actual stock shortages, doctrine and the
+   // opponent's capabilities rather than following one fixed personality script.
+   const scores={
+    armour:deficits.armour*(war?1.18:1)+(personality==='militarist'?.12:0),
+    artillery:deficits.artillery*(war?1.12:1)+(personality==='defender'?.18:0),
+    aircraft:deficits.aircraft*(war?1.08:1)+(personality==='expansionist'?.14:0),
+    logistics:deficits.logistics*(war?1.3:1)+(personality==='industrialist'?.13:0)
+   };
+   if(war&&ratio<.72)scores.logistics+=.12;
+   c.productionFocus=Object.keys(scores).sort((a,b)=>scores[b]-scores[a])[0];
+   c.commandStance=war?(ratio<.92||stability<35?'defensive':(personality==='militarist'||personality==='expansionist')?'offensive':'balanced'):'balanced';
+   const shortage=Object.values(c.resources||{}).filter(v=>v<500).length;
+   c.rationing=war&&shortage>=2&&stability>24;
+   const targetShare=Math.max(.025,Math.min(.12,profile.spending+(war?.018:0)+(personality==='militarist'?.015:0)+(ratio<.8?.012:0)));
    c.baseMilitarySpending=c.gdp*targetShare;
+   // The government makes gradual industrial investment decisions from its
+   // treasury; it does not create factories for free.
+   const investment=Math.max(0,c.treasury||0);
+   if(investment>c.gdp*.035){
+    const cost=c.gdp*.0025;
+    if(war&&c.industry.militaryFactories<500){c.treasury-=cost;c.industry.militaryFactories+=1;}
+    else if(!war&&c.industry.civilianFactories<500){c.treasury-=cost;c.industry.civilianFactories+=1;}
+   }
+   c.aiPolicyLockDays=14;
   }
   c.militarySpending=c.baseMilitarySpending*mobilizationMultiplier(c);
  });
+ updateWarDeployments();
 }
 function aiDiplomacyTick(days){
  aiDiplomacyClock+=days;if(aiDiplomacyClock<30)return;aiDiplomacyClock=0;
@@ -1259,10 +1290,9 @@ function assignDivisionMarchRoute(war,side,name,division,index=0,count=1){
  division.travelDays=0;
 }
 function updateWarDeployments(){
- const engagements=new Map(),frontLengths=new Map();
+ const engagements=new Map();
  activeWars.forEach(w=>{
   const length=w.front?.reduce((sum,path)=>sum+polyLength(path),0)||0;
-  frontLengths.set(w,length);
   const participants=[
    {name:w.a,enemy:w.b,side:'A'},
    {name:w.b,enemy:w.a,side:'B'},
@@ -1272,44 +1302,71 @@ function updateWarDeployments(){
   participants.forEach(p=>{
    const country=countries.get(p.name),enemy=countries.get(p.enemy);if(!country||!enemy)return;
    if(!engagements.has(p.name))engagements.set(p.name,[]);
-   const threat=Math.max(1,enemy.soldiers)*(1+Math.min(length/700,.8));
+   const enemyField=Math.max(1,(enemy.soldiers||0)-(enemy.reserve||0));
+   const enemyQuality=nationalCombatMultiplier(enemy);
+   const frontFactor=1+Math.min(length/1100,.55);
+   const threat=Math.max(1,enemyField*enemyQuality*frontFactor);
    engagements.get(p.name).push({war:w,side:p.side,support:p.support,threat});
   });
  });
  engagements.forEach((list,name)=>{
   const country=countries.get(name);if(!country)return;
+  ensureNationalSystems(country);
   const trapped=activeWars.reduce((sum,w)=>sum+(w.a===name?(w.encircledA||0):0)+(w.b===name?(w.encircledB||0):0),0);
-  const available=Math.max(0,(country.soldiers||0)-(country.reserve||0)-trapped);
-  const threatTotal=list.reduce((sum,item)=>sum+item.threat,0);
+  // Reserves remain part of the national soldier total, but are not counted
+  // as deployed troops until a reinforcement formation is actually created.
+  const fieldPool=Math.max(0,(country.soldiers||0)-(country.reserve||0)-trapped);
+  const enemyPressure=list.reduce((sum,item)=>sum+item.threat,0);
+  const strongestEnemy=Math.max(1,...list.map(item=>item.threat));
+  const ownQuality=nationalCombatMultiplier(country);
+  const relativePressure=strongestEnemy/Math.max(1,fieldPool*ownQuality);
+  const stability=Math.max(0,Math.min(100,country.stability??70));
+  const exhaustion=Math.max(0,Math.min(100,country.warExhaustion||0));
+  const personality=country.aiPersonality||'industrialist';
+  // The AI chooses how much of its deployable army to risk in active wars.
+  // It commits more when outnumbered, defending, or facing several fronts,
+  // while preserving a small home/security force and its separate reserves.
+  let commitment=.76+Math.max(0,Math.min(.14,(relativePressure-.65)*.12));
+  if(list.some(x=>x.war.progress&&((x.side==='A'&&x.war.progress<-.2)||(x.side==='B'&&x.war.progress>.2))))commitment+=.035;
+  if(personality==='militarist'||personality==='expansionist')commitment+=.035;
+  if(personality==='defender')commitment+=.025;
+  commitment-=Math.max(0,55-stability)*.0012+exhaustion*.0007;
+  commitment=Math.max(.68,Math.min(.94,commitment));
+  country.aiWarCommitment=commitment;
+  const commitPool=Math.floor(fieldPool*commitment);
+  const threatTotal=list.reduce((sum,item)=>sum+item.threat,0)||1;
   list.forEach(item=>{
-   ensureBorderGarrisons(country);
-   const allocation=threatTotal?Math.floor(available*item.threat/threatTotal):0;
-   const committed=item.support?Math.min(allocation,available*Math.max(0,Math.min(.8,item.support.commitRatio??.30))):allocation;
    const divisions=divisionList(item.war,item.side);
-   if(!item.war['garrisonReady'+item.side]){
-    const enemyName=item.war.a===name?item.war.b:item.war.a;
-    const stationed=item.support?Math.floor(committed*.35):
-     (item.war.civilWar?Math.floor(committed*.55):
-      (frontLengths.get(item.war)>0?(country.borderGarrisons[enemyName]||0):(country.borderGarrisons.SEA||0)));
-    divisions.push(...createDivisionUnits(stationed,'front'));
-    item.war['garrisonReady'+item.side]=true;
-    item.war['reinforcementClock'+item.side]=0;
+   let target=Math.floor(commitPool*item.threat/threatTotal);
+   if(item.support)target=Math.min(target,Math.floor(fieldPool*Math.max(0,Math.min(.8,item.support.commitRatio??.30))));
+   // A sea invasion is constrained by modeled transport capacity.
+   if(!item.war.front?.length&&!item.support){
+    ensureNavalWar(item.war);
+    const transports=item.side==='A'?item.war.naval.unitsA:item.war.naval.unitsB;
+    target=Math.min(target,transports.filter(x=>x.type==='TRANSPORT').length*10000);
    }
    let deployed=0;
-   for(const d of divisions)if(d.status==='garrison'||d.status==='front')deployed+=d.troops;
-   let excess=deployed-available;
-   for(let i=divisions.length-1;i>=0&&excess>0;i--){
-    const d=divisions[i];if(d.status!=='garrison'&&d.status!=='front')continue;
-    const cut=Math.min(d.troops,excess);d.troops-=cut;excess-=cut;deployed-=cut;
-    if(d.troops<1)divisions.splice(i,1);
+   for(const d of divisions)if(d.status==='garrison'||d.status==='front')deployed+=Math.max(0,d.troops||0);
+   if(deployed<target){
+    divisions.push(...createDivisionUnits(target-deployed,'front'));
+    deployed=target;
+   }else if(deployed>target){
+    let excess=deployed-target;
+    for(let i=divisions.length-1;i>=0&&excess>0;i--){
+     const d=divisions[i];if(d.status!=='garrison'&&d.status!=='front')continue;
+     const cut=Math.min(Math.max(0,d.troops||0),excess);d.troops-=cut;excess-=cut;
+     if(d.troops<1)divisions.splice(i,1);
+    }
+    deployed=target;
    }
    if(item.support){item.support.targetTroops=deployed;item.support.troops=deployed;}
    else item.war['troops'+item.side]=deployed;
+   item.war['garrisonReady'+item.side]=true;
   });
  });
  activeWars.forEach(w=>{
-  w.troopsA=divisionList(w,'A').reduce((n,d)=>n+((d.status==='garrison'||d.status==='front')?d.troops:0),0);
-  w.troopsB=divisionList(w,'B').reduce((n,d)=>n+((d.status==='garrison'||d.status==='front')?d.troops:0),0);
+  w.troopsA=divisionList(w,'A').reduce((n,d)=>n+((d.status==='garrison'||d.status==='front')?Math.max(0,d.troops||0):0),0);
+  w.troopsB=divisionList(w,'B').reduce((n,d)=>n+((d.status==='garrison'||d.status==='front')?Math.max(0,d.troops||0):0),0);
  });
 }
  function tickDivisionReinforcements(simDt){
