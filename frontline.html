@@ -580,7 +580,7 @@ function historicalEvents(){
 }
 
 function buildBase(){
- borderNeighborCache.clear();countryCenterCache.clear();
+ borderNeighborCache.clear();countryCenterCache.clear();countryEdgeCache.clear();countryBoundsCache.clear();sharedBorderCache.clear();warFrontCache.clear();
  baseCanvas=document.createElement('canvas');baseCanvas.width=W;baseCanvas.height=H;
  const c=baseCanvas.getContext('2d');
  // Clean historical-atlas basemap: pale blue sea, parchment land and restrained
@@ -675,19 +675,17 @@ function geometryRings(geometry){
 }
 function borderPointKey(p){return Number(p[0]).toFixed(4)+','+Number(p[1]).toFixed(4)}
 function countryBorderEdges(name){
- // A sovereign state's border includes every polygon it owns, including
- // territories absorbed by annexation. This is what makes Germany's new
- // frontier follow the former Polish boundary after Poland is annexed.
- const features=worldFeatures.filter(f=>sovereignOwner(countryName(f))===name);
- const edges=[];
+ if(countryEdgeCache.has(name))return countryEdgeCache.get(name);
+ const features=worldFeatures.filter(f=>sovereignOwner(countryName(f))===name),edges=[];
  features.forEach(feature=>geometryRings(feature.geometry).forEach(ring=>{
   for(let i=1;i<ring.length;i++){
    const a=[Number(ring[i-1][0]),Number(ring[i-1][1])],b=[Number(ring[i][0]),Number(ring[i][1])];
    if(Math.hypot(b[0]-a[0],b[1]-a[1])>1e-7)edges.push({a,b,minX:Math.min(a[0],b[0]),maxX:Math.max(a[0],b[0]),minY:Math.min(a[1],b[1]),maxY:Math.max(a[1],b[1])});
   }
  }));
- return edges;
+ countryEdgeCache.set(name,edges);return edges;
 }
+
 // Match overlapping border portions, even when one country's GeoJSON edge is
 // split into several points and the neighbouring country's edge is not.
 function sharedBorderPieces(edgesA,edgesB){
@@ -782,62 +780,31 @@ function knownHistoricalFront(a,b){
 }
 function buildWarFront(a,b){
  if(!mapReady||!a||!b)return null;
- // Germany–France is a known continuous land border. The 1938 GeoJSON can
- // produce false-positive overlapping segments here, so do not let a bad
- // polygon match replace the stable full-length border trace.
- const knownFront=knownHistoricalFront(a,b);
- if(knownFront)return knownFront;
- const shared=sharedBorderPieces(countryBorderEdges(a),countryBorderEdges(b));
- if(!shared.length){const fallback=fallbackAdjacentFront(a,b);return fallback||null}
- // Merge only degree-two joins. At corners/junctions stop instead of arbitrarily
- // choosing an edge and accidentally drawing a line across unrelated borders.
+ const key=borderPairKey(a,b);if(warFrontCache.has(key))return warFrontCache.get(key);
+ const known=knownHistoricalFront(a,b);if(known){warFrontCache.set(key,known);return known}
+ const ba=countryBounds(a),bb=countryBounds(b);
+ if(!ba||!bb||ba.maxX<bb.minX-.35||bb.maxX<ba.minX-.35||ba.maxY<bb.minY-.35||bb.maxY<ba.minY-.35){warFrontCache.set(key,null);return null}
+ const shared=sharedBordersForCountries(a,b);
+ if(!shared.length){const fallback=fallbackAdjacentFront(a,b);warFrontCache.set(key,fallback||null);return fallback||null}
  const nodes=new Map();
- shared.forEach((edge,index)=>{
-  const ka=borderPointKey(edge.a),kb=borderPointKey(edge.b);
-  if(!nodes.has(ka))nodes.set(ka,[]);if(!nodes.has(kb))nodes.set(kb,[]);
-  nodes.get(ka).push(index);nodes.get(kb).push(index);
- });
+ shared.forEach((edge,index)=>{const ka=borderPointKey(edge.a),kb=borderPointKey(edge.b);if(!nodes.has(ka))nodes.set(ka,[]);if(!nodes.has(kb))nodes.set(kb,[]);nodes.get(ka).push(index);nodes.get(kb).push(index)});
  const used=new Set(),paths=[];
- function walk(start,first){
-  const points=[start];let current=start,edgeIndex=first;
-  while(edgeIndex!==undefined&&!used.has(edgeIndex)){
-   used.add(edgeIndex);const edge=shared[edgeIndex];
-   const next=borderPointKey(edge.a)===current?edge.b:edge.a;
-   points.push(next);current=borderPointKey(next);
-   const options=(nodes.get(current)||[]).filter(i=>!used.has(i));
-   if(options.length!==1)break;
-   edgeIndex=options[0];
-  }
-  return points;
- }
- // Start at endpoints and branch nodes; remaining edges are closed loops.
- for(const [key,edges] of nodes)if(edges.length!==2)for(const edge of edges)if(!used.has(edge))paths.push(walk(key,edge));
+ function walk(start,first){const points=[start];let current=start,edgeIndex=first;while(edgeIndex!==undefined&&!used.has(edgeIndex)){used.add(edgeIndex);const edge=shared[edgeIndex],next=borderPointKey(edge.a)===current?edge.b:edge.a;points.push(next);current=borderPointKey(next);const options=(nodes.get(current)||[]).filter(i=>!used.has(i));if(options.length!==1)break;edgeIndex=options[0]}return points}
+ for(const [pointKey,edges] of nodes)if(edges.length!==2)for(const edge of edges)if(!used.has(edge))paths.push(walk(pointKey,edge));
  for(let i=0;i<shared.length;i++)if(!used.has(i))paths.push(walk(borderPointKey(shared[i].a),i));
- const projected=[];
- const maxJoinGap=Math.max(W,H)*.065;
- // Split malformed chains at accidental long jumps instead of discarding the
- // entire country's border. This preserves every valid shared-border section.
- paths.forEach(path=>{
-  const points=path.map(project);let segment=[];
-  points.forEach((point,index)=>{
-   if(index&&Math.hypot(point[0]-points[index-1][0],point[1]-points[index-1][1])>maxJoinGap){
-    if(segment.length>1&&polyLength(segment)>.5)projected.push(segment);
-    segment=[];
-   }
-   segment.push(point);
-  });
-  if(segment.length>1&&polyLength(segment)>.5)projected.push(segment);
- });
+ const projected=[],maxJoinGap=Math.max(W,H)*.065;
+ paths.forEach(path=>{const points=path.map(project);let segment=[];points.forEach((point,index)=>{if(index&&Math.hypot(point[0]-points[index-1][0],point[1]-points[index-1][1])>maxJoinGap){if(segment.length>1&&polyLength(segment)>.5)projected.push(segment);segment=[]}segment.push(point)});if(segment.length>1&&polyLength(segment)>.5)projected.push(segment)});
  projected.sort((x,y)=>polyLength(y)-polyLength(x));
- if(projected.length)return projected;const known=knownHistoricalFront(a,b);if(known)return known;const fallback=fallbackAdjacentFront(a,b);return fallback||null;
+ const result=projected.length?projected:(fallbackAdjacentFront(a,b)||knownHistoricalFront(a,b)||null);warFrontCache.set(key,result);return result;
 }
 
 function countryHasCoastline(name,neighbors,edges){
  const total=edges.reduce((n,e)=>n+Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1]),0);
  let shared=0;
- neighbors.forEach(other=>{const pieces=sharedBorderPieces(edges,countryBorderEdges(other));shared+=pieces.reduce((n,e)=>n+Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1]),0)});
+ neighbors.forEach(other=>{const pieces=sharedBordersForCountries(name,other);shared+=pieces.reduce((n,e)=>n+Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1]),0)});
  return total-shared>.35;
 }
+
 function ensureBorderGarrisons(country){
  if(country.borderGarrisonReady)return;
  const neighbors=[...countries.keys()].filter(name=>name!==country.name&&!!buildWarFront(country.name,name));
@@ -1069,6 +1036,20 @@ function countryContainsProjectedPoint(name,x,y){
  return false;
 }
 const borderNeighborCache=new Map();
+const countryEdgeCache=new Map(),countryBoundsCache=new Map(),sharedBorderCache=new Map(),warFrontCache=new Map();
+function borderPairKey(a,b){return a<b?a+'::'+b:b+'::'+a}
+function countryBounds(name){
+ if(countryBoundsCache.has(name))return countryBoundsCache.get(name);
+ const edges=countryBorderEdges(name);if(!edges.length){countryBoundsCache.set(name,null);return null}
+ let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+ edges.forEach(e=>{minX=Math.min(minX,e.minX);maxX=Math.max(maxX,e.maxX);minY=Math.min(minY,e.minY);maxY=Math.max(maxY,e.maxY)});
+ const value={minX,minY,maxX,maxY};countryBoundsCache.set(name,value);return value;
+}
+function sharedBordersForCountries(a,b){
+ const key=borderPairKey(a,b);
+ if(!sharedBorderCache.has(key))sharedBorderCache.set(key,sharedBorderPieces(countryBorderEdges(a),countryBorderEdges(b)));
+ return sharedBorderCache.get(key);
+}
 function initialBorderDefenses(name){const n=String(name||'').toLowerCase(),d={};if(n==='france')Object.assign(d,{Germany:5,Italy:2,Belgium:0,Switzerland:0,Spain:0});if(n==='czechoslovakia')Object.assign(d,{Germany:4,Poland:0,Austria:0,Hungary:0});if(n==='finland')Object.assign(d,{USSR:3,Sweden:0,Norway:0});if(n==='switzerland')Object.assign(d,{Germany:2,France:2,Italy:2,Austria:2});if(n==='poland')Object.assign(d,{Germany:1,USSR:1,Czechoslovakia:0,Romania:0});if(n==='belgium'||n==='netherlands')d.Germany=1;if(n==='germany')Object.assign(d,{France:1,Poland:0,Czechoslovakia:0,Belgium:0,Netherlands:0,Denmark:0,Austria:0});if(n==='ussr'||n==='soviet union')Object.assign(d,{Poland:1,Romania:1,Finland:1});if(n==='greece')Object.assign(d,{Italy:1,Bulgaria:1});return d}
 function ensureBorderDefenses(c){if(!c.borderDefenses)c.borderDefenses=initialBorderDefenses(c.name);if(!c.defenseProgress)c.defenseProgress={};return c.borderDefenses}
 function borderDefenseLevel(name,enemy){const c=countries.get(name);if(!c)return 0;const d=ensureBorderDefenses(c),norm=x=>/ussr|soviet union|russia/i.test(String(x))?'soviet union':String(x||'').toLowerCase(),key=Object.keys(d).find(x=>norm(x)===norm(enemy));return Math.max(0,Math.min(5,Number(key?d[key]:0)||0))}
